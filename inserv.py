@@ -24,7 +24,7 @@ nspyre_init_logger(
     prefix='local_inserv',
     file_size=10_000_000,
 )
-import pdb; pdb.set_trace()
+#import pdb; pdb.set_trace()
 # create a new instrument server
 with InstrumentServer() as inserv:
    # add signal generator driver
