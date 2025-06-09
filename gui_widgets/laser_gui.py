@@ -36,6 +36,7 @@ import logging
 
 from .StepWidget import StepWidget #### Custom Made by David, relative import
 
+
 logger = logging.getLogger(__name__)
 
 class InstWidget(QWidget):
@@ -368,6 +369,8 @@ class InstWidget(QWidget):
             print("Invalid input, please enter a number")
         
         self.DLnsec_pwr = self.DLnsec_pwr_slider.value()
+        with InstrumentManager() as mgr:
+            mgr.DLnsec.power_settings(self.DLnsec_pwr)
         
     
     def DLnsec_reboot(self):
@@ -432,7 +435,7 @@ class InstWidget(QWidget):
                 seq.append(7)
             if self.blue_laser_on.isChecked():
                 seq.append(3)
-            mgr.Pulser.constant(seq, self.q_analog.analog, self.i_analog.analog)
+            mgr.Pulser.set_state(seq, self.q_analog.analog, self.i_analog.analog)
     
     
     
@@ -465,7 +468,8 @@ class InstWidget(QWidget):
             if self.green_laser_off.isChecked():
                 seq.append(3)
 
-            mgr.Pulser.stream([5], 1000000, final=OutputState(seq, self.analog_q, self.analog_i))
+            mgr.Pulser.stream([5], 1000000)
+            mgr.Pulser.set_state(seq, self.analog_q, self.analog_i)
 
     def turn_all_off(self):
         with InstrumentManager() as mgr:
@@ -475,7 +479,7 @@ class InstWidget(QWidget):
             self.i_analog.analog_slider.setValue(50)
             self.q_analog.analog_label.setText("0.00")
             self.i_analog.analog_label.setText("0.00")
-            mgr.Pulser.constant([], -1, 0)
+            mgr.Pulser.set_state_off()
     
     
 

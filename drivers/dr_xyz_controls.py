@@ -1,65 +1,77 @@
-from lantz import Driver, Q_
-from lantz.core.feat import Feat
 import nidaqmx
 import numpy as np
-from nidaqmx.stream_writers import AnalogMultiChannelWriter
 from collections import OrderedDict
+from nidaqmx.stream_writers import AnalogMultiChannelWriter
+
+#from lantz import Driver          # nspyre ≥ 2.0
 
 
+# ---------- low-level helpers ----------
 class NIDAQAxis:
-    def __init__(self, ao_ch, units, cal, limits=(None, None)):
-        self.ch = ao_ch
-        self.units = units
-        self.cal = cal
-        self.limits = limits
+    def __init__(self, ao_ch, cal, limits=(None, None)):
+        self.ch      = ao_ch
+        #self.units   = units
+        self.cal     = cal           # V / unit
+        self.limits  = limits        # (min, max) in <units>
 
-    def enforce_units(self, val):
-        #checks that val is an instance of Q_, and then converts it to the correct units
-        if not isinstance(val, Q_):
-            val = Q_(val, self.units)
-        else:
-            val = val.to(self.units)
-        return val
+    # ---- unit handling ----
+    # def _as_quantity(self, val):
+    #     if not isinstance(val, Q_):
+    #         val = Q_(val, self.units)
+    #     else:
+    #         val = val.to(self.units)
+    #     return val
 
     def units_to_volts(self, pos):
-        #converts positions in uits to volts using the calibration factor
-        return (self.enforce_units(pos) * self.cal).to('V').m
+        return (pos * self.cal)
 
 
-class NIDAQMotionController(Driver):
-    def __init__(self, ctr_ch, acq_rate, axes):
-        self.axes = OrderedDict(axes)
-        self.position = {a: Q_(0.0, self.axes[a].units) for a in self.axes}
-        self.acq_rate = acq_rate
-        self.ctr_ch = ctr_ch
+class NIDAQMotionController():
+    def __init__(self, ctr_ch, acq_rate, axes: dict[str, NIDAQAxis]):
+        super().__init__()                       # <- important
+        self.axes      = OrderedDict(axes)
+        self.position  = {name: 0 for name in axes}
+        self.acq_rate  = acq_rate
+        self.ctr_ch    = ctr_ch
+        self.ao_motion_task = None
 
+    # ---- nspyre life-cycle ----
     def initialize(self):
         self.ao_motion_task = nidaqmx.Task('AO_Task')
-        for a in self.axes:
-            limits = {}
-            if self.axes[a].limits[0]:
-                limits['min_val'] = self.axes[a].units_to_volts(self.axes[a].limits[0])
-            if self.axes[a].limits[1]:
-                limits['max_val'] = self.axes[a].units_to_volts(self.axes[a].limits[1])
-            self.ao_motion_task.ao_channels.add_ao_voltage_chan(self.axes[a].ch, name_to_assign_to_channel=a, **limits)
+        for name, ax in self.axes.items():
+            kw = {}
+            if ax.limits[0] is not None:
+                kw['min_val'] = ax.units_to_volts(ax.limits[0])
+            if ax.limits[1] is not None:
+                kw['max_val'] = ax.units_to_volts(ax.limits[1])
+            self.ao_motion_task.ao_channels.add_ao_voltage_chan(
+                ax.ch, name_to_assign_to_channel=name, **kw
+            )
 
     def finalize(self):
-        self.ao_motion_task.close()
+        if self.ao_motion_task:
+            self.ao_motion_task.close()
 
-    def enforce_point_units(self, point):
-        return {axis: self.axes[axis].enforce_units(point[axis]) for axis in point}
+    # ---- motion ----
+    # def _normalize_point(self, point):
+    #     return {axis: self.axes[axis]._as_quantity(val) for axis, val in point.items()}
 
-    def move(self, point):
-        target = self.enforce_point_units(point)
-        steps = 10  # smooth motion with 10 steps
-        start_volts = np.array([self.axes[a].units_to_volts(self.position[a]) for a in self.axes])
-        stop_volts = np.array([self.axes[a].units_to_volts(target[a]) for a in self.axes])
-        voltages = np.linspace(start_volts, stop_volts, steps).T
+    def move(self, target: dict):
+        steps       = 10
+        start_v = np.array([
+            axis.units_to_volts(self.position[name])
+            for name, axis in self.axes.items()
+        ])
+        stop_v = np.array([
+            axis.units_to_volts(target[name])
+            for name, axis in self.axes.items()
+        ])
+        voltages    = np.linspace(start_v, stop_v, steps).T
 
         self.ao_motion_task.timing.cfg_samp_clk_timing(
-            self.acq_rate.to('Hz').m,
+            self.acq_rate,
             sample_mode=nidaqmx.constants.AcquisitionType.FINITE,
-            samps_per_chan=steps
+            samps_per_chan=steps,
         )
 
         writer = AnalogMultiChannelWriter(self.ao_motion_task.out_stream, auto_start=False)
@@ -71,40 +83,42 @@ class NIDAQMotionController(Driver):
         self.position = target
 
 
-class UriSetup(Driver):
+# ---------- high-level XYZ driver ----------
+class XYZSetup():
     def __init__(self, x_ch, y_ch, z_ch, ctr_ch):
-        #conversion from voltage to micrometers 
-        x = NIDAQAxis(x_ch, 'um', Q_(0.73 / 11.42, 'V/um'), limits=(Q_(-114.2 / 0.73, 'um'), Q_(114.2 / 0.73, 'um')))
-        y = NIDAQAxis(y_ch, 'um', Q_(1 / 11.42, 'V/um'), limits=(Q_(-114.2, 'um'), Q_(114.2, 'um')))
-        z = NIDAQAxis(z_ch, 'um', Q_(1 / 25, 'V/um'), limits=(Q_(0, 'um'), Q_(250, 'um')))
-        self.daq_controller = NIDAQMotionController(ctr_ch, Q_(15, 'kHz'), {'x': x, 'y': y, 'z': z})
+        super().__init__()                       # <- important
 
+        x = NIDAQAxis(x_ch, 0.73/11.42 ,
+                      limits=(-114.2/0.73, 114.2/0.73))
+        y = NIDAQAxis(y_ch,  1/11.42,
+                      limits=(-114.2,  114.2    ))
+        z = NIDAQAxis(z_ch, 1/25,
+                      limits=(0, 250      ))
+
+        self.ctrl = NIDAQMotionController(ctr_ch, 15000,
+                                          {'x': x, 'y': y, 'z': z})
+
+    # nspyre life-cycle proxies
     def initialize(self):
-        self.daq_controller.initialize()
+        self.ctrl.initialize()
 
     def finalize(self):
-        self.daq_controller.finalize()
+        self.ctrl.finalize()
 
-    @Feat(units='um')
-    def x(self):
-        return self.daq_controller.position['x']
+    # getters
+    def get_x(self): return self.ctrl.position['x']
+    def get_y(self): return self.ctrl.position['y']
+    def get_z(self): return self.ctrl.position['z']
 
-    @x.setter
-    def x(self, val):
-        self.daq_controller.move({'x': val, 'y': self.y, 'z': self.z})
+    # single-axis moves
+    def move_x(self, val): self.ctrl.move({'x': val, 'y': self.get_y(), 'z': self.get_z()})
+    def move_y(self, val): self.ctrl.move({'x': self.get_x(), 'y': val, 'z': self.get_z()})
+    def move_z(self, val): self.ctrl.move({'x': self.get_x(), 'y': self.get_y(), 'z': val})
 
-    @Feat(units='um')
-    def y(self):
-        return self.daq_controller.position['y']
-
-    @y.setter
-    def y(self, val):
-        self.daq_controller.move({'x': self.x, 'y': val, 'z': self.z})
-
-    @Feat(units='um')
-    def z(self):
-        return self.daq_controller.position['z']
-
-    @z.setter
-    def z(self, val):
-        self.daq_controller.move({'x': self.x, 'y': self.y, 'z': val})
+    # 3-axis move
+    def move_to(self, x=None, y=None, z=None):
+        self.ctrl.move({
+            'x': x if x is not None else self.get_x(),
+            'y': y if y is not None else self.get_y(),
+            'z': z if z is not None else self.get_z()
+        })

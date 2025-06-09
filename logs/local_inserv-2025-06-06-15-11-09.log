@@ -1,0 +1,22 @@
+2025-06-06 15:11:09.841 [    INFO] (           server.py: 288) Starting InstrumentServer RPyC server...
+2025-06-06 15:11:09.841 [    INFO] (           server.py: 251) server started on [127.0.0.1]:42068
+2025-06-06 15:11:10.212 [    INFO] (           server.py: 316) Removing devices...
+2025-06-06 15:11:10.212 [    INFO] (           server.py: 320) Stopping RPyC server...
+2025-06-06 15:11:10.213 [    INFO] (           server.py: 271) server has terminated
+2025-06-06 15:11:10.213 [    INFO] (           server.py: 123) listener closed
+2025-06-06 15:11:10.213 [    INFO] (           server.py: 123) listener closed
+2025-06-06 15:11:10.216 [    INFO] (           server.py: 302) RPyC server stopped.
+2025-06-06 15:11:10.217 [CRITICAL] (          logging.py:  32) Traceback (most recent call last):
+2025-06-06 15:11:10.217 [CRITICAL] (          logging.py:  32)   File "C:\Users\ramon\Downloads\nspyre-main\src\nspyre\instrument\server.py", line 165, in add
+2025-06-06 15:11:10.219 [CRITICAL] (          logging.py:  32)     dev_class = _load_class_from_file(dev_class_path, class_name)
+2025-06-06 15:11:10.219 [CRITICAL] (          logging.py:  32)   File "C:\Users\ramon\Downloads\nspyre-main\src\nspyre\misc\misc.py", line 125, in _load_class_from_file
+2025-06-06 15:11:10.220 [CRITICAL] (          logging.py:  32)     loaded_module = importlib.import_module(file_name)
+2025-06-06 15:11:10.220 [CRITICAL] (          logging.py:  32)   File "C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.10_3.10.3056.0_x64__qbz5n2kfra8p0\lib\importlib\__init__.py", line 126, in import_module
+2025-06-06 15:11:10.220 [CRITICAL] (          logging.py:  32)     return _bootstrap._gcd_import(name[level:], package, level)
+2025-06-06 15:11:10.221 [CRITICAL] (          logging.py:  32)   File "<frozen importlib._bootstrap>", line 1050, in _gcd_import
+2025-06-06 15:11:10.222 [CRITICAL] (          logging.py:  32)   File "<frozen importlib._bootstrap>", line 1027, in _find_and_load
+2025-06-06 15:11:10.222 [CRITICAL] (          logging.py:  32)   File "<frozen importlib._bootstrap>", line 1006, in _find_and_load_unlocked
+2025-06-06 15:11:10.222 [CRITICAL] (          logging.py:  32)   File "<frozen importlib._bootstrap>", line 688, in _load_unlocked
+2025-06-06 15:11:10.223 [CRITICAL] (          logging.py:  32)   File "<frozen importlib._bootstrap_external>", line 883, in exec_module
+2025-06-06 15:11:10.223 [CRITICAL] (          logging.py:  32)   File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+2025-06-06 15:11:10.224 [CRITICAL] (          logging.py:  32)   File "C:\Users\ramon\OneDrive\nspyre-biosensing\drivers\dr_xyz_controls.py", line 6, in <module>

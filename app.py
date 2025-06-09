@@ -23,6 +23,7 @@ from gui_widgets import instrument_gui
 
 from drivers.insmgr import MyInstrumentManager
 
+
 _HERE = Path(__file__).parent
 
 def main():

@@ -48,11 +48,12 @@ class Pulses():
         return self.Pulser.hasSequence()
     
 
-    def laser_on(self, index, q=0.0, i=0.0):
+    def set_state(self, index, q=0.0, i=0.0):
         return self.Pulser.constant((index, q, i))
     
-    def laser_off(self, index):
-        return self.Pulser.constant((index, -1, 0))
+    def set_state_off(self, index):
+        return self.Pulser.constant(([], 0, 0))
+    
 
 
     # def stream(self,seq,n_runs, leave_laser_on = False):

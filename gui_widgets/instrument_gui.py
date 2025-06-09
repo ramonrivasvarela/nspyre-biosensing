@@ -32,9 +32,12 @@ from PyQt6.QtWidgets import QWidget, QGraphicsOpacityEffect
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt, QTimer
 
+#from lantz import Driver, Q_
+
 import logging
 
 from .StepWidget import StepWidget #### Custom Made by David, relative import
+
 
 logger = logging.getLogger(__name__)
 
@@ -303,6 +306,11 @@ class InstWidgetV2(QWidget):
         self.y_control = AxisControl("Y")
         self.z_control = AxisControl("Z")
 
+        # with InstrumentManager() as mgr:
+        #     mgr.XYZcontrols.initialize()
+        #     self.x_control.label.valueChanged.valueChanged(lambda:mgr.XYZcontrols.x_move(self.x_control.axis_value))
+        #     self.y_control.label.valueChanged.valueChanged(lambda:mgr.XYZcontrols.y_move(self.y_control.axis_value))
+        #     self.z_control.label.valueChanged.valueChanged(lambda:mgr.XYZcontrols.z_move(self.z_control.axis_value))    
 
 
 
@@ -452,5 +460,3 @@ class InstWidgetV2(QWidget):
     #     """Stop the run process."""
     #     self.run_proc.kill()
 
-
- 
