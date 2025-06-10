@@ -31,13 +31,36 @@ from PyQt6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QGridLayout, QForm
 from PyQt6.QtWidgets import QWidget, QGraphicsOpacityEffect
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt, QTimer
+from pyqtgraph.Qt import QtWidgets
+#from PyQt6.QtGui import QValidator
 
 #from lantz import Driver, Q_
 
 import logging
+import re
 
 from .StepWidget import StepWidget #### Custom Made by David, relative import
 
+# class UnitSpinBox(QDoubleSpinBox):
+#     def __init__(self, parent=None):
+#         super().__init__(parent)
+#         self.setSuffix(" nm")  # Optional: for display formatting
+#         self.setDecimals(3)
+
+#     def validate(self, text, pos):
+#         # Allow any input while editing
+#         return QValidator.Acceptable, text, pos
+
+#     def valueFromText(self, text):
+#         # Extract the first number found in the text
+#         match = re.search(r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?", text)
+#         if match:
+#             return float(match.group(0))
+#         return 0.0  # fallback
+
+#     def textFromValue(self, value):
+#         # Return the number with suffix
+#         return f"{value} nm"
 
 logger = logging.getLogger(__name__)
 
@@ -209,6 +232,8 @@ class InstWidgetV2(QWidget):
         self.xyz_label= QLabel("XYZ Control")
         self.xyz_label.setFixedHeight(20)
         self.xyz_label.setStyleSheet("font-weight: bold") 
+        # with InstrumentManager() as mgr:
+        #     mgr.XYZcontrols.initialize()
         class AxisControl:
             def __init__(self, axis_name):
                 self.axis_name = axis_name  # either 'x' or 'y'
@@ -233,6 +258,8 @@ class InstWidgetV2(QWidget):
                 self.label.setFixedWidth(160)
                 self.label.setRange(0, 1e6)
                 self.new_value()
+                # self.label.valueChanged.connect(lambda: self.check_suffix())
+
                 self.label.editingFinished.connect(lambda: self.update())
                 
                 # Create the change label (QLineEdit)
@@ -246,32 +273,46 @@ class InstWidgetV2(QWidget):
                 
 
             def update(self):
-                if self.suffix == "nm":
+                if self.label.suffix() == " nm":
                     self.axis_value= self.label.value() * 1e-3
                 else:
                     self.axis_value= self.label.value()
                 self.new_value()
                 # Update the real value label when the spinbox value changes
             
+            
             def new_value(self, change=False):
 
-                if self.axis_value >= 1 or (self.change_unit_button.text() == "um" and change):
+                if (self.axis_value >= 1 and not (self.change_unit_button.text() == "nm" and change)) or (self.change_unit_button.text() == "um" and change):
                     self.label.setValue(self.axis_value)
                     self.label.setSuffix(" um")
-                    self.suffix = "um"
+                    # self.suffix = "um"
                     self.change_unit_button.setText("nm")
                     self.label.setSingleStep(self.axis_change_value)
                     self.label.setDecimals(3)
+                    self.label.setMaximum(1e3)
                     
                 else:
+                    self.label.setMaximum(1e6)
                     self.label.setValue(self.axis_value * 1e3)
                     self.label.setSuffix(" nm")
-                    self.suffix="nm"
+                    # self.suffix="nm"
                     self.change_unit_button.setText("um")
                     self.label.setSingleStep(self.axis_change_value*1e3)
                     self.label.setDecimals(3)
             
+            def check_suffix(self):
+                if self.label.value()>=1000 and self.label.suffix()==" nm":
+                    self.label.setValue(self.label.value()*1e-3)
+                    self.label.setSuffix(" um")
+                    self.label.setSingleStep(self.axis_change_value)
+                if self.label.value()<1 and self.label.suffix()==" um":
+                    self.label.setValue(self.label.value()*1e3)
+                    self.label.setSingleStep(self.axis_change_value*1e3)
+                    self.label.setSuffix(" nm")
+            
             def change_label_edit(self):
+
                 text = self.change_label.text().strip()
                 factor, val_text = self.convert_units(text)
                 self.axis_change_value = float(val_text) * factor
@@ -305,6 +346,11 @@ class InstWidgetV2(QWidget):
         self.x_control = AxisControl("X")
         self.y_control = AxisControl("Y")
         self.z_control = AxisControl("Z")
+
+        self.x_control.label.editingFinished.connect(lambda: print("X running"))
+        self.y_control.label.editingFinished.connect(lambda: print("Y running"))
+        self.z_control.label.editingFinished.connect(lambda: print("Z running"))
+
 
         # with InstrumentManager() as mgr:
         #     mgr.XYZcontrols.initialize()
