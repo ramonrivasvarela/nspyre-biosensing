@@ -116,7 +116,7 @@ class Pulses(Driver):
         return self.Pulser.constant((index, q, i))
     
     def laser_off(self, index):
-        return self.Pulser.constant((index, -1, 0))
+        return self.Pulser.constant((index, 0, 0))
 
 
     # def stream(self,seq,n_runs, leave_laser_on = False):
@@ -125,8 +125,8 @@ class Pulses(Driver):
     #     else:
     #         self.Pulser.stream(seq,n_runs,final = OutputState([],0,0))
 
-    def stream(self,seq,n_runs):
-        self.Pulser.stream(seq,n_runs)
+    def stream(self,seq,n_runs, q, i):
+        self.Pulser.stream([seq,n_runs, q, i])
 
 
 
