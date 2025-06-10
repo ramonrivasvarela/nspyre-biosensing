@@ -46,11 +46,10 @@ with InstrumentServer() as inserv:
 #                 args= ['COM9'])
 
    #REQUIRED IMPORT: pulsestreamer
-#    inserv.add(name = 'Pulser',
-#                class_path= _HERE / 'drivers' / 'dr_pulse.py',
-#                class_name= 'Pulses',
-#                args= ['TCPIP::10.135.70.127::SOCKET']
-#                )
+  #  inserv.add(name = 'Pulser',
+  #              class_path= _HERE / 'drivers' / 'dr_pulse.py',
+  #              class_name= 'Pulses',
+  #              args= [])
 
 #   inserv.add(name = 'XYZcontrols',
 #               class_path= _HERE / 'drivers' / 'dr_xyz_controls.py',

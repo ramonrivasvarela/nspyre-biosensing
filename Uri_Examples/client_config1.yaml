@@ -1,0 +1,490 @@
+instrument_servers:
+  local1:
+    # ip address / domain name of the instrument server
+    ip: 'localhost'
+    # port the instrument server is on
+    port: 5556
+# Addresses of the one of the mongodb server in the replica set.
+mongodb_addr: mongodb://localhost:27017/
+
+# Experiment list
+# Each experiment entry should have an
+# alias:
+#   class: 'spyrelet class'
+#   spyrelets: A dictionary containing the sub-spyrelet to be used
+#   args: Argument used to instanciate the spyrelet.  This included device alias dict, spyrelets dict and other CONSTS parametters
+
+spyrelets:
+
+## Test Spyrelets ##
+  
+  # s2:
+    # file: '../spyrelet/examples/test_spyrelets.py'
+    # class: 'SubSpyrelet'
+    # device_aliases: {sg: 'local1/fake_tcpip_sg'}
+
+  # my_exp:
+    # file: '../spyrelet/examples/test_spyrelets.py'
+    # class: 'MyExperiment'
+    # device_aliases:
+      # sg: 'local1/fake_tcpip_sg'
+      # osc: 'local1/fake_osc'
+    # spyrelets: {s2: 's2'}
+    # args: {}
+    
+  laser_lag:
+    file: 'C:/NSpyre/nspyre_files/spyrelets/spinmeasurements_swabian.py'
+    class: 'AOMLagSpyrelet'
+    device_aliases: 
+      pulses: 'local1/ps'
+      urixyz: 'local1/urixyz'
+    args: {}
+  
+  Pent_Lifetime:
+    file: 'C:/NSpyre/nspyre_files/spyrelets/spinmeasurements_swabian.py'
+    class: 'PentLifetimeSpyrelet'
+    device_aliases: 
+      pulses: 'local1/ps'
+      urixyz: 'local1/urixyz'
+    args: {}
+  
+  # minimum_viable_code:
+    # file: 'C:/NSpyre/nspyre_files/spyrelets/rabi_minimum_test_case.py'
+    # class: 'RabiSpyrelet'
+    # device_aliases: 
+      # pulses: 'local1/ps'
+      # urixyz: 'local1/urixyz'
+    # args: {}
+  
+ 
+## Optimization and tracking ##
+
+  # spatialfeedbackxyz:
+    # file: 'C:/NSpyre/nspyre_files/spyrelets/spatialfeedbackxyz.py'
+    # class: 'SpatialFeedbackXYZSpyrelet'
+    # device_aliases: 
+      # pulses: 'local1/ps'
+      # urixyz: 'local1/urixyz'
+    # args: {}    
+    
+  newSpaceFB:
+    file: 'C:/NSpyre/nspyre_files/spyrelets/spacefb.py'
+    class: 'SpatialFeedbackXYZSpyrelet'
+    device_aliases: 
+      pulses: 'local1/ps'
+      urixyz: 'local1/urixyz'
+    args: {}    
+ 
+  PentODMRSpinDecaySpyrelet:
+    file: 'C:/NSpyre/nspyre_files/spyrelets/spinmeasurements_swabian.py'
+    class: 'PentODMRSpinDecaySpyrelet' 
+    device_aliases: 
+      pulses: 'local1/ps'
+      urixyz: 'local1/urixyz'
+      sg: 'local1/sg'
+    spyrelets: {newSpaceFB: 'newSpaceFB'}
+    args: {} 
+  
+  readout_calibration:
+    file: 'C:/NSpyre/nspyre_files/spyrelets/spinmeasurements_swabian.py'
+    class: 'ReadoutCalibrationSpyrelet'
+    device_aliases: 
+      pulses: 'local1/ps'
+      urixyz: 'local1/urixyz'
+      sg: 'local1/sg'
+    spyrelets: {newSpaceFB: 'newSpaceFB'}
+    args: {}
+
+  countsvstime:
+    file: 'C:/NSpyre/nspyre_files/spyrelets/countsvstime.py'
+    class: 'TaskVsTimeSpyrelet'
+    device_aliases: 
+      pulses: 'local1/ps'
+ 
+## Scanning/Imaging ##
+
+  planescan:
+    file: 'C:/NSpyre/nspyre_files/spyrelets/scan2D.py'
+    class: 'Scan2D'
+    device_aliases: 
+      pulses: 'local1/ps'
+      urixyz: 'local1/urixyz'
+  
+  imaging:
+    file: 'C:/NSpyre/nspyre_files/spyrelets/imaging.py'
+    class: 'ImagingSpyrelet'
+    device_aliases:
+      pulses: 'local1/ps'
+      urixyz: 'local1/urixyz'
+    #spyrelets: {newSpaceFB: 'newSpaceFB'}
+    args: {} 
+
+  ODMR:
+    file: 'C:/NSpyre/nspyre_files/spyrelets/spinmeasurements_swabian.py'
+    class: 'ODMRSwabianSpyrelet'
+    device_aliases:
+      sg: 'local1/sg' #'LL225SE/sg'
+      pulses: 'local1/ps' #'LL225SE/pulses'
+      urixyz: 'local1/urixyz' #'LL225SE/fsm532' # xps: 'LL225SE/xps'
+    spyrelets: {newSpaceFB: 'newSpaceFB' }
+    args: {}
+
+  ODMRnew:
+    file: '\\MaurerLabNAS\MaurerLab\biosensing_setup\nspyre\spyrelets\spinData_NV.py'
+    class: 'ODMRSwabianSpyrelet'
+    device_aliases:
+      sg: 'local1/sg' #'LL225SE/sg'
+      pulses: 'local1/psNew' #'LL225SE/pulses'
+      urixyz: 'local1/urixyz' #'LL225SE/fsm532' # xps: 'LL225SE/xps'
+    spyrelets: {newSpaceFB: 'newSpaceFB' }
+    args: {}
+    
+  imagingODMR:
+    file: 'C:/NSpyre/nspyre_files/spyrelets/imagingODMR.py'
+    class: 'ImagingODMRSpyrelet'
+    device_aliases:
+      sg: 'local1/sg'
+      pulses: 'local1/ps'
+      urixyz: 'local1/urixyz'
+    spyrelets: {imaging: 'imaging', ODMR: 'ODMR'}
+    args: {}
+
+  WFODMR:
+    file: '\\MaurerLabNAS\MaurerLab\biosensing_setup\nspyre\spyrelets\WFODMR.py'
+    class: 'WFODMRSwabianSpyrelet'
+    device_aliases:
+      sg: 'local1/sg'
+      pulses: 'local1/psNew'
+      urixyz: 'local1/urixyz'
+    spyrelets: {}
+    args: {}
+  
+  WF_Track:
+    file: '\\MaurerLabNAS\MaurerLab\biosensing_setup\nspyre\spyrelets\WF_Tracking.py'
+    class: 'WFODMRSwabianSpyrelet'
+    device_aliases:
+      sg: 'local1/sg'
+      pulses: 'local1/psNew'
+    spyrelets: {}
+    args: {}
+    
+ 
+  WF_TwoPtODMR:
+    file: '\\MaurerLabNAS\MaurerLab\biosensing_setup\nspyre\spyrelets\WF_TwoPtODMR.py'
+    class: 'WFODMRSwabianSpyrelet'
+    device_aliases:
+      sg: 'local1/sg'
+      pulses: 'local1/psNew'
+    spyrelets: {}
+    args: {}
+
+  WFODMR_noSDK:
+    file: '\\MaurerLabNAS\MaurerLab\biosensing_setup\nspyre\spyrelets\WFODMR_spyrelet_current.py'
+    class: 'WFODMRSwabianSpyrelet'
+    device_aliases:
+      sg: 'local1/sg'
+      pulses: 'local1/psNew'
+      urixyz: 'local1/urixyz'
+    spyrelets: {}
+    args: {}
+    
+  WF_LaserLag:
+    file: '\\MaurerLabNAS\MaurerLab\biosensing_setup\nspyre\spyrelets\LaserLagExp.py'
+    class: 'WFODMRSwabianSpyrelet'
+    device_aliases:
+      pulses: 'local1/psNew'
+      urixyz: 'local1/urixyz'
+    spyrelets: {}
+    args: {}
+    
+  WF_Counts:
+    file: '\\MaurerLabNAS\MaurerLab\biosensing_setup\nspyre\spyrelets\WFCountsVTime.py'
+    class: 'WFODMRSwabianSpyrelet'
+    device_aliases:
+      pulses: 'local1/psNew'
+      urixyz: 'local1/urixyz'
+    spyrelets: {}
+    args: {}
+    
+  WF_ZFS:
+    file: '\\MaurerLabNAS\MaurerLab\biosensing_setup\nspyre\spyrelets\WF_ZFSvT.py'
+    class: 'WFODMRSwabianSpyrelet'
+    device_aliases:
+      pulses: 'local1/psNew'
+      sg: 'local1/sg'
+    spyrelets: {}
+    args: {}
+    
+  CamLag_Experiment:
+    file: '\\MaurerLabNAS\MaurerLab\biosensing_setup\nspyre\spyrelets\camlag_experiment.py'
+    class: 'WFODMRSwabianSpyrelet'
+    device_aliases:
+      pulses: 'local1/psNew'
+    spyrelets: {}
+    args: {}
+ 
+  CamControl:
+    file: '\\MaurerLabNAS\MaurerLab\biosensing_setup\nspyre\spyrelets\cam_control.py'
+    class: 'WFODMRSwabianSpyrelet'
+    device_aliases:
+    spyrelets: {}
+    args: {}
+
+  flippingmirror:
+    file: 'C:/Nspyre/nspyre_files/spyrelets/flippingmirror.py'
+    class: 'FlipMirror'
+    device_aliases:
+        pulses: 'local1/psNew'
+    args: {}
+  
+  # scan2D:
+    # file: '../spyrelet/basics/planescan.py'
+    # class: 'Scan2D'
+    # device_aliases: {urixyz: 'local1/urixyz'}
+    # args: {}
+    
+###############
+## Plotting  ##
+###############
+
+  plotter:
+    file: 'C:/NSpyre/nspyre_files/spyrelets/plotter.py'
+    class: 'Nspyreplotter'
+    device_aliases: {}
+    spyrelets: {}
+    args: {} 
+
+## NV characterization and pulsed measurements ##
+
+  nSideband:
+    file: 'C:/NSpyre/nspyre_files/spyrelets/spinmeasurements_swabian.py'
+    class: 'nSidebandSwabianSpyrelet'
+    device_aliases:
+      sg: 'local1/sg' #'LL225SE/sg'
+      pulses: 'local1/ps' #'LL225SE/pulses'
+      urixyz: 'local1/urixyz' #'LL225SE/fsm532' # xps: 'LL225SE/xps'
+    spyrelets: {newSpaceFB: 'newSpaceFB' }
+    args: {} 
+    
+  rabi:
+    file: 'C:/NSpyre/nspyre_files/spyrelets/spinmeasurements_swabian.py'
+    class: 'RabiSwabianSpyrelet'
+    device_aliases:
+      sg: 'local1/sg' #'LL225SE/sg'
+      pulses: 'local1/ps' #'LL225SE/pulses'
+      urixyz: 'local1/urixyz' #fsm532: 'LL225SE/fsm532'
+      # xps: 'LL225SE/xps'
+    spyrelets: {newSpaceFB: 'newSpaceFB' }
+    args: {}
+
+  Pent_Rabi:
+    file: 'C:/NSpyre/nspyre_files/spyrelets/spinmeasurements_swabian.py'
+    class: 'Pent_RabiSwabianSpyrelet'
+    device_aliases:
+      sg: 'local1/sg' #'LL225SE/sg'
+      pulses: 'local1/ps' #'LL225SE/pulses'
+      urixyz: 'local1/urixyz' #fsm532: 'LL225SE/fsm532'
+      # xps: 'LL225SE/xps'
+    spyrelets: {newSpaceFB: 'newSpaceFB' }
+    args: {}
+
+  MSDSwabian:
+    file: 'C:/NSpyre/nspyre_files/spyrelets/spinmeasurements_swabian.py'
+    class: 'MSDSwabianSpyrelet'
+    device_aliases:
+      sg: 'local1/sg'
+      pulses: 'local1/ps'
+      urixyz: 'local1/urixyz'
+    spyrelets: {newSpaceFB: 'newSpaceFB' }
+    args: {}
+    
+  PulsedODMR:
+    file: 'C:/NSpyre/nspyre_files/spyrelets/spinmeasurements_swabian.py'
+    class: 'PulsedODMRSwabianSpyrelet'
+    device_aliases:
+      sg: 'local1/sg' #'LL225SE/sg'
+      pulses: 'local1/ps' #'LL225SE/pulses'
+      urixyz: 'local1/urixyz' #fsm532: 'LL225SE/fsm532'
+      # xps: 'LL225SE/xps'
+    spyrelets: {newSpaceFB: 'newSpaceFB' }
+    args: {}
+    
+  pulsedTmeasurements:
+    file: 'C:/NSpyre/nspyre_files/spyrelets/spinmeasurements_swabian.py'
+    class: 'PulsedTSwabianSpyrelet'
+    device_aliases:
+      sg: 'local1/sg' #'LL225SE/sg'
+      pulses: 'local1/ps' #'LL225SE/pulses'
+      urixyz: 'local1/urixyz' #fsm532: 'LL225SE/fsm532'
+      # xps: 'LL225SE/xps'
+    spyrelets: {newSpaceFB: 'newSpaceFB' }
+    args: {}
+    
+    
+  T1Swabian:
+    file: '\\MaurerLabNAS\MaurerLab\arjones5\Sending_to_Uri_242022\exp_spinmeasurements.py'
+    class: 'T1SwabianSpyrelet'
+    device_aliases:
+      sg: 'local1/sg' #'LL225SE/sg'
+      pulses: 'local1/ps' #'LL225SE/pulses'
+      urixyz: 'local1/urixyz'
+    spyrelets: {newSpaceFB: 'newSpaceFB'}
+    
+  # ODMRRabiPlaylist:
+    # file: 'C:/NSpyre/nspyre_files/spyrelets/spinmeasurements_swabian.py'
+    # class: 'PlaylistODMRRabiTuneupSwabianSpyrelet'
+    # device_aliases:
+      # sg: 'local1/sg'
+      # pulses: 'local1/ps'
+      # urixyz: 'local1/urixyz'
+    # spyrelets: {newSpaceFB: 'newSpaceFB'}
+    # args: {}
+    
+########################################
+## NV characterization with SIDEBANDS ##
+########################################
+  ODMRSideband:
+    file: 'C:/NSpyre/nspyre_files/spyrelets/spinmeasurements_sideband.py'
+    class: 'ODMRSwabianSpyrelet'
+    device_aliases:
+      sg: 'local1/sg' #'LL225SE/sg'
+      pulses: 'local1/sidebander' #'LL225SE/pulses'
+      urixyz: 'local1/urixyz' #'LL225SE/fsm532' # xps: 'LL225SE/xps'
+    spyrelets: {newSpaceFB: 'newSpaceFB'}
+    args: {}
+    
+  rabiSideband:
+    file: 'C:/NSpyre/nspyre_files/spyrelets/spinmeasurements_sideband.py'
+    class: 'RabiSwabianSpyrelet'
+    device_aliases:
+      sg: 'local1/sg' #'LL225SE/sg'
+      pulses: 'local1/sidebander' #'LL225SE/pulses'
+      urixyz: 'local1/urixyz' #fsm532: 'LL225SE/fsm532'
+      #xps: 'LL225SE/xps'
+    spyrelets: {newSpaceFB: 'newSpaceFB'}
+    args: {}
+
+  PulsedODMRSideband:
+    file: 'C:/NSpyre/nspyre_files/spyrelets/spinmeasurements_sideband.py'
+    class: 'PulsedODMRSwabianSpyrelet'
+    device_aliases:
+      sg: 'local1/sg' #'LL225SE/sg'
+      pulses: 'local1/sidebander' #'LL225SE/pulses'
+      urixyz: 'local1/urixyz' #fsm532: 'LL225SE/fsm532'
+      #xps: 'LL225SE/xps'
+    spyrelets: {newSpaceFB: 'newSpaceFB'}
+    args: {}
+    
+  pulsedTmeasurementsSideband:
+    file: 'C:/NSpyre/nspyre_files/spyrelets/spinmeasurements_sideband.py'
+    class: 'PulsedTSwabianSpyrelet'
+    device_aliases:
+      sg: 'local1/sg' #'LL225SE/sg'
+      pulses: 'local1/sidebander' #'LL225SE/pulses'
+      urixyz: 'local1/urixyz' #fsm532: 'LL225SE/fsm532'
+      #xps: 'LL225SE/xps'
+    spyrelets: {newSpaceFB: 'newSpaceFB'}
+    args: {}
+    
+  T1MeasurementSideband:
+    file: 'C:/NSpyre/nspyre_files/spyrelets/spinmeasurements_sideband.py'
+    class: 'T1SwabianSpyrelet'
+    device_aliases:
+      sg: 'local1/sg' #'LL225SE/sg'
+      pulses: 'local1/sidebander' #'LL225SE/pulses'
+      urixyz: 'local1/urixyz' #fsm532: 'LL225SE/fsm532'
+      #xps: 'LL225SE/xps'
+    spyrelets: {newSpaceFB: 'newSpaceFB'}
+    args: {}
+    
+  OmegaGammaT1Measurement:
+    file: 'C:/NSpyre/nspyre_files/spyrelets/spinmeasurements_sideband.py'
+    class: 'T1SwabianSpyrelet'
+    device_aliases:
+      sg: 'local1/sg' #'LL225SE/sg'
+      pulses: 'local1/sidebander' #'LL225SE/pulses'
+      urixyz: 'local1/urixyz' #fsm532: 'LL225SE/fsm532'
+      #xps: 'LL225SE/xps'
+    spyrelets: {newSpaceFB: 'newSpaceFB'}
+    args: {}
+    
+  gsLifetime:
+    file: '\\MaurerLabNAS\MaurerLab\arjones5\Sending_to_Uri_242022\exp_gsLifetime.py'
+    class: 'gsLifetime'
+    device_aliases:
+      sg: 'local1/sg' #'LL225SE/sg'
+      pulses: 'local1/psNew' #'LL225SE/pulses'
+      urixyz: 'local1/urixyz' #'LL225SE/fsm532' # xps: 'LL225SE/xps'
+    spyrelets: {newSpaceFB: 'newSpaceFB' }
+    args: {}   
+    
+    
+  # RabiT1PlaylistMeasurement:
+    # file: 'C:/NSpyre/nspyre_files/spyrelets/spinmeasurements_sideband_wip.py'
+    # class: 'PlaylistRabiOmegaGammaSwabianSpyrelet'
+    # device_aliases:
+      # sg: 'local1/sg'
+      # pulses: 'local1/sidebander'
+      # urixyz: 'local1/urixyz'
+    # spyrelets: {newSpaceFB: 'newSpaceFB'}
+    # args: {}
+    
+    
+  
+########################################
+## Temperature Sensing Spyrelets      ##
+########################################
+
+  TempVsTime:
+    # file: 'C:/NSpyre/nspyre_files/spyrelets/exp_heat_shock.py'
+    file: '\\MaurerLabNAS\MaurerLab\biosensing_setup\nspyre\spyrelets\updated\exp_heat_shock.py' 
+    class: 'TemperatureVsTime'
+    device_aliases:
+      sg: 'local1/sg' #'LL225SE/sg'
+      streamer: 'local1/sidebander' #'LL225SE/pulses'
+      urixyz: 'local1/urixyz' #'LL225SE/fsm532' # xps: 'LL225SE/xps'
+      infrared: 'local1/infrared'
+       #red: 'local1/red'
+       #cyan: 'local1/cyan'
+       #violet: 'local1/violet'
+    spyrelets: {newSpaceFB: 'newSpaceFB'} #spatialfeedbackxyz: 'spatialfeedbackxyz' 
+    args: {}
+    
+  tempSensing:
+    # file: 'C:/NSpyre/nspyre_files/spyrelets/exp_heat_shock.py'
+    file: '\\MaurerLabNAS\MaurerLab\biosensing_setup\nspyre\spyrelets\updated\exp_heat_shock.py' 
+    class: 'TemperatureCalibrationSpyrelet'
+    device_aliases:
+      sg: 'local1/sg' #'LL225SE/sg'
+      streamer: 'local1/sidebander' #'LL225SE/pulses'
+      urixyz: 'local1/urixyz' #'LL225SE/fsm532' # xps: 'LL225SE/xps'
+      infrared: 'local1/infrared'
+      # red: 'local1/red'
+      # cyan: 'local1/cyan'
+      # violet: 'local1/violet'
+    spyrelets: {} #spatialfeedbackxyz: 'spatialfeedbackxyz' 
+    args: {} 
+    
+  I1I2 ODMR:
+    # file: 'C:/NSpyre/nspyre_files/spyrelets/exp_heat_shock.py'
+    file: '\\MaurerLabNAS\MaurerLab\biosensing_setup\nspyre\spyrelets\updated\exp_heat_shock.py' 
+    class: 'AlternateODMR'
+    device_aliases:
+      sg: 'local1/sg' #'LL225SE/sg'
+      streamer: 'local1/sidebander' #'LL225SE/pulses'
+      urixyz: 'local1/urixyz' #'LL225SE/fsm532' # xps: 'LL225SE/xps'
+      infrared: 'local1/infrared'
+      # red: 'local1/red'
+      # cyan: 'local1/cyan'
+      # violet: 'local1/violet'
+    spyrelets: {newSpaceFB: 'newSpaceFB'} #spatialfeedbackxyz: 'spatialfeedbackxyz' 
+    args: {} 
+
+  Sideband Calibration:
+    file: 'C:/NSpyre/nspyre_files/spyrelets/exp_sbCal.py'
+    class: 'SidebandCalibration'
+    device_aliases:
+      sg: 'local1/sg' #'LL225SE/sg'
+      streamer: 'local1/sidebander' #'LL225SE/pulses'
+    spyrelets: {}
+    args: {}

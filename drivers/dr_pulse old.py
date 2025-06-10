@@ -4,12 +4,12 @@ Created on 5/30/2025 by Ramon Rivas
 import numpy as np
 import pandas as pd
 from math import sin, cos, radians, lcm
-import matplotlib.pyplot as plt
+
 #import matlab.engine #import matlab.egnine
 import subprocess
 #from threed.data_and_plot import save_excel
 import datetime as Dt
-import openpyxl
+
 
 from lantz.core import Driver
 from lantz.drivers.swabian.pulsestreamer.lib.pulse_streamer_grpc import PulseStreamer,OutputState
@@ -22,7 +22,7 @@ from lantz import Action, Feat, DictFeat, ureg
 
 
 
-class newPulses(Driver):
+class Pulses(Driver):
 
     
     #default_digi_dict = {"laser": "ch0", "offr_laser": "ch1", "EOM": "ch4", "CTR": "ch5", "switch": "ch6", "gate": "ch7", "": None}
