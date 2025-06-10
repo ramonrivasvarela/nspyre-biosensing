@@ -264,10 +264,10 @@ class InstWidgetV2(QWidget):
                 self.spinbox.setFont(QFont("Sanserif", 15))
                 self.spinbox.setFixedWidth(160)
                 self.spinbox.setRange(0, 1e6)
-                self.edit_value()
+                self.update_spinbox()
                 # self.spinbox.valueChanged.connect(lambda: self.check_suffix())
 
-                self.spinbox.editingFinished.connect(lambda: self.update())
+                self.spinbox.editingFinished.connect(lambda: self.update_value())
                 
                 # Create the change label (QLineEdit)
                 self.step_label = QLineEdit()
@@ -279,16 +279,16 @@ class InstWidgetV2(QWidget):
                 
                 
 
-            def update(self):
+            def update_value(self):
                 if self.spinbox.suffix() == " nm":
                     self.value= self.spinbox.value() * 1e-3
                 else:
                     self.value= self.spinbox.value()
-                self.edit_value()
+                self.update_spinbox()
                 # Update the real value label when the spinbox value changes
             
             
-            def edit_value(self, change=False):
+            def update_spinbox(self, change=False):
 
                 if (self.value >= 1 and not (self.unit_button.text() == "nm" and change)) or (self.unit_button.text() == "um" and change):
                     self.spinbox.setValue(self.value)
@@ -331,11 +331,11 @@ class InstWidgetV2(QWidget):
                         # If no unit is specified, default to um.
                         factor, val_text = 1, text
                     self.step = float(val_text) * factor
-                    self.edit_value()
+                    self.update_spinbox()
                     self.edit_step_value()
                 except (ValueError, IndexError):
                     logger.error(f"Invalid step label input: {text}")
-                    self.edit_value()
+                    self.update_spinbox()
                     self.edit_step_value()
             ### interval for the change value
             def edit_step_value(self):
@@ -346,7 +346,7 @@ class InstWidgetV2(QWidget):
             ###
 
             def change_unit(self):
-                self.edit_value(True)
+                self.update_spinbox(True)
 
 
             
