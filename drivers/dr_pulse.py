@@ -11,7 +11,7 @@ from pulsestreamer import PulseStreamer, OutputState, Sequence
 
 
 
-class Pulses():
+class dr_ps():
 
 
     
@@ -48,10 +48,10 @@ class Pulses():
         return self.Pulser.hasSequence()
     
 
-    def set_state(self, index, q=0.0, i=0.0):
-        return self.Pulser.constant((index, q, i))
+    def set_state(self, dig_chan, q=0.0, i=0.0):
+        return self.Pulser.constant((dig_chan, q, i))
     
-    def set_state_off(self, index):
+    def set_state_off(self):
         return self.Pulser.constant(([], 0, 0))
     
 
@@ -62,8 +62,14 @@ class Pulses():
     #     else:
     #         self.Pulser.stream(seq,n_runs,final = OutputState([],0,0))
 
-    def stream(self,seq,n_runs):
-        self.Pulser.stream(seq,n_runs)
+    def stream(self, duration:int, dig_chan:list, i:float=0, q:float=0):
+        pulse = (duration, dig_chan, i, q)
+        self.Pulser.stream([pulse], 1)
+
+    def flip_mirror(self, output=[], i=0, q=0):
+        pulse = [(1000000, [5], 0, 0)]
+        self.Pulser.stream(pulse,1, final=OutputState(output, i, q))
+        
 
 
 

@@ -161,86 +161,96 @@ class InstWidget(QWidget):
         self.blue_laser_group.addButton(self.blue_laser_off)  # OFF
         self.blue_laser_off.setChecked(True)
 
-        self.green_laser_on.toggled.connect(lambda:self.change_experiment_status())
-        self.blue_laser_on.toggled.connect(lambda:self.change_experiment_status())
+        self.green_laser_on.toggled.connect(lambda:self.change_experiment_state())
+        self.blue_laser_on.toggled.connect(lambda:self.change_experiment_state())
 
-        self.analog_label= QLabel("Analog Control")
-        self.analog_label.setFixedHeight(20)
-        self.analog_label.setStyleSheet("font-weight: bold")
+        self.label= QLabel("Analog Control")
+        self.label.setFixedHeight(20)
+        self.label.setStyleSheet("font-weight: bold")
+
+        with InstrumentManager() as mgr:
+            mgr.dr_ps.set_state_off()
+
+        # with InstrumentManager() as mgr:
+        #     mgr.dr_ps.set_state_off()
         #ANALOG SLIDERS
         class Analogs:
             def __init__(self, analog_name):
-                self.analog_slider = QSlider()
-                self.analog_slider.setOrientation(Qt.Orientation.Horizontal)
-                self.analog_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
-                self.analog_slider.setTickInterval(1)
-                self.analog_slider.setMinimum(0)
-                self.analog_slider.setMaximum(100)
-                #self.analog_slider.valueChanged.connect(lambda: self.analog_changed())
-                #self.analog_slider.sliderReleased.connect(lambda: self.change_experiment_status())
-                self.analog_slider.setValue(50)
-                self.analog_slider.setFixedWidth(320)
+                self.slider = QSlider()
+                self.slider.setOrientation(Qt.Orientation.Horizontal)
+                self.slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+                self.slider.setTickInterval(1)
+                self.slider.setMinimum(0)
+                self.slider.setMaximum(100)
+                #self.slider.valueChanged.connect(lambda: self.value_changed())
+                #self.slider.sliderReleased.connect(lambda: self.change_experiment_state())
+                self.slider.setValue(50)
+                self.slider.setFixedWidth(320)
         # VALUE of laser power (in units of % diode current)
-                self.analog = 0
-                self.analog_label = QLineEdit("0.00")
-                self.analog_label.setFont(QFont("Sanserif", 15))
-                self.analog_label.setFixedWidth(80)
-                #self.analog_label.editingFinished.connect(lambda: self.analog_text_changed())
-                self.analog_label.setStyleSheet("""
+                self.value = 0
+                self.label = QLineEdit("0.00")
+                self.label.setFont(QFont("Sanserif", 15))
+                self.label.setFixedWidth(80)
+                #self.label.editingFinished.connect(lambda: self.value_text_changed())
+                self.label.setStyleSheet("""
                     QLineEdit:hover {
                         background-color: powderblue; /* Background color when hovered */
                     }
                 """)
 
-            def analog_changed(self):
-                self.analog = (self.analog_slider.value()-50)/50
-                self.analog_label.setText(str(self.analog))
+            def value_changed(self):
+                self.value = (self.slider.value()-50)/50
+                self.label.setText(str(self.value))
                     #with InstrumentManager() as mgr:
                     #    mgr.DLnsec.power_settings(self.DLnsec_pwr)
                 
-            def analog_text_changed(self): # Makes sure text is valid, then sends off the value to the slider
-                text = self.analog_label.text()
+            def text_changed(self): # Makes sure text is valid, then sends off the value to the slider
+                text = self.label.text()
                 val=float(text)
                 if -1 <= val <= 1:
-                    self.analog_label.setText(f"{val:.2f}")
-                    self.analog_slider.setValue(int((val+1)*50))
+                    self.label.setText(f"{val:.2f}")
+                    self.slider.setValue(int((val+1)*50))
                 elif text == "":
-                    self.analog_label.setText("0.00")
-                    self.analog_slider.setValue(0)
+                    self.label.setText("0.00")
+                    self.slider.setValue(0)
                 else:
-                    self.analog_label.setText(f"{self.analog:.2f}")
+                    self.label.setText(f"{self.value:.2f}")
                     print("Invalid input, please enter a number from -1 to 1")
-                self.analog = self.analog_slider.value()
-                self.change_experiment_status()
+                self.value = self.slider.value()
 
         self.q_analog = Analogs("Q")
         self.i_analog = Analogs("I")
 
-        self.q_analog.analog_slider.valueChanged.connect(lambda: self.q_analog_changed())
-        self.q_analog.analog_slider.sliderReleased.connect(lambda: self.change_experiment_status())
-        self.q_analog.analog_label.editingFinished.connect(lambda: self.q_analog_text_changed())
-        self.i_analog.analog_slider.valueChanged.connect(lambda: self.i_analog_changed())
-        self.i_analog.analog_slider.sliderReleased.connect(lambda: self.change_experiment_status())
-        self.i_analog.analog_label.editingFinished.connect(lambda: self.i_analog_text_changed())
-        self.turn_everything_off=QPushButton("Stop")
-        self.turn_everything_off.clicked.connect(lambda:self.turn_all_off())
+        self.q_analog.slider.valueChanged.connect(lambda: self.q_analog.value_changed())
+        self.q_analog.slider.sliderReleased.connect(lambda: self.change_experiment_state())
+        self.q_analog.label.editingFinished.connect(lambda: self.q_analog.text_changed())
+        self.q_analog.label.editingFinished.connect(lambda: self.change_experiment_state())
+        self.i_analog.slider.valueChanged.connect(lambda: self.i_analog.value_changed())
+        self.i_analog.slider.sliderReleased.connect(lambda: self.change_experiment_state())
+        self.i_analog.label.editingFinished.connect(lambda: self.i_analog.text_changed())
+        self.i_analog.label.editingFinished.connect(lambda: self.change_experiment_state())
+        self.reset_button=QPushButton("Stop")
+        self.reset_button.clicked.connect(lambda:self.reset_function())
 
 
     
         
-
         self.mirror_label = QLabel("Mirror Control")
         self.mirror_label.setFixedHeight(20)
         self.mirror_label.setStyleSheet("font-weight: bold")
 
         self.mirror_button = QPushButton("Down")
-        self.mirror_button.setCheckable(True)
-        self.mirror_button_up=False
+        #self.mirror_button.setCheckable(True)
+        self.mirror_style_boolean=False
         self.mirror_button.setStyleSheet("color: red; background-color: lightgray;")
-        self.mirror_button.clicked.connect(lambda:self.mirror_button_flip())
+        self.mirror_button.clicked.connect(lambda:self.flip_mirror_leave_laser_on())
 
-        self.flip_button = QPushButton("Switch")
-        self.flip_button.clicked.connect(lambda:self.mirror_button_switch())
+        self.switch_button = QPushButton("Switch")
+        self.switch_button.clicked.connect(lambda:self.change_button_style())
+
+        self.mirror_boolean=False
+        self.blue_laser_boolean=False
+        self.green_laser_boolean=False
 
     
 
@@ -291,14 +301,14 @@ class InstWidget(QWidget):
 
         self.pulse_layout.addWidget(self.mirror_label,5,1,1,1)
         self.pulse_layout.addWidget(self.mirror_button,6,1,1,1)
-        self.pulse_layout.addWidget(self.flip_button,6,2,1,1) 
-        self.pulse_layout.addWidget(self.analog_label,7,1,1,1)      
+        self.pulse_layout.addWidget(self.switch_button,6,2,1,1) 
+        self.pulse_layout.addWidget(self.label,7,1,1,1)      
 
-        self.pulse_layout.addWidget(self.q_analog.analog_slider,8,2,1,2)
-        self.pulse_layout.addWidget(self.q_analog.analog_label,8,1,1,1) 
-        self.pulse_layout.addWidget(self.i_analog.analog_slider,9,2,1,2)
-        self.pulse_layout.addWidget(self.i_analog.analog_label,9,1,1,1) 
-        self.pulse_layout.addWidget(self.turn_everything_off,10,1,1,1)
+        self.pulse_layout.addWidget(self.i_analog.slider,8,2,1,2)
+        self.pulse_layout.addWidget(self.i_analog.label,8,1,1,1) 
+        self.pulse_layout.addWidget(self.q_analog.slider,9,2,1,2)
+        self.pulse_layout.addWidget(self.q_analog.label,9,1,1,1) 
+        self.pulse_layout.addWidget(self.reset_button,10,1,1,1)
         
 
         self.sig_gens_layout = QGridLayout()
@@ -384,76 +394,26 @@ class InstWidget(QWidget):
     
     def get_stepwidget_val(self, stepwidget):
         return stepwidget.value()
-    
-    def q_analog_changed(self):
-        self.q_analog.analog = (self.q_analog.analog_slider.value()-50)/50
-        self.q_analog.analog_label.setText(str(self.q_analog.analog))
-                    #with InstrumentManager() as mgr:
-                    #    mgr.DLnsec.power_settings(self.DLnsec_pwr)
-                
-    def q_analog_text_changed(self): 
-        text = self.q_analog.analog_label.text()
-        val=float(text)
-        if -1 <= val <= 1:
-            self.q_analog.analog_label.setText(f"{val:.2f}")
-            self.q_analog.analog_slider.setValue(int((val+1)*50))
-        elif text == "":
-            self.q_analog.analog_label.setText("0.00")
-            self.q_analog.analog_slider.setValue(0)
-        else:
-            self.q_analog.analog_label.setText(f"{self.q_analog.analog:.2f}")
-            print("Invalid input, please enter a number from -1 to 1")
-        self.q_analog.analog = self.q_analog.analog_slider.value()
-        self.change_experiment_status()
 
-    def i_analog_changed(self):
-        self.i_analog.analog = (self.i_analog.analog_slider.value()-50)/50
-        self.i_analog.analog_label.setText(str(self.i_analog.analog))
-                    #with InstrumentManager() as mgr:
-                    #    mgr.DLnsec.power_settings(self.DLnsec_pwr)
-                
-    def i_analog_text_changed(self): 
-        text = self.i_analog.analog_label.text()
-        val=float(text)
-        if -1 <= val <= 1:
-            self.i_analog.analog_label.setText(f"{val:.2f}")
-            self.i_analog.analog_slider.setValue(int((val+1)*50))
-        elif text == "":
-            self.i_analog.analog_label.setText("0.00")
-            self.i_analog.analog_slider.setValue(0)
-        else:
-            self.i_analog.analog_label.setText(f"{self.i_analog.analog:.2f}")
-            print("Invalid input, please enter a number from -1 to 1")
-        self.i_analog.analog = self.i_analog.analog_slider.value()
-        self.change_experiment_status()
     
 
-    def change_experiment_status(self): 
+    def change_experiment_state(self): 
         with InstrumentManager() as mgr:
-            seq=[]
+            dig_chan=[]
             if self.green_laser_on.isChecked():
-                seq.append(7)
+                dig_chan.append(7)
             if self.blue_laser_on.isChecked():
-                seq.append(3)
-            mgr.Pulser.set_state(seq, self.q_analog.analog, self.i_analog.analog)
+                dig_chan.append(3)
+            mgr.dr_ps.set_state(dig_chan, self.i_analog.value, self.q_analog.value)
     
     
     
 
-    def mirror_button_flip(self):
-        self.mirror_button_up = not self.mirror_button_up
-        print(self.mirror_button_up)
-        if self.mirror_button_up:
-            self.mirror_button.setStyleSheet("color: green; background-color: lightgray;")
-            self.mirror_button.setText("Up")
-        else:
-            self.mirror_button.setStyleSheet("color: red; background-color: lightgray;")
-            self.mirror_button.setText("Down")
-        self.flip_mirror()
+        
     
-    def mirror_button_switch(self):
-        self.mirror_button_up = not self.mirror_button_up
-        if self.mirror_button_up:
+    def change_button_style(self):
+        self.mirror_style_boolean = not self.mirror_style_boolean
+        if self.mirror_style_boolean:
             self.mirror_button.setStyleSheet("color: green; background-color: lightgray;")
             self.mirror_button.setText("Up")
         else:
@@ -461,25 +421,36 @@ class InstWidget(QWidget):
             self.mirror_button.setText("Down")
     
     def flip_mirror(self):
+        self.mirror_boolean=not self.mirror_boolean
         with InstrumentManager() as mgr:
-            seq=[]
-            if self.green_laser_on.isChecked():
-                seq.append(7)
-            if self.green_laser_off.isChecked():
-                seq.append(3)
+            mgr.dr_ps.flip_mirror()
+        self.change_button_style()
+        self.green_laser_off.setChecked(True)
+        self.blue_laser_off.setChecked(True)
 
-            mgr.Pulser.stream([5], 1000000)
-            mgr.Pulser.set_state(seq, self.analog_q, self.analog_i)
-
-    def turn_all_off(self):
+    def flip_mirror_leave_laser_on(self):
+        self.change_button_style()
+        dig_chan=[]
+        if self.green_laser_on.isChecked():
+            dig_chan.append(7)
+        if self.blue_laser_on.isChecked():
+            dig_chan.append(3)
         with InstrumentManager() as mgr:
+            mgr.dr_ps.flip_mirror(dig_chan, self.i_analog.value, self.q_analog.value)
+
+            
+    
+
+    def reset_function(self):
+        with InstrumentManager() as mgr:
+            self.q_analog.slider.setValue(50)
+            self.i_analog.slider.setValue(50)
             self.green_laser_off.setChecked(True)
             self.blue_laser_off.setChecked(True)
-            self.q_analog.analog_slider.setValue(50)
-            self.i_analog.analog_slider.setValue(50)
-            self.q_analog.analog_label.setText("0.00")
-            self.i_analog.analog_label.setText("0.00")
-            mgr.Pulser.set_state_off()
+            # self.q_analog.label.setText("0.00")
+            # self.i_analog.label.setText("0.00")
+            # mgr.dr_ps.set_state_off()
+            
     
     
 
