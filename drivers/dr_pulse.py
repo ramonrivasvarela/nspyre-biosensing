@@ -53,23 +53,15 @@ class dr_ps():
     
     def set_state_off(self):
         return self.Pulser.constant(([], 0, 0))
-    
 
+    def stream(self, duration:int, dig_chan:list, i:float=0, q:float=0, n_runs:int=1):
+        pulse = [(duration, dig_chan, i, q)]
+        self.Pulser.stream(pulse, n_runs)
 
-    # def stream(self,seq,n_runs, leave_laser_on = False):
-    #     if(leave_laser_on):
-    #         self.Pulser.stream(seq,n_runs,final = OutputState([3],0,0))
-    #     else:
-    #         self.Pulser.stream(seq,n_runs,final = OutputState([],0,0))
-
-    def stream(self, duration:int, dig_chan:list, i:float=0, q:float=0):
-        pulse = (duration, dig_chan, i, q)
-        self.Pulser.stream([pulse], 1)
-
-    def flip_mirror(self, output=[], i=0, q=0):
+    def flip_mirror(self, output=[], i=0, q=0, n_runs=1):
         pulse = [(1000000, [5], 0, 0)]
-        self.Pulser.stream(pulse,1, final=OutputState(output, i, q))
-        
+        self.Pulser.stream(pulse, n_runs, final=OutputState(output, i, q))
+
 
 
 

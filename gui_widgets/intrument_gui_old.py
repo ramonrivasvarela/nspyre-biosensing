@@ -232,21 +232,19 @@ class InstWidgetV2(QWidget):
         self.xyz_label= QLabel("XYZ Control")
         self.xyz_label.setFixedHeight(20)
         self.xyz_label.setStyleSheet("font-weight: bold") 
-        # with InstrumentManager() as mgr:
-        #     mgr.XYZcontrols.initialize()
+        with InstrumentManager() as mgr:
+            mgr.XYZcontrols.initialize()
         # with InstrumentManager() as mgr:
         #     mgr.XYZcontrols.initialize()
         class AxisControl:
             def __init__(self, name):
                 self.name = name  # either 'x' or 'y'
                 self.value = 0
-                self.step = 0
+                self.axis_change_value = 0
                 self.suffix="nm"
-                # with InstrumentManager() as mgr:
-                #     self.max=mgr.XYZcontrols.axes[name].limits[1]
-                #     self.min=mgr.XYZcontrols.axes[name].limits[0]
-                self.max=1e3
-                self.min=0
+                with InstrumentManager() as mgr:
+                    self.max=mgr.XYZcontrols.axes[name].limits[1]
+                    self.min=mgr.XYZcontrols.axes[name].limits[0]
 
                 self.unit_button=QPushButton("nm")
                 self.unit_button.setFont(QFont("Sanserif", 15))
@@ -264,38 +262,38 @@ class InstWidgetV2(QWidget):
                 self.spinbox.setFont(QFont("Sanserif", 15))
                 self.spinbox.setFixedWidth(160)
                 self.spinbox.setRange(0, 1e6)
-                self.update_spinbox()
+                self.new_value()
                 # self.spinbox.valueChanged.connect(lambda: self.check_suffix())
 
-                self.spinbox.editingFinished.connect(lambda: self.update_value())
+                self.spinbox.editingFinished.connect(lambda: self.update())
                 
                 # Create the change label (QLineEdit)
                 self.step_label = QLineEdit()
                 self.step_label.setFont(QFont("Sanserif", 15))
                 self.step_label.setFixedWidth(160)
-                self.edit_step_value()
+                self.change_new_value()
                 self.step_label.editingFinished.connect(lambda: self.edit_step_label())
 
                 
                 
 
-            def update_value(self):
+            def update(self):
                 if self.spinbox.suffix() == " nm":
                     self.value= self.spinbox.value() * 1e-3
                 else:
                     self.value= self.spinbox.value()
-                self.update_spinbox()
+                self.new_value()
                 # Update the real value label when the spinbox value changes
             
             
-            def update_spinbox(self, change=False):
+            def new_value(self, change=False):
 
                 if (self.value >= 1 and not (self.unit_button.text() == "nm" and change)) or (self.unit_button.text() == "um" and change):
                     self.spinbox.setValue(self.value)
                     self.spinbox.setSuffix(" um")
                     # self.suffix = "um"
                     self.unit_button.setText("nm")
-                    self.spinbox.setSingleStep(self.step)
+                    self.spinbox.setSingleStep(self.axis_change_value)
                     self.spinbox.setDecimals(3)
                     self.spinbox.setMaximum(self.max)
                     self.spinbox.setMinimum(self.min)
@@ -307,46 +305,49 @@ class InstWidgetV2(QWidget):
                     self.spinbox.setSuffix(" nm")
                     # self.suffix="nm"
                     self.unit_button.setText("um")
-                    self.spinbox.setSingleStep(self.step*1e3)
+                    self.spinbox.setSingleStep(self.axis_change_value*1e3)
                     self.spinbox.setDecimals(3)
             
             def check_suffix(self):
                 if self.spinbox.value()>=1000 and self.spinbox.suffix()==" nm":
                     self.spinbox.setValue(self.spinbox.value()*1e-3)
                     self.spinbox.setSuffix(" um")
-                    self.spinbox.setSingleStep(self.step)
+                    self.spinbox.setSingleStep(self.axis_change_value)
                 if self.spinbox.value()<1 and self.spinbox.suffix()==" um":
                     self.spinbox.setValue(self.spinbox.value()*1e3)
-                    self.spinbox.setSingleStep(self.step*1e3)
+                    self.spinbox.setSingleStep(self.axis_change_value*1e3)
                     self.spinbox.setSuffix(" nm")
             
             def edit_step_label(self):
+
                 text = self.step_label.text().strip()
                 try:
-                    if text.endswith("nm"):
-                        factor, val_text = 1e-3, text[:-2].strip()
-                    elif text.endswith("um"):
-                        factor, val_text = 1, text[:-2].strip()
-                    else:
-                        # If no unit is specified, default to um.
-                        factor, val_text = 1, text
-                    self.step = float(val_text) * factor
-                    self.update_spinbox()
-                    self.edit_step_value()
+                    factor, val_text = self.convert_units(text)
+                    self.axis_change_value = float(val_text) * factor
+                    self.new_value()
+                    self.change_new_value()
                 except (ValueError, IndexError):
                     logger.error(f"Invalid step label input: {text}")
-                    self.update_spinbox()
-                    self.edit_step_value()
-            ### interval for the change value
-            def edit_step_value(self):
-                if self.step < 1:
-                    self.step_label.setText(f"{self.step * 1e3:.3f} nm")
+
+
+            def convert_units(self, text):
+                if text.endswith("nm"):
+                    return 1e-3, text[:-2]
+                elif text.endswith("um"):
+                    return 1, text[:-2]
                 else:
-                    self.step_label.setText(f"{self.step:.3f} um")
+                    logger.warning(f"Unrecognized unit in text: {text}")
+                    return 1, "0"  # Default to 0 if the unit is unrecognized
+            ### interval for the change value
+            def change_new_value(self):
+                if self.axis_change_value < 1:
+                    self.step_label.setText(f"{self.axis_change_value * 1e3:.3f} nm")
+                else:
+                    self.step_label.setText(f"{self.axis_change_value:.3f} um")
             ###
 
             def change_unit(self):
-                self.update_spinbox(True)
+                self.new_value(True)
 
 
             
@@ -358,9 +359,16 @@ class InstWidgetV2(QWidget):
         self.y_control = AxisControl("y")
         self.z_control = AxisControl("z")
 
-        self.x_control.spinbox.editingFinished.connect(lambda: self.move_x())
-        self.y_control.spinbox.editingFinished.connect(lambda: self.move_y())
-        self.z_control.spinbox.editingFinished.connect(lambda: self.move_z())
+        self.x_control.label.editingFinished.connect(lambda: self.move_x())
+        self.y_control.label.editingFinished.connect(lambda: self.move_y())
+        self.z_control.label.editingFinished.connect(lambda: self.move_z())
+
+
+        # with InstrumentManager() as mgr:
+        #     mgr.XYZcontrols.initialize()
+        #     self.x_control.label.valueChanged.valueChanged(lambda:mgr.XYZcontrols.x_move(self.x_control.value))
+        #     self.y_control.label.valueChanged.valueChanged(lambda:mgr.XYZcontrols.y_move(self.y_control.value))
+        #     self.z_control.label.valueChanged.valueChanged(lambda:mgr.XYZcontrols.z_move(self.z_control.value))    
 
 
 
@@ -400,17 +408,17 @@ class InstWidgetV2(QWidget):
         self.xyz_layout.setSpacing(10)
         self.xyz_layout.addWidget(self.xyz_label,1,1,1,1)
         self.xyz_layout.addWidget(self.x_control.title,2,1,1,1)
-        self.xyz_layout.addWidget(self.x_control.spinbox,3,1,1,1)
+        self.xyz_layout.addWidget(self.x_control.label,3,1,1,1)
         self.xyz_layout.addWidget(self.x_control.unit_button,3,2,1,1)
         self.xyz_layout.addWidget(self.x_control.step_label,3,3,1,1)
 
         self.xyz_layout.addWidget(self.y_control.title,4,1,1,1)
-        self.xyz_layout.addWidget(self.y_control.spinbox,5,1,1,1)
+        self.xyz_layout.addWidget(self.y_control.label,5,1,1,1)
         self.xyz_layout.addWidget(self.y_control.unit_button,5,2,1,1)
         self.xyz_layout.addWidget(self.y_control.step_label,5,3,1,1)
 
         self.xyz_layout.addWidget(self.z_control.title,6,1,1,1)
-        self.xyz_layout.addWidget(self.z_control.spinbox,7,1,1,1)
+        self.xyz_layout.addWidget(self.z_control.label,7,1,1,1)
         self.xyz_layout.addWidget(self.z_control.unit_button,7,2,1,1)
         self.xyz_layout.addWidget(self.z_control.step_label,7,3,1,1)
 
@@ -506,14 +514,14 @@ class InstWidgetV2(QWidget):
 
 
 
-    # def closeEvent(self, event):
-    #     """Handle the tab closure and finalize instruments."""
-    #     with InstrumentManager() as mgr:
-    #         mgr.XYZcontrols.move_to(0, 0, 0)      
-    #         mgr.XYZcontrols.finalize()
+    def closeEvent(self, event):
+        """Handle the tab closure and finalize instruments."""
+        with InstrumentManager() as mgr:
+            mgr.XYZcontrols.move_to(0, 0, 0)      
+            mgr.XYZcontrols.finalize()
             
-    #     if event:
-    #         event.accept()# Reset position to (0, 0, 0)
+        if event:
+            event.accept()# Reset position to (0, 0, 0)
 
     # def kill_process(self):
     #     """Stop the run process."""
@@ -521,15 +529,15 @@ class InstWidgetV2(QWidget):
 
     def move_x(self):
         """Move the X axis to the value specified in the X spinbox."""
-        # with InstrumentManager() as mgr:
-        #     mgr.XYZcontrols.move_x(self.x_control.value)
+        with InstrumentManager() as mgr:
+            mgr.XYZcontrols.move_x(self.x_control.value)
 
     def move_y(self):
         """Move the Y axis to the value specified in the Y spinbox."""
-        # with InstrumentManager() as mgr:
-        #     mgr.XYZcontrols.move_y(self.y_control.value)
+        with InstrumentManager() as mgr:
+            mgr.XYZcontrols.move_y(self.y_control.value)
 
     def move_z(self):
         """Move the Z axis to the value specified in the Z spinbox."""
-        # with InstrumentManager() as mgr:
-        #     mgr.XYZcontrols.move_z(self.z_control.value)
+        with InstrumentManager() as mgr:
+            mgr.XYZcontrols.move_z(self.z_control.value)
