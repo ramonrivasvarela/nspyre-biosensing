@@ -451,6 +451,11 @@ class InstWidget(QWidget):
             # self.i_analog.label.setText("0.00")
             # mgr.dr_ps.set_state_off()
             
+    def closeEvent(self, event):
+        with InstrumentManager() as mgr:
+            self.reset_function()
+        if event:
+            event.accept()
     
     
 

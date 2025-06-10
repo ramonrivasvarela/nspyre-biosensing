@@ -46,17 +46,17 @@ with InstrumentServer() as inserv:
 #                 args= ['COM9'])
 
    #REQUIRED IMPORT: pulsestreamer
-   inserv.add(name = 'dr_ps',
-               class_path= _HERE / 'drivers' / 'dr_pulse.py',
-               class_name= 'dr_ps',
-               args= []
-               )
+   # inserv.add(name = 'dr_ps',
+   #             class_path= _HERE / 'drivers' / 'dr_pulse.py',
+   #             class_name= 'dr_ps',
+   #             args= []
+   #             )
 
-#   inserv.add(name = 'XYZcontrols',
-#               class_path= _HERE / 'drivers' / 'dr_xyz_controls.py',
-#               class_name= 'XYZSetup',
-#               args= ['Dev1/ao0', 'Dev1/ao1', 'Dev1/ao2', 'TCPIP::10.135.70.127::SOCKET']
-#               )
+   # inserv.add(name = 'XYZcontrols',
+   #            class_path= _HERE / 'drivers' / 'dr_xyz_controls.py',
+   #            class_name= 'XYZSetup',
+   #            args= ['Dev1/ao0', 'Dev1/ao1', 'Dev1/ao2', 'TCPIP::10.135.70.127::SOCKET']
+   #            )
    
 
    # run a CLI (command-line interface) that allows the user to enter

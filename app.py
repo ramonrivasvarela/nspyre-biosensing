@@ -43,23 +43,14 @@ def main():
         # Create the GUI.
         main_widget = MainWidget(
             {
-
-                'Lasers': MainWidgetItem(laser_gui, 'InstWidget', stretch = (1, 1)),
-                # 'Experiments': MainWidgetItem(gui_experiments_current, 'ExpWidget', stretch = (1, 1)),
-                # 'Plots': {
-                #     'FlexLinePlot': MainWidgetItem(
-                #         gui_experiments_current,
-                #         'FlexLinePlotWidgetAllDefaults',
-                #         stretch=(100, 100),
-                #     ),
-                # },
-                # 'Fitter': MainWidgetItem(gui_experiments_current, 'FitterWidget', stretch = (1, 1)),                
-                # 'Calculations': MainWidgetItem(gui_calculations, 'CalcWidget', stretch = (1, 1)),
+                'Lasers': MainWidgetItem(laser_gui, 'InstWidget', stretch=(1, 1)),
                 'Instruments': MainWidgetItem(instrument_gui, 'InstWidgetV2', stretch=(1, 1)),
                 'Save': MainWidgetItem(nspyre.gui.widgets.save, 'SaveWidget', stretch=(1, 1)),
                 'Load': MainWidgetItem(nspyre.gui.widgets.load, 'LoadWidget', stretch=(1, 1)),
             }
         )
+
+
         main_widget.show()
 
         # Run the GUI event loop.
