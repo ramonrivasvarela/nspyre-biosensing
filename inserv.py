@@ -46,9 +46,9 @@ with InstrumentServer() as inserv:
 #                 args= ['COM9'])
 
    #REQUIRED IMPORT: pulsestreamer
-   inserv.add(name = 'dr_ps',
+   inserv.add(name = 'Pulser',
                class_path= _HERE / 'drivers' / 'dr_pulse.py',
-               class_name= 'dr_ps',
+               class_name= 'PulserClass',
                args= []
                )
 
