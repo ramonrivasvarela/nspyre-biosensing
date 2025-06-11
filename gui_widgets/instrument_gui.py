@@ -476,6 +476,9 @@ class InstWidgetV2(QWidget):
 
             sig_gen.set_frequency(fun_kwargs['rf_frequency'])
             sig_gen.set_rf_amplitude(fun_kwargs['rf_amplitude'])
+            pwr = float(sig_gen.get_rf_amplitude())
+            freq = float(sig_gen.get_frequency())
+
             sig_gen.set_phase(fun_kwargs['phase'])
             sig_gen.set_mod_toggle(fun_kwargs['mod_toggle'])
             if fun_kwargs['mod_toggle']:
@@ -485,11 +488,9 @@ class InstWidgetV2(QWidget):
                 sig_gen.set_AM_mod_depth(fun_kwargs['AM_mod'])
                 sig_gen.set_FM_mod_depth(fun_kwargs['FM_mod'])
             
-            sig_gen.set_rf_toggle(1)
+            sig_gen.set_rf_toggle(1) 
             print('rf_toggle: ',sig_gen.get_rf_toggle())
             
-            pwr = float(sig_gen.get_rf_amplitude())
-            freq = float(sig_gen.get_frequency())
             self.sg396_status_label.setStyleSheet("color: black; background-color: gold; border: 4px solid black;")
             self.sg396_status_label.setText(f"SRS SG396 Status: ON ({freq*1e-9} GHz at {pwr} dBm)")
             
