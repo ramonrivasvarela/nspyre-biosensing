@@ -50,11 +50,13 @@ with InstrumentServer() as inserv:
                   args= ['COM9'])
 
    #REQUIRED IMPORT: pulsestreamer
+
    if pulser_activation_boolean:
       inserv.add(name = 'Pulser',
                   class_path= _HERE / 'drivers' / 'dr_pulse.py',
                   class_name= 'PulserClass',
                   args= []
+
                )
       
       #REQUIRED IMPORT: lantz-drivers

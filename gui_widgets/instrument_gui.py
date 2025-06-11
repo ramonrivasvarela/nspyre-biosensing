@@ -153,8 +153,12 @@ class InstWidgetV2(QWidget):
             self.sg396_opacity_effects.append(QGraphicsOpacityEffect())
             self.sg396_opacity_effects[i].setOpacity(0.3)
 
-        self.modulation_opts = ["AM", "FM", "Phase", "Sweep", "Pulse", "Blank", "QAM", "CPM", "VSB"]
-        self.modulation_functions = ["sine", "ramp", "triangle", "square", "noise", "external"]
+        self.modulation_opts = ["AM", "FM", "Phase",
+                                 #"Sweep", "Pulse", "Blank", 
+                                 "QAM"
+                                 #, "CPM", "VSB"
+                                 ]
+        self.modulation_functions = ["sine", "ramp", "triangle", "square", "noise","external"]
 
 
         self.sg396_params_widget_2 = ParamsWidget(
@@ -180,6 +184,11 @@ class InstWidgetV2(QWidget):
             get_param_value_funs = {ComboBox: self.get_combobox_val}
         )
 
+        # Set the default value for 'mod_func' to "external"
+        mod_func_combobox = self.sg396_params_widget_2.widgets['mod_func']
+        mod_func_combobox.setCurrentText("external")
+        mod_func_combobox = self.sg396_params_widget_2.widgets['mod_type']
+        mod_func_combobox.setCurrentText("QAM")
 
         self.sg396_status_label = QLabel(f"SRS SG396 status: ")
         self.sg396_status_label.setStyleSheet("color: white; background-color: black; border: 4px solid black;")
@@ -445,6 +454,7 @@ class InstWidgetV2(QWidget):
             self.sg396_emit_button.setEnabled(True)
             self.sg396_stop_button.setEnabled(True)
             [self.sg396_opacity_effects[i].setEnabled(False) for i in range(5)]
+        
 
 
         else:
@@ -475,10 +485,16 @@ class InstWidgetV2(QWidget):
                 sig_gen.set_mod_function(fun_kwargs['mod_type'],fun_kwargs['mod_func'])
                 sig_gen.set_mod_rate(fun_kwargs['mod_rate'])
                 sig_gen.set_AM_mod_depth(fun_kwargs['AM_mod'])
-                sig_gen.set_FM_mod_depth(fun_kwargs['FM_mod'])
+                sig_gen.set_FM_mod_dev(fun_kwargs['FM_mod'])
+
+                sig_gen.set_mod_coupling(1) # Assuming DC input
             
             sig_gen.set_rf_toggle(1) 
             print('rf_toggle: ',sig_gen.get_rf_toggle())
+            print('mod_type: ',sig_gen.get_mod_type())
+            print('mod_func: ',sig_gen.get_mod_function())
+            print('AM_depth: ',sig_gen.get_AM_mod_depth())
+            print('FM_dev: ',sig_gen.get_FM_mod_dev())
             
             self.sg396_status_label.setStyleSheet("color: black; background-color: gold; border: 4px solid black;")
             self.sg396_status_label.setText(f"SRS SG396 Status: ON ({freq*1e-9} GHz at {pwr} dBm)")
