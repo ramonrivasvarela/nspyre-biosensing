@@ -37,15 +37,12 @@ def main():
     )
 
     with MyInstrumentManager() as insmgr:
-        # Create Qt application and apply nspyre visual settings.
         app = nspyreApp()
-        # with MyInstrumentManager() as mgr:
-        #     mgr.XYZcontrols.initialize()
+        # mgr.XYZcontrols.initialize()
         def app_close_event():
             print("Application is closing...")
             # Perform cleanup tasks here
-            #with MyInstrumentManager() as mgr:
-                #mgr.XYZcontrols.finalize()  # Example cleanup method
+            # mgr.XYZcontrols.finalize()  
             print("Cleanup complete.")
 
         # Connect the close event to the app
