@@ -34,7 +34,7 @@ from PyQt6.QtCore import Qt, QTimer
 
 import logging
 
-from .StepWidget import StepWidget #### Custom Made by David, relative import
+#from .StepWidget import StepWidget #### Custom Made by David, relative import
 
 
 logger = logging.getLogger(__name__)

@@ -39,7 +39,7 @@ from pyqtgraph.Qt import QtWidgets
 import logging
 import re
 
-from .StepWidget import StepWidget #### Custom Made by David, relative import
+#from .StepWidget import StepWidget #### Custom Made by David, relative import
 
 # class UnitSpinBox(QDoubleSpinBox):
 #     def __init__(self, parent=None):
@@ -151,7 +151,7 @@ class InstWidgetV2(QWidget):
                 },
                 'rf_frequency': {
                     'display_text': 'MW Frequency: ',
-                    'widget': StepWidget(
+                    'widget': SpinBox(
                         value = 2.87e9,
                         suffix = 'Hz',
                         siPrefix = True,
@@ -168,7 +168,7 @@ class InstWidgetV2(QWidget):
                     ),
                 },
             },
-            get_param_value_funs = {StepWidget: self.get_stepwidget_val}
+            get_param_value_funs = {SpinBox: self.get_stepwidget_val}
         )
 
         self.sg396_opacity_effects = []
@@ -260,7 +260,7 @@ class InstWidgetV2(QWidget):
                 self.title.setStyleSheet("font-weight: bold")
                 
                 # Create the spinbox for this axis
-                self.spinbox = QDoubleSpinBox()
+                self.spinbox = SpinBox()
                 self.spinbox.setFont(QFont("Sanserif", 15))
                 self.spinbox.setFixedWidth(160)
                 self.spinbox.setRange(0, 1e6)
@@ -291,12 +291,13 @@ class InstWidgetV2(QWidget):
             def update_spinbox(self, change=False):
 
                 if (self.value >= 1 and not (self.unit_button.text() == "nm" and change)) or (self.unit_button.text() == "um" and change):
+                    self.spinbox.setDecimals(3)
                     self.spinbox.setValue(self.value)
                     self.spinbox.setSuffix(" um")
                     # self.suffix = "um"
                     self.unit_button.setText("nm")
                     self.spinbox.setSingleStep(self.step)
-                    self.spinbox.setDecimals(3)
+                    
                     self.spinbox.setMaximum(self.max)
                     self.spinbox.setMinimum(self.min)
                     
@@ -308,7 +309,7 @@ class InstWidgetV2(QWidget):
                     # self.suffix="nm"
                     self.unit_button.setText("um")
                     self.spinbox.setSingleStep(self.step*1e3)
-                    self.spinbox.setDecimals(3)
+                    self.spinbox.setDecimals(1)
             
             def check_suffix(self):
                 if self.spinbox.value()>=1000 and self.spinbox.suffix()==" nm":
