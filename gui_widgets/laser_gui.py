@@ -129,7 +129,7 @@ class InstWidget(QWidget):
             print('could not set DLnsec mode to EXT')
     
     def init_pulse_control(self):
-        self.green_laser_label = QLabel("Green Laser Control")
+        self.green_laser_label = QLabel("Green Laser:")
         self.green_laser_label.setFixedHeight(20)
         self.green_laser_label.setStyleSheet("font-weight: bold")
 
@@ -140,7 +140,7 @@ class InstWidget(QWidget):
         self.green_laser_off.setChecked(True)
         #self.green_laser_off.toggled.connect(lambda:self.blue_laser_toggle(self.green_laser_off))
 
-        self.blue_laser_label = QLabel("488nm Laser Control")
+        self.blue_laser_label = QLabel("488nm Laser:")
         self.blue_laser_label.setFixedHeight(20)
         self.blue_laser_label.setStyleSheet("font-weight: bold")
 
@@ -176,7 +176,7 @@ class InstWidget(QWidget):
         #ANALOG SLIDERS
         class Analogs:
             def __init__(self, analog_name):
-                self.title = QLabel(f"{analog_name} Analog Control")
+                self.title = QLabel(f"{analog_name} Analog")
                 self.title.setFixedHeight(20)
                 self.title.setStyleSheet("font-weight: bold")
                 self.slider = QSlider()
@@ -184,10 +184,10 @@ class InstWidget(QWidget):
                 self.slider.setTickPosition(QSlider.TickPosition.TicksBelow)
                 self.slider.setTickInterval(1)
                 self.slider.setMinimum(0)
-                self.slider.setMaximum(100)
+                self.slider.setMaximum(200)
                 #self.slider.valueChanged.connect(lambda: self.value_changed())
                 #self.slider.sliderReleased.connect(lambda: self.change_experiment_state())
-                self.slider.setValue(50)
+                self.slider.setValue(100)
                 self.slider.setFixedWidth(320)
         # VALUE of laser power (in units of % diode current)
                 self.value = 0
@@ -202,7 +202,7 @@ class InstWidget(QWidget):
                 """)
 
             def slider_changed(self):
-                self.value = (self.slider.value()-50)/50
+                self.value = (self.slider.value()-100)/100
                 self.label.setText(str(self.value))
                     #with InstrumentManager() as mgr:
                     #    mgr.DLnsec.power_settings(self.DLnsec_pwr)
@@ -211,15 +211,20 @@ class InstWidget(QWidget):
                 text = self.label.text().strip()
                 try:
                     val = float(text)
+                        
                 except ValueError as e:
+                    self.label.setText(f"{self.value:.2f}")
+                    self.slider.setValue(int((self.value + 1) * 100))
                     raise ValueError(f"Invalid input '{text}': not a valid float.") from e
-
                 if not (-1 <= val <= 1):
+                    self.label.setText(f"{self.value:.2f}")
+                    self.slider.setValue(int((self.value + 1) * 100))
                     raise ValueError(f"Invalid input '{val}': must be between -1 and 1.")
-
                 self.label.setText(f"{val:.2f}")
-                self.slider.setValue(int((val + 1) * 50))
+                self.slider.setValue(int((val + 1) * 100))
                 self.value = val
+
+                
 
         self.q_analog = Analogs("Q")
         self.i_analog = Analogs("I")
@@ -238,7 +243,7 @@ class InstWidget(QWidget):
 
     
         
-        self.mirror_label = QLabel("Mirror Control")
+        self.mirror_label = QLabel("Mirror")
         self.mirror_label.setFixedHeight(20)
         self.mirror_label.setStyleSheet("font-weight: bold")
 
@@ -297,11 +302,11 @@ class InstWidget(QWidget):
         self.pulse_layout.setSpacing(10)
 
         self.pulse_layout.addWidget(self.green_laser_label,1,1,1,1)
-        self.pulse_layout.addWidget(self.green_laser_on,2,1,1,1)
-        self.pulse_layout.addWidget(self.green_laser_off,2,2,1,1)
-        self.pulse_layout.addWidget(self.blue_laser_label,3,1,1,1)
-        self.pulse_layout.addWidget(self.blue_laser_on,4,1,1,1)
-        self.pulse_layout.addWidget(self.blue_laser_off,4,2,1,1)
+        self.pulse_layout.addWidget(self.green_laser_on,1,2,1,1)
+        self.pulse_layout.addWidget(self.green_laser_off,1,3,1,1)
+        self.pulse_layout.addWidget(self.blue_laser_label,2,1,1,1)
+        self.pulse_layout.addWidget(self.blue_laser_on,2,2,1,1)
+        self.pulse_layout.addWidget(self.blue_laser_off,2,3,1,1)
 
         self.pulse_layout.addWidget(self.mirror_label,5,1,1,1)
         self.pulse_layout.addWidget(self.mirror_button,6,1,1,1)
@@ -376,18 +381,20 @@ class InstWidget(QWidget):
         if text[-1] == '%':
             text = text[:-1] #text is purely the numeric value now
         if text.isnumeric():
-            self.DLnsec_pwr_label.setText(text + "%")
-            self.DLnsec_pwr_slider.setValue(int(text))
-        elif text == "":
-            self.DLnsec_pwr_label.setText("0%")
-            self.DLnsec_pwr_slider.setValue(0)
+            val=int(text)
+            if val >= 0 and val <= 100:
+                self.DLnsec_pwr_label.setText(f"{val}%")
+                self.DLnsec_pwr_slider.setValue(val)
+                self.DLnsec_pwr = val
+                with InstrumentManager() as mgr:
+                    mgr.DLnsec.power_settings(self.DLnsec_pwr)
+            else:
+                self.DLnsec_pwr_label.setText(f"{self.DLnsec_pwr}%")
+                print("Invalid input, please enter a number between 0 and 100")
         else:
             self.DLnsec_pwr_label.setText(f"{self.DLnsec_pwr}%")
             print("Invalid input, please enter a number")
-        
-        self.DLnsec_pwr = self.DLnsec_pwr_slider.value()
-        with InstrumentManager() as mgr:
-            mgr.DLnsec.power_settings(self.DLnsec_pwr)
+
         
     
     def DLnsec_reboot(self):
@@ -410,7 +417,8 @@ class InstWidget(QWidget):
                 dig_chan.append(7)
             if self.blue_laser_on.isChecked():
                 dig_chan.append(3)
-            mgr.Pulser.set_state(dig_chan, self.q_analog.value, self.i_analog.value)
+            if self.i_analog.value<=1 and self.i_analog.value>=-1 and self.q_analog.value<=1 and self.q_analog.value>=-1:
+                mgr.Pulser.set_state(dig_chan, self.q_analog.value, self.i_analog.value)
     
     
     
