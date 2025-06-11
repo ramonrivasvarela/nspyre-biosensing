@@ -25,7 +25,7 @@ from drivers.insmgr import MyInstrumentManager
 from nspyre import InstrumentManager
 
 
-from instrument_activation import xyz_activation_boolean, pulser_activation_boolean, sg_activation_boolean, dlnsec_activation_boolean, 
+from instrument_activation import xyz_activation_boolean, pulser_activation_boolean, sg_activation_boolean, dlnsec_activation_boolean
 
 
 _HERE = Path(__file__).parent
