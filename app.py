@@ -61,8 +61,8 @@ def main():
         # Create the GUI.
         main_widget = MainWidget(
             {   'Instruments' : {
-                'Lasers': MainWidgetItem(laser_gui, 'InstWidget', stretch=(1, 1)),
-                'SG & XYZ': MainWidgetItem(instrument_gui, 'InstWidgetV2', stretch=(1, 1))
+                'Lasers': MainWidgetItem(laser_gui, 'InstWidget', stretch=(1, 1.4)),
+                'SG & XYZ': MainWidgetItem(instrument_gui, 'InstWidgetV2', stretch=(1, 0.6))
                 },
                 'Save': MainWidgetItem(nspyre.gui.widgets.save, 'SaveWidget', stretch=(1, 1)),
                 'Load': MainWidgetItem(nspyre.gui.widgets.load, 'LoadWidget', stretch=(1, 1)),
