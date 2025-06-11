@@ -290,31 +290,20 @@ class InstWidgetV2(QWidget):
             def update_spinbox(self, change=False):
 
                 if self.value >= 1:# Show 3 decimal places
+                    self.spinbox.setDecimals(7)
                     self.spinbox.setValue(self.value)
                     self.spinbox.setSuffix("um")
                     self.spinbox.setSingleStep(self.step)
                     self.spinbox.setMaximum(self.max)
                     self.spinbox.setMinimum(self.min)
-                    if self.value < 10:
-                        self.spinbox.setDecimals(5)
-                    elif self.value < 100:
-                        self.spinbox.setDecimals(6)
-                    elif self.value < 1000:
-                        self.spinbox.setDecimals(7)
+                
                 else:
                     self.spinbox.setMaximum(self.max * 1e3)
                     self.spinbox.setMinimum(self.min * 1e3)
                     self.spinbox.setValue(self.value * 1e3)
                     self.spinbox.setSuffix("nm")
                     self.spinbox.setSingleStep(self.step * 1e3)
-                    if self.value < 1e-3:
-                        self.spinbox.setDecimals(3)
-                    elif self.value < 1e-2:
-                        self.spinbox.setDecimals(3)
-                    elif self.value < 1e-1:
-                        self.spinbox.setDecimals(4)
-                    elif self.value < 1:
-                        self.spinbox.setDecimals(5)
+                    self.spinbox.setDecimals(5)
             
 
 
