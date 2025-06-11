@@ -34,8 +34,6 @@ from PyQt6.QtCore import Qt, QTimer
 
 import logging
 
-from .StepWidget import StepWidget #### Custom Made by David, relative import
-
 
 logger = logging.getLogger(__name__)
 
@@ -392,8 +390,7 @@ class InstWidget(QWidget):
     def get_combobox_val(self, combobox):
         return str(combobox.value())
     
-    def get_stepwidget_val(self, stepwidget):
-        return stepwidget.value()
+
 
     
 
