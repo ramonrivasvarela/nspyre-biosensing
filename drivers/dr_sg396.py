@@ -105,6 +105,19 @@ class SG396:
         RF output state
         """
         return self.device.query('ENBR?')
+    
+    # 1 = DC, 0 = AC
+    def set_mod_coupling(self, value):
+        """
+        Modulation Coupling
+        """
+        self.device.write(f"COUP{value}")
+
+    def get_mod_coupling(self):
+        """
+        Modulation Coupling
+        """
+        self.device.write(f"COUP?")
 
     # 1 = True (on), 0 = False (off)
     def set_rf_toggle(self, value):
@@ -155,7 +168,7 @@ class SG396:
         return int(self.device.query('TYPE?'))
 
     def set_mod_type(self, value):
-        self.device.write(f"TYPE {value}")
+        self.device.write(f"TYPE {self.MODULATION_TYPE[value]}")
 
     def set_mod_subtype(self, value):
         self.device.write(f"STYP {value}")
