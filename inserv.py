@@ -32,10 +32,11 @@ from nspyre import InstrumentServer
 
 # create a new instrument server
 
-import pdb; pdb.set_trace()
+#import pdb; pdb.set_trace()
 with InstrumentServer() as inserv:
    # add signal generator driver
    # 'sg' will be an instance of the class 'SG396' in the file ./drivers/sg.py. The class __init__ will be run with the given args. 
+   # REQUIRED IMPORTS: pyvisa and pyvisa-py
    inserv.add(name = 'sg', 
               class_path= _HERE / 'drivers' / 'dr_sg396.py', 
               class_name= 'SG396',

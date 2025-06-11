@@ -120,7 +120,7 @@ class InstWidgetV2(QWidget):
                 'rf_amplitude': {
                     'display_text': 'MW Amplitude: ',
                     'widget': SpinBox(
-                        value = -110,
+                        value = -20,
                         suffix = 'dBm',
                         bounds = (-110, 10),
                         step = 1,
