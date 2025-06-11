@@ -460,6 +460,8 @@ class InstWidget(QWidget):
             self.i_analog.slider.setValue(50)
             self.green_laser_off.setChecked(True)
             self.blue_laser_off.setChecked(True)
+            with InstrumentManager() as mgr:
+                mgr.Pulser.set_state_off()
             # self.q_analog.label.setText("0.00")
             # self.i_analog.label.setText("0.00")
             # mgr.Pulser.set_state_off()
