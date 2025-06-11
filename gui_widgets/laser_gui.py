@@ -208,19 +208,18 @@ class InstWidget(QWidget):
                     #    mgr.DLnsec.power_settings(self.DLnsec_pwr)
                 
             def text_changed(self): # Makes sure text is valid, then sends off the value to the slider
-                text = self.label.text()
-                val=float(text)
-                if -1 <= val <= 1:
-                    self.label.setText(f"{val:.2f}")
-                    self.slider.setValue(int((val+1)*50))
-                elif text == "":
-                    self.label.setText("0.00")
-                    self.slider.setValue(0)
-                else:
-                    self.label.setText(f"{self.value:.2f}")
-                    print("Invalid input, please enter a number from -1 to 1")
+                text = self.label.text().strip()
+                try:
+                    val = float(text)
+                except ValueError as e:
+                    raise ValueError(f"Invalid input '{text}': not a valid float.") from e
+
+                if not (-1 <= val <= 1):
+                    raise ValueError(f"Invalid input '{val}': must be between -1 and 1.")
+
+                self.label.setText(f"{val:.2f}")
+                self.slider.setValue(int((val + 1) * 50))
                 self.value = val
-                self.slider.setValue(int((val+1)*50))
 
         self.q_analog = Analogs("Q")
         self.i_analog = Analogs("I")
@@ -540,8 +539,8 @@ class InstWidget(QWidget):
     #     self.pmt_shutter_button = QPushButton("Open PMT shutter")
     #     self.pmt_shutter_button.clicked.connect(lambda: self.pmt_shutter_status_changed())
 
-    
-    
-    
+
+
+
 
 
