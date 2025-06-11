@@ -33,6 +33,7 @@ from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt, QTimer
 
 import logging
+from instrument_activation import pulser_activation_boolean
 
 
 logger = logging.getLogger(__name__)
@@ -166,14 +167,18 @@ class InstWidget(QWidget):
         self.label.setFixedHeight(20)
         self.label.setStyleSheet("font-weight: bold")
 
-        with InstrumentManager() as mgr:
-            mgr.dr_ps.set_state_off()
+        if pulser_activation_boolean:
+            with InstrumentManager() as mgr:
+                mgr.Pulser.set_state_off()
 
         # with InstrumentManager() as mgr:
-        #     mgr.dr_ps.set_state_off()
+        #     mgr.Pulser.set_state_off()
         #ANALOG SLIDERS
         class Analogs:
             def __init__(self, analog_name):
+                self.title = QLabel(f"{analog_name} Analog Control")
+                self.title.setFixedHeight(20)
+                self.title.setStyleSheet("font-weight: bold")
                 self.slider = QSlider()
                 self.slider.setOrientation(Qt.Orientation.Horizontal)
                 self.slider.setTickPosition(QSlider.TickPosition.TicksBelow)
@@ -196,7 +201,7 @@ class InstWidget(QWidget):
                     }
                 """)
 
-            def value_changed(self):
+            def slider_changed(self):
                 self.value = (self.slider.value()-50)/50
                 self.label.setText(str(self.value))
                     #with InstrumentManager() as mgr:
@@ -214,16 +219,17 @@ class InstWidget(QWidget):
                 else:
                     self.label.setText(f"{self.value:.2f}")
                     print("Invalid input, please enter a number from -1 to 1")
-                self.value = self.slider.value()
+                self.value = val
+                self.slider.setValue(int((val+1)*50))
 
         self.q_analog = Analogs("Q")
         self.i_analog = Analogs("I")
 
-        self.q_analog.slider.valueChanged.connect(lambda: self.q_analog.value_changed())
+        self.q_analog.slider.valueChanged.connect(lambda: self.q_analog.slider_changed())
         self.q_analog.slider.sliderReleased.connect(lambda: self.change_experiment_state())
         self.q_analog.label.editingFinished.connect(lambda: self.q_analog.text_changed())
         self.q_analog.label.editingFinished.connect(lambda: self.change_experiment_state())
-        self.i_analog.slider.valueChanged.connect(lambda: self.i_analog.value_changed())
+        self.i_analog.slider.valueChanged.connect(lambda: self.i_analog.slider_changed())
         self.i_analog.slider.sliderReleased.connect(lambda: self.change_experiment_state())
         self.i_analog.label.editingFinished.connect(lambda: self.i_analog.text_changed())
         self.i_analog.label.editingFinished.connect(lambda: self.change_experiment_state())
@@ -237,11 +243,12 @@ class InstWidget(QWidget):
         self.mirror_label.setFixedHeight(20)
         self.mirror_label.setStyleSheet("font-weight: bold")
 
+
         self.mirror_button = QPushButton("Down")
         #self.mirror_button.setCheckable(True)
         self.mirror_style_boolean=False
         self.mirror_button.setStyleSheet("color: red; background-color: lightgray;")
-        self.mirror_button.clicked.connect(lambda:self.flip_mirror_leave_laser_on())
+        self.mirror_button.clicked.connect(lambda:self.flip_mirror())
 
         self.switch_button = QPushButton("Switch")
         self.switch_button.clicked.connect(lambda:self.change_button_style())
@@ -300,13 +307,16 @@ class InstWidget(QWidget):
         self.pulse_layout.addWidget(self.mirror_label,5,1,1,1)
         self.pulse_layout.addWidget(self.mirror_button,6,1,1,1)
         self.pulse_layout.addWidget(self.switch_button,6,2,1,1) 
-        self.pulse_layout.addWidget(self.label,7,1,1,1)      
 
-        self.pulse_layout.addWidget(self.i_analog.slider,8,2,1,2)
-        self.pulse_layout.addWidget(self.i_analog.label,8,1,1,1) 
-        self.pulse_layout.addWidget(self.q_analog.slider,9,2,1,2)
-        self.pulse_layout.addWidget(self.q_analog.label,9,1,1,1) 
-        self.pulse_layout.addWidget(self.reset_button,10,1,1,1)
+        self.pulse_layout.addWidget(self.q_analog.title,7,1,1,1)
+        self.pulse_layout.addWidget(self.q_analog.slider,8,2,1,2)
+        self.pulse_layout.addWidget(self.q_analog.label,8,1,1,1)     
+
+        self.pulse_layout.addWidget(self.i_analog.title,9,1,1,1)
+        self.pulse_layout.addWidget(self.i_analog.slider,10,2,1,2)
+        self.pulse_layout.addWidget(self.i_analog.label,10,1,1,1)
+        
+        self.pulse_layout.addWidget(self.reset_button,11,1,1,1)
         
 
         self.sig_gens_layout = QGridLayout()
@@ -401,7 +411,7 @@ class InstWidget(QWidget):
                 dig_chan.append(7)
             if self.blue_laser_on.isChecked():
                 dig_chan.append(3)
-            mgr.dr_ps.set_state(dig_chan, self.i_analog.value, self.q_analog.value)
+            mgr.Pulser.set_state(dig_chan, self.q_analog.value, self.i_analog.value)
     
     
     
@@ -420,10 +430,9 @@ class InstWidget(QWidget):
     def flip_mirror(self):
         self.mirror_boolean=not self.mirror_boolean
         with InstrumentManager() as mgr:
-            mgr.dr_ps.flip_mirror()
+            mgr.Pulser.flip_mirror()
         self.change_button_style()
-        self.green_laser_off.setChecked(True)
-        self.blue_laser_off.setChecked(True)
+        self.reset_function()
 
     def flip_mirror_leave_laser_on(self):
         self.change_button_style()
@@ -433,7 +442,7 @@ class InstWidget(QWidget):
         if self.blue_laser_on.isChecked():
             dig_chan.append(3)
         with InstrumentManager() as mgr:
-            mgr.dr_ps.flip_mirror(dig_chan, self.i_analog.value, self.q_analog.value)
+            mgr.Pulser.flip_mirror(dig_chan, self.q_analog.value, self.i_analog.value)
 
             
     
@@ -446,11 +455,11 @@ class InstWidget(QWidget):
             self.blue_laser_off.setChecked(True)
             # self.q_analog.label.setText("0.00")
             # self.i_analog.label.setText("0.00")
-            # mgr.dr_ps.set_state_off()
+            # mgr.Pulser.set_state_off()
             
     def closeEvent(self, event):
         with InstrumentManager() as mgr:
-            self.reset_function()
+            mgr.Pulser.set_state_off()
         if event:
             event.accept()
     

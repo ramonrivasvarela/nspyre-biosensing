@@ -29,15 +29,17 @@ nspyre_init_logger(
 
 from nspyre import serve_instrument_server_cli
 from nspyre import InstrumentServer
-#import pdb; pdb.set_trace()
+
 # create a new instrument server
+
+import pdb; pdb.set_trace()
 with InstrumentServer() as inserv:
    # add signal generator driver
    # 'sg' will be an instance of the class 'SG396' in the file ./drivers/sg.py. The class __init__ will be run with the given args. 
-   # inserv.add(name = 'sg', 
-   #            class_path= _HERE / 'drivers' / 'dr_sg396.py', 
-   #            class_name= 'SG396',
-   #            args= '')
+   inserv.add(name = 'sg', 
+              class_path= _HERE / 'drivers' / 'dr_sg396.py', 
+              class_name= 'SG396',
+              args= ['TCPIP::10.135.70.65::inst0::INSTR'])
    
    # REQUIRED IMPORT: pyserial
 #    inserv.add(name = 'DLnsec', 
@@ -46,11 +48,11 @@ with InstrumentServer() as inserv:
 #                 args= ['COM9'])
 
    #REQUIRED IMPORT: pulsestreamer
-   # inserv.add(name = 'dr_ps',
-   #             class_path= _HERE / 'drivers' / 'dr_pulse.py',
-   #             class_name= 'dr_ps',
-   #             args= []
-   #             )
+   inserv.add(name = 'Pulser',
+               class_path= _HERE / 'drivers' / 'dr_pulse.py',
+               class_name= 'PulserClass',
+               args= []
+               )
 
    # inserv.add(name = 'XYZcontrols',
    #            class_path= _HERE / 'drivers' / 'dr_xyz_controls.py',

@@ -1,0 +1,2 @@
+pulser_activation_boolean=False
+xyz_activation_boolean=False

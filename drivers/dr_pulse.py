@@ -11,7 +11,7 @@ from pulsestreamer import PulseStreamer, OutputState, Sequence
 
 
 
-class dr_ps():
+class PulserClass():
 
 
     

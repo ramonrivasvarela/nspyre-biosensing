@@ -37,6 +37,8 @@ class NIDAQMotionController():
 
     # ---- nspyre life-cycle ----
     def initialize(self):
+        if self.ao_motion_task is not None:
+            self.finalize()
         self.ao_motion_task = nidaqmx.Task('AO_Task')
         for name, ax in self.axes.items():
             kw = {}

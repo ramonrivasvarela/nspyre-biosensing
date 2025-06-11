@@ -22,6 +22,10 @@ from gui_widgets import laser_gui
 from gui_widgets import instrument_gui
 
 from drivers.insmgr import MyInstrumentManager
+from nspyre import InstrumentManager
+
+
+from instrument_activation import xyz_activation_boolean, pulser_activation_boolean
 
 
 _HERE = Path(__file__).parent
@@ -36,13 +40,16 @@ def main():
         file_size=10_000_000,
     )
 
-    with MyInstrumentManager() as insmgr:
+    with MyInstrumentManager() as insmgr, InstrumentManager() as mgr:
         app = nspyreApp()
-        # mgr.XYZcontrols.initialize()
+        if xyz_activation_boolean:
+            mgr.XYZcontrols.initialize()
         def app_close_event():
             print("Application is closing...")
-            # Perform cleanup tasks here
-            # mgr.XYZcontrols.finalize()  
+            if xyz_activation_boolean:
+                mgr.XYZcontrols.finalize()
+            if pulser_activation_boolean:
+                mgr.Pulser.set_state_off()
             print("Cleanup complete.")
 
         # Connect the close event to the app

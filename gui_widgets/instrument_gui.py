@@ -36,6 +36,7 @@ from PyQt6.QtCore import Qt, QTimer
 
 import logging
 
+from instrument_activation import xyz_activation_boolean
 
 
 logger = logging.getLogger(__name__)
@@ -211,17 +212,23 @@ class InstWidgetV2(QWidget):
         class AxisControl:
             def __init__(self, name):
                 self.name = name  # either 'x' or 'y'
-                with InstrumentManager() as mgr:
-                    self.name = name.lower()
-                    # self.value = mgr.XYZcontrols.axes[name].position
-                self.value = 0
+                #NEEDS CHANGE
+                if xyz_activation_boolean:
+                    with InstrumentManager() as mgr:
+                        self.name = name.lower()
+                        self.value = mgr.XYZcontrols.axes[name].position
+                else: 
+                    self.value=0
                 self.step = 1
                 self.suffix="nm"
-                # with InstrumentManager() as mgr:
-                #     self.min = mgr.XYZcontrols.axes[name].limits[0]
-                #     self.max = mgr.XYZcontrols.axes[name].limits[1]
-                self.max=1000
-                self.min=0
+                
+                if xyz_activation_boolean:
+                    with InstrumentManager() as mgr:
+                        self.min = mgr.XYZcontrols.axes[name].limits[0]
+                        self.max = mgr.XYZcontrols.axes[name].limits[1]
+                else: 
+                    self.max=1000
+                    self.min=0
 
                 
                 # Create and configure title label
@@ -235,8 +242,7 @@ class InstWidgetV2(QWidget):
                 self.spinbox.setFixedWidth(160)
                 self.spinbox.setRange(0, 1e6)
                 self.update_spinbox()
-                # self.spinbox.valueChanged.connect(lambda: self.check_suffix())
-                self.spinbox.sigValueChanged.connect(lambda: self.update_value())
+                self.spinbox.editingFinished.connect(lambda: self.update_value())
                 #self.spinbox.editingFinished.connect(lambda: self.update_value())
                 
                 # Create the change label (QLineEdit)
@@ -281,11 +287,11 @@ class InstWidgetV2(QWidget):
                     self.spinbox.setMaximum(self.max)
                     self.spinbox.setMinimum(self.min)
                     if self.value < 10:
-                        self.spinbox.setDecimals(4)
-                    elif self.value < 100:
                         self.spinbox.setDecimals(5)
-                    elif self.value < 1000:
+                    elif self.value < 100:
                         self.spinbox.setDecimals(6)
+                    elif self.value < 1000:
+                        self.spinbox.setDecimals(7)
                 else:
                     self.spinbox.setMaximum(self.max * 1e3)
                     self.spinbox.setMinimum(self.min * 1e3)
@@ -293,13 +299,13 @@ class InstWidgetV2(QWidget):
                     self.spinbox.setSuffix("nm")
                     self.spinbox.setSingleStep(self.step * 1e3)
                     if self.value < 1e-3:
-                        self.spinbox.setDecimals(1)
-                    elif self.value < 1e-2:
-                        self.spinbox.setDecimals(2)
-                    elif self.value < 1e-1:
                         self.spinbox.setDecimals(3)
-                    elif self.value < 1:
+                    elif self.value < 1e-2:
+                        self.spinbox.setDecimals(3)
+                    elif self.value < 1e-1:
                         self.spinbox.setDecimals(4)
+                    elif self.value < 1:
+                        self.spinbox.setDecimals(5)
             
 
 
@@ -341,9 +347,11 @@ class InstWidgetV2(QWidget):
         self.x_control = AxisControl("X")
         self.y_control = AxisControl("Y")
         self.z_control = AxisControl("Z")
-        self.x_control.spinbox.editingFinished.connect(lambda: print(self.x_control.value))
-        self.y_control.spinbox.editingFinished.connect(lambda: print(self.y_control.value))     
-        self.z_control.spinbox.editingFinished.connect(lambda: print(self.z_control.value))
+        if xyz_activation_boolean:
+            with InstrumentManager() as mgr:
+                self.x_control.spinbox.editingFinished.connect(lambda: mgr.XYZcontrol.move_x(self.x_control.value))
+                self.y_control.spinbox.editingFinished.connect(lambda: mgr.XYZcontrol.move_y(self.y_control.value))
+                self.z_control.spinbox.editingFinished.connect(lambda: mgr.XYZcontrol.move_z(self.z_control.value))
 
         # with InstrumentManager() as mgr:
         #     mgr.XYZcontrols.initialize()
