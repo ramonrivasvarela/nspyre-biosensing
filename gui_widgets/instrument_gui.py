@@ -211,19 +211,17 @@ class InstWidgetV2(QWidget):
         class AxisControl:
             def __init__(self, name):
                 self.name = name  # either 'x' or 'y'
+                with InstrumentManager() as mgr:
+                    self.name = name.lower()
+                    # self.value = mgr.XYZcontrols.axes[name].position
                 self.value = 0
-                self.step_value = 0
+                self.step = 1
                 self.suffix="nm"
                 # with InstrumentManager() as mgr:
                 #     self.min = mgr.XYZcontrols.axes[name].limits[0]
                 #     self.max = mgr.XYZcontrols.axes[name].limits[1]
                 self.max=1000
                 self.min=0
-
-                self.unit_button=QPushButton("nm")
-                self.unit_button.setFont(QFont("Sanserif", 15))
-                self.unit_button.setFixedWidth(50)
-                self.unit_button.clicked.connect(lambda: self.change_unit_function())
 
                 
                 # Create and configure title label
@@ -238,71 +236,97 @@ class InstWidgetV2(QWidget):
                 self.spinbox.setRange(0, 1e6)
                 self.update_spinbox()
                 # self.spinbox.valueChanged.connect(lambda: self.check_suffix())
-
-                self.spinbox.editingFinished.connect(lambda: self.update_spinbox())
+                self.spinbox.sigValueChanged.connect(lambda: self.update_value())
+                #self.spinbox.editingFinished.connect(lambda: self.update_value())
                 
                 # Create the change label (QLineEdit)
-                self.change_label = QLineEdit()
-                self.change_label.setFont(QFont("Sanserif", 15))
-                self.change_label.setFixedWidth(160)
-                self.edit_step_value()
-                self.change_label.editingFinished.connect(lambda: self.edit_step_label())
+                self.step_label = QLineEdit("0")
+                self.step_label.setFont(QFont("Sanserif", 15))
+                self.step_label.setFixedWidth(160)
+                self.edit_step_label()
+                self.step_label.editingFinished.connect(lambda: self.edit_step_value())
 
                 
                 
 
-            def update(self):
-                if self.suffix == "nm":
-                    self.value= self.spinbox.value() * 1e-3
-                else:
-                    self.value= self.spinbox.value()
-                self.update_spinbox()
+            def update_value(self):
+                text= self.spinbox.text().strip()
+                try:
+                    if text[-2:] == "nm":
+                        val_text = text[:-2].strip()
+                        self.value = float(val_text) * 1e-3
+                    elif text[-2:] == "um":
+                        val_text = text[:-2].strip()
+                        self.value = float(val_text)
+                    else:
+                        # In this branch, if converting to float fails, we raise an error.
+                        self.value = float(text)
+                
+                    self.update_spinbox()
+                except ValueError as e:
+                    raise ValueError(f"Invalid input '{text}': cannot convert to float. Please enter a number with an optional unit 'nm' or 'um'.") from e
+                # if self.spinbox.text == "nm":
+                #     self.value= self.spinbox.value() * 1e-3
+                # else:
+                #     self.value= self.spinbox.value()
+                # self.update_spinbox()
                 # Update the real value label when the spinbox value changes
             
             def update_spinbox(self, change=False):
 
-                if (self.value >= 1 and not (self.unit_button.text() == "nm" and change)) or (self.unit_button.text() == "um" and change):
-                    self.spinbox.setDecimals(3)
+                if self.value >= 1:# Show 3 decimal places
                     self.spinbox.setValue(self.value)
-                    self.spinbox.setSuffix(" um")
-                    # self.suffix = "um"
-                    self.unit_button.setText("nm")
+                    self.spinbox.setSuffix("um")
                     self.spinbox.setSingleStep(self.step)
-                    
                     self.spinbox.setMaximum(self.max)
                     self.spinbox.setMinimum(self.min)
-                    
+                    if self.value < 10:
+                        self.spinbox.setDecimals(4)
+                    elif self.value < 100:
+                        self.spinbox.setDecimals(5)
+                    elif self.value < 1000:
+                        self.spinbox.setDecimals(6)
                 else:
-                    self.spinbox.setMaximum(self.max*1e3)
-                    self.spinbox.setMinimum(self.min*1e3)
+                    self.spinbox.setMaximum(self.max * 1e3)
+                    self.spinbox.setMinimum(self.min * 1e3)
                     self.spinbox.setValue(self.value * 1e3)
-                    self.spinbox.setSuffix(" nm")
-                    # self.suffix="nm"
-                    self.unit_button.setText("um")
-                    self.spinbox.setSingleStep(self.step*1e3)
-                    self.spinbox.setDecimals(1)
+                    self.spinbox.setSuffix("nm")
+                    self.spinbox.setSingleStep(self.step * 1e3)
+                    if self.value < 1e-3:
+                        self.spinbox.setDecimals(1)
+                    elif self.value < 1e-2:
+                        self.spinbox.setDecimals(2)
+                    elif self.value < 1e-1:
+                        self.spinbox.setDecimals(3)
+                    elif self.value < 1:
+                        self.spinbox.setDecimals(4)
             
-            def change_label_edit(self):
-                text = self.change_label.text().strip()
-                factor, val_text = self.convert_units(text)
-                self.step_value = float(val_text) * factor
-                self.update_spinbox()
-                self.edit_step_value()
 
-            def convert_units(self, text):
-                if text[-2:] == "nm":
-                    return 1e-3, text[:-2]
-                elif text[-2:] == "um":
-                    return 1, text[:-2]
-                else:
-                    return 1, text
-            ### interval for the change value
+
             def edit_step_value(self):
-                if self.step_value < 1:
-                    self.change_label.setText(f"{self.step_value * 1e3:.3f} nm")
+                text = self.step_label.text().strip()
+                try:
+                    if text[-2:] == "nm":
+                        val_text = text[:-2].strip()
+                        self.step = float(val_text) * 1e-3
+                    elif text[-2:] == "um":
+                        val_text = text[:-2].strip()
+                        self.step = float(val_text)
+                    else:
+                        # In this branch, if converting to float fails, we raise an error.
+                        self.step = float(text)
+                except ValueError as e:
+                    raise ValueError(f"Invalid input '{text}': cannot convert to float. Please enter a number with an optional unit 'nm' or 'um'.") from e
+
+                self.update_spinbox()
+                self.edit_step_label()
+
+            ### interval for the change value
+            def edit_step_label(self):
+                if self.step < 1:
+                    self.step_label.setText(f"{self.step * 1e3:.1f} nm")
                 else:
-                    self.change_label.setText(f"{self.step_value:.3f} um")
-                self.update_spinbox(True)
+                    self.step_label.setText(f"{self.step:.3f} um")
             ###
 
             def change_unit_function(self):
@@ -317,6 +341,9 @@ class InstWidgetV2(QWidget):
         self.x_control = AxisControl("X")
         self.y_control = AxisControl("Y")
         self.z_control = AxisControl("Z")
+        self.x_control.spinbox.editingFinished.connect(lambda: print(self.x_control.value))
+        self.y_control.spinbox.editingFinished.connect(lambda: print(self.y_control.value))     
+        self.z_control.spinbox.editingFinished.connect(lambda: print(self.z_control.value))
 
         # with InstrumentManager() as mgr:
         #     mgr.XYZcontrols.initialize()
@@ -363,18 +390,15 @@ class InstWidgetV2(QWidget):
         self.xyz_layout.addWidget(self.xyz_label,1,1,1,1)
         self.xyz_layout.addWidget(self.x_control.title,2,1,1,1)
         self.xyz_layout.addWidget(self.x_control.spinbox,3,1,1,1)
-        self.xyz_layout.addWidget(self.x_control.unit_button,3,2,1,1)
-        self.xyz_layout.addWidget(self.x_control.change_label,3,3,1,1)
+        self.xyz_layout.addWidget(self.x_control.step_label,3,2,1,1)
 
         self.xyz_layout.addWidget(self.y_control.title,4,1,1,1)
         self.xyz_layout.addWidget(self.y_control.spinbox,5,1,1,1)
-        self.xyz_layout.addWidget(self.y_control.unit_button,5,2,1,1)
-        self.xyz_layout.addWidget(self.y_control.change_label,5,3,1,1)
+        self.xyz_layout.addWidget(self.y_control.step_label,5,2,1,1)
 
         self.xyz_layout.addWidget(self.z_control.title,6,1,1,1)
         self.xyz_layout.addWidget(self.z_control.spinbox,7,1,1,1)
-        self.xyz_layout.addWidget(self.z_control.unit_button,7,2,1,1)
-        self.xyz_layout.addWidget(self.z_control.change_label,7,3,1,1)
+        self.xyz_layout.addWidget(self.z_control.step_label,7,2,1,1)
 
 
 
@@ -463,6 +487,8 @@ class InstWidgetV2(QWidget):
 
             self.sg396_status_label.setStyleSheet("color: white; background-color: black; border: 4px solid black;")
             self.sg396_status_label.setText("SRS SG396 Status: OFF")
+    
+
 
 
 

@@ -102,8 +102,7 @@ class XYZSetup():
     def initialize(self):
         self.ctrl.initialize()
 
-    def finalize(self):
-        self.ctrl.finalize()
+    
 
     # getters
     def get_x(self): return self.ctrl.position['x']
@@ -122,3 +121,7 @@ class XYZSetup():
             'y': y if y is not None else self.get_y(),
             'z': z if z is not None else self.get_z()
         })
+
+    def finalize(self):
+        self.move_to(0, 0, 0)  # Move to home position
+        self.ctrl.finalize()
