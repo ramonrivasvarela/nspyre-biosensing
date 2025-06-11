@@ -25,7 +25,7 @@ from drivers.insmgr import MyInstrumentManager
 from nspyre import InstrumentManager
 
 
-from instrument_activation import xyz_activation_boolean, pulser_activation_boolean
+from instrument_activation import xyz_activation_boolean, pulser_activation_boolean, sg_activation_boolean, dlnsec_activation_boolean, 
 
 
 _HERE = Path(__file__).parent
@@ -50,6 +50,9 @@ def main():
                 mgr.XYZcontrols.finalize()
             if pulser_activation_boolean:
                 mgr.Pulser.set_state_off()
+            if sg_activation_boolean:
+                mgr.sg.set_rf_toggle(0)
+
             print("Cleanup complete.")
 
         # Connect the close event to the app
