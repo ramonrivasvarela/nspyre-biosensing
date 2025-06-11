@@ -167,11 +167,10 @@ class SG396:
         return int(self.device.query('MFNC?'))
 
     def set_mod_function(self, exp, value):
-        match exp:
-            case 'FM':
-                self.device.write(f"MFNC {value}")
-            case 'IQ':
-                self.device.write(f"QFNC {value}")
+        if exp == 'AM' or exp == 'FM' or exp == 'Phase':
+            self.device.write(f"MFNC {self.MODULATION_FUNCTION[value]}")  # Fixed reference
+        elif exp == 'QAM':
+            self.device.write(f"QFNC {self.MODULATION_FUNCTION[value]}")
 
     # units = "Hz", limits = (0.1, 100.e3))
     def get_mod_rate(self):

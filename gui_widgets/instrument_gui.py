@@ -181,7 +181,7 @@ class InstWidgetV2(QWidget):
         )
 
 
-        self.sg396_status_label = QLabel("SRS SG396 status here")
+        self.sg396_status_label = QLabel(f"SRS SG396 status: ")
         self.sg396_status_label.setStyleSheet("color: white; background-color: black; border: 4px solid black;")
         self.sg396_status_label.setFixedHeight(40)
 
@@ -436,17 +436,17 @@ class InstWidgetV2(QWidget):
     '''
 
     # output sg396 frequency without sideband modulation
-    def sg396_emit_button_clicked(self):
-        with InstrumentManager() as mgr:
-            fun_kwargs = dict(**self.sg396_params_widget_1.all_params(), **self.sg396_params_widget_2.all_params())
-            # print("power to emit:", fun_kwargs['RF_Power'])
-            # print("freq to emit: ", fun_kwargs['RF_Frequency'])
-            mgr.sg.set_frequency(fun_kwargs['RF_Frequency'])
-            mgr.sg.set_rf_amplitude(fun_kwargs['RF_Power'])
-            mgr.sg.set_mod_type('QAM')
-            mgr.sg.set_mod_toggle(1)
-            mgr.sg.set_rf_toggle(1)
-            mgr.sg.set_mod_function('external')
+    # def sg396_emit_button_clicked(self):
+    #     with InstrumentManager() as mgr:
+    #         fun_kwargs = dict(**self.sg396_params_widget_1.all_params(), **self.sg396_params_widget_2.all_params())
+    #         # print("power to emit:", fun_kwargs['RF_Power'])
+    #         # print("freq to emit: ", fun_kwargs['RF_Frequency'])
+    #         mgr.sg.set_frequency(fun_kwargs['RF_Frequency'])
+    #         mgr.sg.set_rf_amplitude(fun_kwargs['RF_Power'])
+    #         mgr.sg.set_mod_type('QAM')
+    #         mgr.sg.set_mod_toggle(1)
+    #         mgr.sg.set_rf_toggle(1)
+    #         mgr.sg.set_mod_function('external')
 
     def sg396_checked(self, box):
         if box.isChecked() == True:
@@ -456,6 +456,7 @@ class InstWidgetV2(QWidget):
             self.sg396_emit_button.setEnabled(True)
             self.sg396_stop_button.setEnabled(True)
             [self.sg396_opacity_effects[i].setEnabled(False) for i in range(5)]
+
 
         else:
             self.sg396_params_widget_1.setEnabled(False)
@@ -477,16 +478,20 @@ class InstWidgetV2(QWidget):
             sig_gen.set_rf_amplitude(fun_kwargs['rf_amplitude'])
             sig_gen.set_phase(fun_kwargs['phase'])
             sig_gen.set_mod_toggle(fun_kwargs['mod_toggle'])
-            sig_gen.set_mod_type(fun_kwargs['mod_type'])
-            sig_gen.set_mod_function(fun_kwargs['mod_func'])
-            sig_gen.set_mod_rate(fun_kwargs['mod_rate'])
-            sig_gen.set_AM_mod_depth(fun_kwargs['AM_mod'])
-            sig_gen.set_FM_mod_depth(fun_kwargs['FM_mod'])
+            if fun_kwargs['mod_toggle']:
+                sig_gen.set_mod_type(fun_kwargs['mod_type'])
+                sig_gen.set_mod_function(fun_kwargs['mod_type'],fun_kwargs['mod_func'])
+                sig_gen.set_mod_rate(fun_kwargs['mod_rate'])
+                sig_gen.set_AM_mod_depth(fun_kwargs['AM_mod'])
+                sig_gen.set_FM_mod_depth(fun_kwargs['FM_mod'])
             
             sig_gen.set_rf_toggle(1)
-
+            print('rf_toggle: ',sig_gen.get_rf_toggle())
+            
+            pwr = float(sig_gen.get_rf_amplitude())
+            freq = float(sig_gen.get_frequency())
             self.sg396_status_label.setStyleSheet("color: black; background-color: gold; border: 4px solid black;")
-            self.sg396_status_label.setText(f"SRS SG396 Status: ON ({fun_kwargs['rf_frequency']*1e-9} GHz at {fun_kwargs['rf_amplitude']} dBm)")
+            self.sg396_status_label.setText(f"SRS SG396 Status: ON ({freq*1e-9} GHz at {pwr} dBm)")
             
     def sg396_stop_button_clicked(self):
         with InstrumentManager() as mgr:
