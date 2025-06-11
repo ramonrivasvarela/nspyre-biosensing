@@ -28,7 +28,7 @@ class NIDAQAxis:
 
 class NIDAQMotionController():
     def __init__(self, ctr_ch, acq_rate, axes: dict[str, NIDAQAxis]):
-        super().__init__()                       # <- important
+        # super().__init__()                       # <- important
         self.axes      = OrderedDict(axes)
         self.position  = {name: 0 for name in axes}
         self.acq_rate  = acq_rate
@@ -91,11 +91,11 @@ class XYZSetup():
         super().__init__()                       # <- important
 
         x = NIDAQAxis(x_ch, 0.73/11.42 ,
-                      limits=(-114.2/0.73, 114.2/0.73))
+                      limits=(-114.2/0.73, 114.2/0.73))# Calibration: V/um
         y = NIDAQAxis(y_ch,  1/11.42,
-                      limits=(-114.2,  114.2    ))
+                      limits=(-114.2,  114.2    ))# Calibration: V/um
         z = NIDAQAxis(z_ch, 1/25,
-                      limits=(0, 250      ))
+                      limits=(0, 250      )) # Calibration: V/um
 
         self.ctrl = NIDAQMotionController(ctr_ch, 15000,
                                           {'x': x, 'y': y, 'z': z})
