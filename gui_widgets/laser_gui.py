@@ -148,6 +148,14 @@ class InstWidget(QWidget):
             
         self.blue_laser_off = QRadioButton("OFF")
 
+        self.switch_label = QLabel("Switch:")
+        self.switch_label.setFixedHeight(20)
+        self.switch_label.setStyleSheet("font-weight: bold")
+
+        self.switch_on = QRadioButton("ON")
+
+        self.switch_off = QRadioButton("OFF")
+
 
         self.green_laser_group = QButtonGroup(self)
         self.green_laser_group.addButton(self.green_laser_on)   # ON
@@ -160,8 +168,14 @@ class InstWidget(QWidget):
         self.blue_laser_group.addButton(self.blue_laser_off)  # OFF
         self.blue_laser_off.setChecked(True)
 
+        self.switch_group = QButtonGroup(self)
+        self.switch_group.addButton(self.switch_on)   # ON
+        self.switch_group.addButton(self.switch_off)  # OFF
+        self.switch_off.setChecked(True)
+
         self.green_laser_on.toggled.connect(lambda:self.change_experiment_state())
         self.blue_laser_on.toggled.connect(lambda:self.change_experiment_state())
+        self.switch_on.toggled.connect(lambda:self.change_experiment_state())
 
         self.label= QLabel("Analog Control")
         self.label.setFixedHeight(20)
@@ -203,7 +217,7 @@ class InstWidget(QWidget):
 
             def slider_changed(self):
                 self.value = (self.slider.value()-100)/100
-                self.label.setText(str(self.value))
+                self.label.setText(f"{self.value:.2f}")
                     #with InstrumentManager() as mgr:
                     #    mgr.DLnsec.power_settings(self.DLnsec_pwr)
                 
@@ -307,6 +321,9 @@ class InstWidget(QWidget):
         self.pulse_layout.addWidget(self.blue_laser_label,2,1,1,1)
         self.pulse_layout.addWidget(self.blue_laser_on,2,2,1,1)
         self.pulse_layout.addWidget(self.blue_laser_off,2,3,1,1)
+        self.pulse_layout.addWidget(self.switch_label,3,1,1,1)
+        self.pulse_layout.addWidget(self.switch_on,3,2,1,1)
+        self.pulse_layout.addWidget(self.switch_off,3,3,1,1)
 
         self.pulse_layout.addWidget(self.mirror_label,5,1,1,1)
         self.pulse_layout.addWidget(self.mirror_button,6,1,1,1)
@@ -417,6 +434,8 @@ class InstWidget(QWidget):
                 dig_chan.append(7)
             if self.blue_laser_on.isChecked():
                 dig_chan.append(3)
+            if self.switch_on.isChecked():
+                dig_chan.append(6)
             if self.i_analog.value<=1 and self.i_analog.value>=-1 and self.q_analog.value<=1 and self.q_analog.value>=-1:
                 mgr.Pulser.set_state(dig_chan, self.q_analog.value, self.i_analog.value)
     
@@ -448,6 +467,8 @@ class InstWidget(QWidget):
             dig_chan.append(7)
         if self.blue_laser_on.isChecked():
             dig_chan.append(3)
+        if self.switch_on.isChecked():
+            dig_chan.append(6)
         with InstrumentManager() as mgr:
             mgr.Pulser.flip_mirror(dig_chan, self.q_analog.value, self.i_analog.value)
 
@@ -456,10 +477,11 @@ class InstWidget(QWidget):
 
     def reset_function(self):
         with InstrumentManager() as mgr:
-            self.q_analog.slider.setValue(50)
-            self.i_analog.slider.setValue(50)
+            self.q_analog.slider.setValue(100)
+            self.i_analog.slider.setValue(100)
             self.green_laser_off.setChecked(True)
             self.blue_laser_off.setChecked(True)
+            self.switch_off.setChecked(True)
             with InstrumentManager() as mgr:
                 mgr.Pulser.set_state_off()
             # self.q_analog.label.setText("0.00")
