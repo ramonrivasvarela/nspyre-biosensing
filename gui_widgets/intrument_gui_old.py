@@ -39,7 +39,6 @@ from pyqtgraph.Qt import QtWidgets
 import logging
 import re
 
-from .StepWidget import StepWidget #### Custom Made by David, relative import
 
 # class UnitSpinBox(QDoubleSpinBox):
 #     def __init__(self, parent=None):
