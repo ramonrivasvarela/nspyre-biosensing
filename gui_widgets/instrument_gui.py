@@ -241,7 +241,7 @@ class InstWidgetV2(QWidget):
 
                 
                 # Create and configure title label
-                self.title = QLabel(f"{name.upper()} Control")
+                self.title = QLabel(f"{name.upper()}:")
                 self.title.setFixedHeight(20)
                 self.title.setStyleSheet("font-weight: bold")
                 
@@ -395,16 +395,16 @@ class InstWidgetV2(QWidget):
         self.xyz_layout.setSpacing(10)
         self.xyz_layout.addWidget(self.xyz_label,1,1,1,1)
         self.xyz_layout.addWidget(self.x_control.title,2,1,1,1)
-        self.xyz_layout.addWidget(self.x_control.spinbox,3,1,1,1)
-        self.xyz_layout.addWidget(self.x_control.step_label,3,2,1,1)
+        self.xyz_layout.addWidget(self.x_control.spinbox,2,2,1,1)
+        self.xyz_layout.addWidget(self.x_control.step_label,2,3,1,1)
 
         self.xyz_layout.addWidget(self.y_control.title,4,1,1,1)
-        self.xyz_layout.addWidget(self.y_control.spinbox,5,1,1,1)
-        self.xyz_layout.addWidget(self.y_control.step_label,5,2,1,1)
+        self.xyz_layout.addWidget(self.y_control.spinbox,4,2,1,1)
+        self.xyz_layout.addWidget(self.y_control.step_label,4,3,1,1)
 
         self.xyz_layout.addWidget(self.z_control.title,6,1,1,1)
-        self.xyz_layout.addWidget(self.z_control.spinbox,7,1,1,1)
-        self.xyz_layout.addWidget(self.z_control.step_label,7,2,1,1)
+        self.xyz_layout.addWidget(self.z_control.spinbox,6,2,1,1)
+        self.xyz_layout.addWidget(self.z_control.step_label,6,3,1,1)
 
 
 
