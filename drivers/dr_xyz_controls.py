@@ -59,7 +59,7 @@ class NIDAQMotionController():
     #     return {axis: self.axes[axis]._as_quantity(val) for axis, val in point.items()}
 
     def move(self, target: dict):
-        steps       = 10
+        steps = 10
         start_v = np.array([
             axis.units_to_volts(self.position[name])
             for name, axis in self.axes.items()
@@ -68,7 +68,10 @@ class NIDAQMotionController():
             axis.units_to_volts(target[name])
             for name, axis in self.axes.items()
         ])
-        voltages    = np.linspace(start_v, stop_v, steps).T
+        voltages = np.linspace(start_v, stop_v, steps).T
+
+        # Ensure voltages array is C-contiguous
+        voltages = np.ascontiguousarray(voltages)
 
         self.ao_motion_task.timing.cfg_samp_clk_timing(
             self.acq_rate,
@@ -86,39 +89,36 @@ class NIDAQMotionController():
 
 
 # ---------- high-level XYZ driver ----------
-class XYZSetup():
+class XYZSetup(NIDAQMotionController):
     def __init__(self, x_ch, y_ch, z_ch, ctr_ch):
-        super().__init__()                       # <- important
-
-        x = NIDAQAxis(x_ch, 0.73/11.42 ,
-                      limits=(-114.2/0.73, 114.2/0.73))# Calibration: V/um
-        y = NIDAQAxis(y_ch,  1/11.42,
-                      limits=(-114.2,  114.2    ))# Calibration: V/um
-        z = NIDAQAxis(z_ch, 1/25,
-                      limits=(0, 250      )) # Calibration: V/um
-
-        self.ctrl = NIDAQMotionController(ctr_ch, 15000,
-                                          {'x': x, 'y': y, 'z': z})
+        # Initialize the parent class (NIDAQMotionController)
+        super().__init__(ctr_ch, 15000, {
+            'x': NIDAQAxis(x_ch, 0.73 / 11.42, limits=(-114.2 / 0.73, 114.2 / 0.73)),  # Calibration: V/um
+            'y': NIDAQAxis(y_ch, 1 / 11.42, limits=(-114.2, 114.2)),  # Calibration: V/um
+            'z': NIDAQAxis(z_ch, 1 / 25, limits=(0, 250))  # Calibration: V/um
+        })
 
     # nspyre life-cycle proxies
     def initialize(self):
-        self.ctrl.initialize()
-
-    
+        super().initialize()
 
     # getters
-    def get_x(self): return self.ctrl.position['x']
-    def get_y(self): return self.ctrl.position['y']
-    def get_z(self): return self.ctrl.position['z']
+    def get_x(self): return self.position['x']
+    def get_y(self): return self.position['y']
+    def get_z(self): return self.position['z']
+
+    def get_position(self):
+
+        return {'x':self.position['x'], 'y':self.position['y'], 'z':self.position['z']}
 
     # single-axis moves
-    def move_x(self, val): self.ctrl.move({'x': val, 'y': self.get_y(), 'z': self.get_z()})
-    def move_y(self, val): self.ctrl.move({'x': self.get_x(), 'y': val, 'z': self.get_z()})
-    def move_z(self, val): self.ctrl.move({'x': self.get_x(), 'y': self.get_y(), 'z': val})
+    def move_x(self, val): super().move({'x': val, 'y': self.get_y(), 'z': self.get_z()})
+    def move_y(self, val): super().move({'x': self.get_x(), 'y': val, 'z': self.get_z()})
+    def move_z(self, val): super().move({'x': self.get_x(), 'y': self.get_y(), 'z': val})
 
     # 3-axis move
     def move_to(self, x=None, y=None, z=None):
-        self.ctrl.move({
+        super().move({
             'x': x if x is not None else self.get_x(),
             'y': y if y is not None else self.get_y(),
             'z': z if z is not None else self.get_z()
@@ -126,4 +126,4 @@ class XYZSetup():
 
     def finalize(self):
         self.move_to(0, 0, 0)  # Move to home position
-        self.ctrl.finalize()
+        super().finalize()

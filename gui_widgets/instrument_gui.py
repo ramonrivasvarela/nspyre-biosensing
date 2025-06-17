@@ -214,47 +214,41 @@ class InstWidgetV2(QWidget):
 
 
     def init_xyz_control(self):
-
-        self.xyz_label= QLabel("XYZ Control")
+        self.xyz_label = QLabel("XYZ Control")
         self.xyz_label.setFixedHeight(20)
-        self.xyz_label.setStyleSheet("font-weight: bold") 
+        self.xyz_label.setStyleSheet("font-weight: bold")
+
         class AxisControl:
             def __init__(self, name):
-                self.name = name  # either 'x' or 'y'
-                #NEEDS CHANGE
-                if xyz_activation_boolean:
-                    with InstrumentManager() as mgr:
-                        self.name = name.lower()
-                        self.value = mgr.XYZcontrols.axes[name].position
-                else: 
-                    self.value=0
+                self.name = name.lower()  # 'x', 'y', or 'z'
                 self.step = 1
-                self.suffix="nm"
-                
+                self.suffix = "nm"
+
+                # Get values directly from XYZSetup
                 if xyz_activation_boolean:
                     with InstrumentManager() as mgr:
-                        self.min = mgr.XYZcontrols.axes[name].limits[0]
-                        self.max = mgr.XYZcontrols.axes[name].limits[1]
-                else: 
-                    self.max=1000
-                    self.min=0
+                        xyz_setup = mgr.XYZcontrol
+                        self.value = xyz_setup.get_x() if name == 'x' else xyz_setup.get_y() if name == 'y' else xyz_setup.get_z()
+                        self.min = xyz_setup.axes[name].limits[0]
+                        self.max = xyz_setup.axes[name].limits[1]
+                else:
+                    self.value = 0
+                    self.min = 0
+                    self.max = 1000
 
-                
                 # Create and configure title label
                 self.title = QLabel(f"{name.upper()} Control")
                 self.title.setFixedHeight(20)
                 self.title.setStyleSheet("font-weight: bold")
-                
-                
+
                 # Create the spinbox for this axis
                 self.spinbox = SpinBox()
                 self.spinbox.setFont(QFont("Sanserif", 15))
                 self.spinbox.setFixedWidth(160)
-                self.spinbox.setRange(0, 1e6)
+                self.spinbox.setRange(self.min, self.max)
                 self.update_spinbox()
                 self.spinbox.editingFinished.connect(lambda: self.update_value())
-                #self.spinbox.editingFinished.connect(lambda: self.update_value())
-                
+
                 # Create the change label (QLineEdit)
                 self.step_label = QLineEdit("0")
                 self.step_label.setFont(QFont("Sanserif", 15))
@@ -262,11 +256,8 @@ class InstWidgetV2(QWidget):
                 self.edit_step_label()
                 self.step_label.editingFinished.connect(lambda: self.edit_step_value())
 
-                
-                
-
             def update_value(self):
-                text= self.spinbox.text().strip()
+                text = self.spinbox.text().strip()
                 try:
                     if text[-2:] == "nm":
                         val_text = text[:-2].strip()
@@ -275,29 +266,19 @@ class InstWidgetV2(QWidget):
                         val_text = text[:-2].strip()
                         self.value = float(val_text)
                     else:
-                        # In this branch, if converting to float fails, we raise an error.
                         self.value = float(text)
-                
                     self.update_spinbox()
                 except ValueError as e:
                     raise ValueError(f"Invalid input '{text}': cannot convert to float. Please enter a number with an optional unit 'nm' or 'um'.") from e
-                # if self.spinbox.text == "nm":
-                #     self.value= self.spinbox.value() * 1e-3
-                # else:
-                #     self.value= self.spinbox.value()
-                # self.update_spinbox()
-                # Update the real value label when the spinbox value changes
-            
-            def update_spinbox(self, change=False):
 
-                if self.value >= 1:# Show 3 decimal places
+            def update_spinbox(self, change=False):
+                if np.abs(self.value) >= 1:
                     self.spinbox.setDecimals(7)
                     self.spinbox.setValue(self.value)
                     self.spinbox.setSuffix("um")
                     self.spinbox.setSingleStep(self.step)
                     self.spinbox.setMaximum(self.max)
                     self.spinbox.setMinimum(self.min)
-                
                 else:
                     self.spinbox.setMaximum(self.max * 1e3)
                     self.spinbox.setMinimum(self.min * 1e3)
@@ -305,8 +286,6 @@ class InstWidgetV2(QWidget):
                     self.spinbox.setSuffix("nm")
                     self.spinbox.setSingleStep(self.step * 1e3)
                     self.spinbox.setDecimals(5)
-            
-
 
             def edit_step_value(self):
                 text = self.step_label.text().strip()
@@ -318,7 +297,6 @@ class InstWidgetV2(QWidget):
                         val_text = text[:-2].strip()
                         self.step = float(val_text)
                     else:
-                        # In this branch, if converting to float fails, we raise an error.
                         self.step = float(text)
                 except ValueError as e:
                     raise ValueError(f"Invalid input '{text}': cannot convert to float. Please enter a number with an optional unit 'nm' or 'um'.") from e
@@ -326,37 +304,22 @@ class InstWidgetV2(QWidget):
                 self.update_spinbox()
                 self.edit_step_label()
 
-            ### interval for the change value
             def edit_step_label(self):
                 if self.step < 1:
                     self.step_label.setText(f"{self.step * 1e3:.1f} nm")
                 else:
                     self.step_label.setText(f"{self.step:.3f} um")
-            ###
 
-            def change_unit_function(self):
-                self.update_spinbox(True)
+        self.x_control = AxisControl("x")
+        self.y_control = AxisControl("y")
+        self.z_control = AxisControl("z")
 
-
-            
-            
-
-                
-
-        self.x_control = AxisControl("X")
-        self.y_control = AxisControl("Y")
-        self.z_control = AxisControl("Z")
+        # Initialize xyz_setup outside the signal connection
         if xyz_activation_boolean:
-            with InstrumentManager() as mgr:
-                self.x_control.spinbox.editingFinished.connect(lambda: mgr.XYZcontrol.move_x(self.x_control.value))
-                self.y_control.spinbox.editingFinished.connect(lambda: mgr.XYZcontrol.move_y(self.y_control.value))
-                self.z_control.spinbox.editingFinished.connect(lambda: mgr.XYZcontrol.move_z(self.z_control.value))
-
-        # with InstrumentManager() as mgr:
-        #     mgr.XYZcontrols.initialize()
-        #     self.x_control.spinbox.valueChanged.valueChanged(lambda:mgr.XYZcontrols.x_move(self.x_control.value))
-        #     self.y_control.spinbox.valueChanged.valueChanged(lambda:mgr.XYZcontrols.y_move(self.y_control.value))
-        #     self.z_control.spinbox.valueChanged.valueChanged(lambda:mgr.XYZcontrols.z_move(self.z_control.value))    
+            self.xyz_setup = InstrumentManager().XYZcontrol
+            self.x_control.spinbox.editingFinished.connect(lambda: self.xyz_setup.move_x(self.x_control.value))
+            self.y_control.spinbox.editingFinished.connect(lambda: self.xyz_setup.move_y(self.y_control.value))
+            self.z_control.spinbox.editingFinished.connect(lambda: self.xyz_setup.move_z(self.z_control.value))
 
 
 
@@ -416,8 +379,8 @@ class InstWidgetV2(QWidget):
         # self.gui_layout.addLayout(self.DLnsec_layout)
 
         self.main_grid_layout = QGridLayout()  
-        self.main_grid_layout.addWidget(self.sg396_frame, 0, 0)  # Row 0, Column 0  
-        self.main_grid_layout.addWidget(self.xyz_frame, 1, 0)    # Row 1, Column 0 (below pulse_frame)  
+        self.main_grid_layout.addWidget(self.sg396_frame, 0, 0, 2, 1)  # Row 0, Column 0  
+        self.main_grid_layout.addWidget(self.xyz_frame, 1, 0, 1, 1)    # Row 1, Column 0 (below pulse_frame)  
         self.setLayout(self.main_grid_layout)  
     
 

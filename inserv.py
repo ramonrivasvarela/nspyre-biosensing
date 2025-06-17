@@ -63,10 +63,10 @@ with InstrumentServer() as inserv:
    if xyz_activation_boolean:
       
 
-      inserv.add(name = 'XYZcontrols',
+      inserv.add(name = 'XYZcontrol',
                class_path= _HERE / 'drivers' / 'dr_xyz_controls.py',
                class_name= 'XYZSetup',
-               args= ['Dev1/ao0', 'Dev1/ao1', 'Dev1/ao2', 'TCPIP::10.135.70.127::SOCKET']
+               args= ['Dev1/ao0', 'Dev1/ao1', 'Dev1/ao2', 'Dev1/crt1']
                )
    
 

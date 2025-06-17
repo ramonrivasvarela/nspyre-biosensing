@@ -43,11 +43,12 @@ def main():
     with MyInstrumentManager() as insmgr, InstrumentManager() as mgr:
         app = nspyreApp()
         if xyz_activation_boolean:
-            mgr.XYZcontrols.initialize()
+            mgr.XYZcontrol.initialize()
+            print("Initialized XYZ control.")
         def app_close_event():
             print("Application is closing...")
             if xyz_activation_boolean:
-                mgr.XYZcontrols.finalize()
+                mgr.XYZcontrol.finalize()
             if pulser_activation_boolean:
                 mgr.Pulser.set_state_off()
             if sg_activation_boolean:
