@@ -66,9 +66,14 @@ with InstrumentServer() as inserv:
       inserv.add(name = 'XYZcontrol',
                class_path= _HERE / 'drivers' / 'dr_xyz_controls.py',
                class_name= 'XYZSetup',
-               args= ['Dev1/ao0', 'Dev1/ao1', 'Dev1/ao2', 'Dev1/crt1']
+               args= ['Dev1/ao0', 'Dev1/ao1', 'Dev1/ao2', 'Dev1/ctr1']
                )
-   
+
+      inserv.add(name = 'DAQCounter',
+            class_path= _HERE / 'drivers' / 'dr_DAQ_counter.py',
+            class_name= 'DAQCounter',
+            args= ['Dev1','ctr1']
+            )
 
    # run a CLI (command-line interface) that allows the user to enter
    # commands to control the server
