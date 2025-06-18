@@ -40,7 +40,7 @@ def main():
         file_size=10_000_000,
     )
 
-    with MyInstrumentManager() as insmgr, InstrumentManager() as mgr:
+    with InstrumentManager() as mgr:
         app = nspyreApp()
         if xyz_activation_boolean:
             mgr.XYZcontrol.initialize()
