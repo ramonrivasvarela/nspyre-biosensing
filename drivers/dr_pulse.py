@@ -38,6 +38,9 @@ class PulserClass():
         self.IQtest = [.95, 0]
         self.IQleft = [0.355, 0.348]
         self.IQright = [0.357, 0.350]
+        self.channel_dict = {"clock": 0, "camera": 1, "405": 2, "488":3, "647": 4, "mirror": 5, "switch": 6, "laser": 7, "": None}
+
+
 
     
     
@@ -61,7 +64,86 @@ class PulserClass():
     def flip_mirror(self, output=[], i=0, q=0, n_runs=1):
         pulse = [(1000000, [5], 0, 0)]
         self.Pulser.stream(pulse, n_runs, final=OutputState(output, i, q))
+    
+    def stream_umOFF(self,seq,n_runs): #
+        self.Pulser.stream(seq,n_runs, final = OutputState([],-1,0))
+
+    def reset(self):
+        self.Pulser.reset()
+
+    def WFODMR(self, runs, ns_exp_time, ns_readout_time, trig = 10000000, buff = 5000000, mode = 'QAM', FT = True): 
+        '''
+        Fully generalized WFODMR code.
+
+        TIME inputs in ns
+
+        mode: QAM for vector modulation (IQ mixer)
+        mode: AM for analog modulation of amplitude
+        mode: SWITCH is AM mode but modulation is done entirely via a separate switch. There is no double modulation mode (AM+Switch), yet. 
+        '''        
+        if not FT:
+            trig = ns_exp_time
+        pulse_len = ns_exp_time+buff+ns_readout_time
+        cam_off = ns_exp_time + ns_readout_time + buff - trig
+
+        experiment = self.Pulser.createSequence()
+
+        #### INITIAL THROWAWAY PULSE
+        laser = [(pulse_len,0)]
+        cam = [(trig,1), (cam_off,0)] #Check if need a lag for the camera
+        if(mode == 'QAM'):
+            mwI = [(pulse_len, self.IQ0[0])]
+            mwQ = [(pulse_len, self.IQ0[1])]
+            mwOnOff_mwI = [(ns_exp_time, self.IQpx[0]), (pulse_len + ns_readout_time + buff, self.IQ0[0])]
+            mwOnOff_mwQ = [(ns_exp_time, self.IQpx[1]), (pulse_len + ns_readout_time + buff, self.IQ0[1])]
+        elif(mode == 'AM'):
+            ## NOTE IT SAYS mwI but it's actually Q that's plugged into A0
+            mwI = [(pulse_len, -1)]
+            mwOnOff_mwI = [(ns_exp_time, 0), (pulse_len + ns_readout_time + buff, -1)]
+        elif(mode == 'SWITCH'):
+            mwI = [(pulse_len, 0)]
+            mwOnOff_mwI = [(2*pulse_len, 0)]
+            switch = [(pulse_len, 1)]
+            switchOnOff = [(ns_exp_time,0),(pulse_len+buff+ns_readout_time,1)]
+
+        #### MAIN SEQUENCE
+
+        cam_seq = [(trig,1), (cam_off,0)]
+        laser_seq = [(ns_exp_time,1),(buff+ns_readout_time,0)]
+        for i in range(runs):        
+            #laser += mwOnOff_laser
+            mwI += mwOnOff_mwI
+            if mode == 'QAM':
+                mwQ += mwOnOff_mwQ
+            elif mode == 'SWITCH':
+                switch += switchOnOff
+            cam += cam_seq + cam_seq
+            laser += laser_seq + laser_seq
+
+        dchans = [self.channel_dict['laser'],self.channel_dict['clock'],self.channel_dict['camera']]
+        achans = [0,1]
+        dpatterns = [laser,cam]
+        if mode == 'QAM':
+            apatterns = [mwI,mwQ]
+        elif mode == 'AM' or mode == 'SWITCH':
+            apatterns = [mwI]
+        if mode == 'SWITCH':
+            dchans.append(self.channel_dict['switch'])
+            dpatterns.append(switch)
 
 
+        experiment.setDigital(self.channel_dict['488'], laser)
+        experiment.setDigital(self.channel_dict['camera'], cam)
+        experiment.setAnalog(0, mwI)
+        if (mode == 'QAM'):
+            experiment.setAnalog(1, mwQ)   
+        elif (mode =='SWITCH'):
+            experiment.setDigital(self.channel_dict['switch'], switch)
 
 
+        
+        print('Finished setting up pulse sequence')
+        print('self.sequence data:',  experiment.getData())
+        #self.plotSeq(self.sequence.getData(),'CWUriMRnew')
+        #self.plotSeq(dchans,achans,dpatterns,apatterns,'CWUriMRnew') #works
+        return experiment

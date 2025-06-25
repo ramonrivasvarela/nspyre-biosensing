@@ -491,7 +491,7 @@ class WFODMRSwabianSpyrelet(Spyrelet):
                         return
                     print('Starting Acquisition', ret)
                     time.sleep(0.1) #Give time to start acquisition, not optimized
-                    self.sg.frequency = f ## make sure the sg frequency is set! (overhead of <1ms)
+                    self.sg.set_frequency(f) ## make sure the sg frequency is set! (overhead of <1ms)
                     self.pulses.stream_umOFF(self.seqs[0], 1, AM = self.AM_mode, SWITCH = self.switch_mode)
                     timeout_counter = 0
 

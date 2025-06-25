@@ -16,6 +16,7 @@ from nspyre import InstrumentManager # FOR OPERATING INSTRUMENTS
 #### GENERAL IMPORTS
 import time
 import numpy as np
+import rpyc.utils.classic
 ####
 
 _HERE = Path(__file__).parent
@@ -34,11 +35,6 @@ class PlaneScan:
         """
         self.queue_to_exp = queue_to_exp
         self.queue_from_exp = queue_from_exp
-
-        with InstrumentManager() as mgr:
-            self.XYZcontrol = mgr.XYZcontrol
-            if not self.XYZcontrol:
-                raise RuntimeError("XYZ control is not initialized. Please initialize it before running the experiment.")
 
     def __enter__(self):
         """Perform experiment setup."""
@@ -127,11 +123,19 @@ class PlaneScan:
                 adjust_line = 0
                 adjust_step = 0
                 
-            z_stack = np.mean(range(1, stack_count + 1))
+            z_stack = (1 + stack_count) / 2
             # we reassign the origin vector, so that it starts at the bottom of the z-stack range
             origin = origin - stack_vector * z_stack
             #print(z_stack)
-            APDcounts = StreamingList()
+            heatmap = np.zeros((extent_steps + 1, line_scan_steps))
+            heatmap_dataset = StreamingList()
+            heatmap_dataset.append(heatmap.copy())
+            scan_vals = np.linspace(
+                            adjust_line,
+                            np.linalg.norm(scan_vector) + adjust_line,
+                            line_scan_steps
+                        )
+            step_val = s / extent_steps * np.linalg.norm(extent_vector) + adjust_step
             for z in range(stack_count):
                 origin = origin + stack_vector
                 for rep in range(repetitions):
@@ -144,7 +148,8 @@ class PlaneScan:
                             print('s:', s)
                             line_scan_start_pt = line_scan_stop_pt
                             line_scan_stop_pt = np.array(origin) + s/(extent_steps) * extent_vector
-                            
+                        
+                        
                         line_data = mgr.XYZcontrol.line_scan({'x': line_scan_start_pt[0],
                                                         'y': line_scan_start_pt[1],
                                                         'z': line_scan_start_pt[2]}, 
@@ -154,29 +159,45 @@ class PlaneScan:
                                                             line_scan_steps, pts_per_step)
                         
                         #import pdb; pdb.set_trace()                    #print(s / extent_steps * np.linalg.norm(extent_vector))                    #print(np.linspace(0, np.linalg.norm(scan_vector), line_scan_steps))                    #print(z)                    #print(origin)                    #print(z - z_stack + 1)
-                        
+
                         ## in case of a snake scan
                         if snake_scan == True and (s+1)%2 == 0:
                             #print('line data:', line_data, 'type:', type(line_data))
                             line_data = line_data[::-1]
-                            
+                        counts = rpyc.utils.classic.obtain(line_data)
+                        heatmap[s, :] = heatmap[s, :] + counts
+                        heatmap_dataset[0]=heatmap.copy()
+                        heatmap_dataset.updated_item(-1)
+                        ## scan_vals contains the x values corresponding to the line scan data
+                        
+                        #stack_pos= (z - z_stack + 1) * np.linalg.norm(stack_vector) + adjust_step
+
+                        # Append to streaming list and notify update
                         planescan_data.push({
-                            'rep_idx': rep,
-                            'step_idx': s,      
-                            'line_data': rpyc.utils.classic.obtain(line_data),
-                            'step_val': s / extent_steps * np.linalg.norm(extent_vector) + adjust_step,
-                            'scan_vals': np.linspace(adjust_line, np.linalg.norm(scan_vector) + adjust_line, line_scan_steps),      
-                            
-                            #here are the ones for my gui                  
-                            'stack_idx': z,
-                            'stack_pos': (z - z_stack + 1) * np.linalg.norm(stack_vector),
-                            'scan_vector': scan_vector,
-                            'extent_vector': extent_vector,
-                            'stack_vector': stack_vector,
-                            'scan_cts': line_scan_steps,
-                            'steps_cts': extent_steps + 1,
-                            'start_pt': line_scan_start_pt,
-                            'stop_pt': line_scan_stop_pt
+                            'params':{
+                                'point_A': point_A,
+                                'point_B': point_B,
+                                'point_C': point_C,
+                                'line_scan_steps': line_scan_steps,
+                                'extent_steps': extent_steps,
+                                'ctr_ch': ctr_ch,
+                                'repetitions': repetitions,
+                                'stack_count': stack_count,
+                                'stack_stepsize': stack_stepsize,
+                                'stack_pospref': stack_pospref,
+                                'acq_rate': acq_rate,
+                                'pts_per_step': pts_per_step,
+                                'xyz_pos': xyz_pos,
+                                'excel': excel,
+                                'snake_scan': snake_scan,
+                                'sleep_factor': sleep_factor
+                            },
+                            'name': 'Heatmap',
+                            'xs': scan_vals,
+                            'ys': step_val,
+                            'data': {
+                                'line': heatmap_dataset,
+                            }
                         })
 
                         if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
@@ -185,15 +206,13 @@ class PlaneScan:
                             return
 
     def initialize(self, mgr, ctr_ch='Dev1/ctr1', acq_rate=15000):
+        #create control task, action task already created in app initizalization
         mgr.XYZcontrol.new_ctr_task(ctr_ch)
         mgr.XYZcontrol.acq_rate = acq_rate
-        
-        mgr.pulses.Pulser.constant(([7],0.0,0.0))
+
+        mgr.Pulser.Pulser.constant(([7],0.0,0.0))
         mgr.DAQCounter.initialize()
-        print('proof i turned on the laser')
-        # print("if error, then I know 'self' does not have attribute 'name'")
-        # print("spyrelet name is", self.name)
 
     def finalize(self,mgr, excel):
         mgr.Pulser.set_state_off()
-        mgr.DAQCounter.initialize()
+        mgr.DAQCounter.finalize()
