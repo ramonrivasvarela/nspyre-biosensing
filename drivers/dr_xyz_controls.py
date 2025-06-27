@@ -2,6 +2,7 @@ import nidaqmx
 import numpy as np
 from collections import OrderedDict
 from nidaqmx.stream_writers import AnalogMultiChannelWriter
+from nidaqmx.stream_readers import CounterReader
 
 #from lantz import Driver          # nspyre ≥ 2.0
 
@@ -34,6 +35,9 @@ class NIDAQMotionController():
         self.acq_rate  = acq_rate
         self.ctr_ch    = ctr_ch
         self.ao_motion_task = None
+        self.current_counter_task = None
+        self.counter_tasks = []
+
 
     # ---- nspyre life-cycle ----
     def initialize(self):
@@ -53,6 +57,13 @@ class NIDAQMotionController():
     def finalize(self):
         if self.ao_motion_task:
             self.ao_motion_task.close()
+        for t in self.counter_tasks:
+            t.close()
+
+    def new_ctr_task(self, ctr_ch):
+        self.current_counter_task = nidaqmx.Task('NIDAQMotionController_CTR_{}'.format(np.random.randint(2**31)))
+        self.current_counter_task.ci_channels.add_ci_count_edges_chan(ctr_ch)
+        self.counter_tasks.append(self.current_counter_task)
 
     # ---- motion ----
     # def _normalize_point(self, point):
@@ -87,12 +98,97 @@ class NIDAQMotionController():
 
         self.position = target
 
+    def line_scan(self, init_point, final_point, steps, pts_per_step=1):
+        """1-axis line scan while acquiring counter data"""
+        #print(init_point)
+        #print('self.sleep_factor in line scan right before calling move():', self.sleep_factor)
+        self.move(init_point)
+        #print("start line_scan")
+        step_voltages = self.linear_func(init_point, final_point, steps)
+        step_voltages = np.repeat(step_voltages, pts_per_step + 1, axis=0)
+        # configure analog output task
+        self.ao_motion_task.timing.cfg_samp_clk_timing(
+            self.acq_rate,
+            sample_mode=nidaqmx.constants.AcquisitionType.FINITE,
+            samps_per_chan=step_voltages.shape[0]
+        )
+        #print('line_scan acq rate:', self.acq_rate)
+        #self.ao_motion_task.triggers.start_trigger.disable_start_trig()
+        # Shivam: This is the line which writes the voltage values into the ao_motion_task
+        # and starts when we write self.ao_motion_task.start() below.
+        sample_writer_stream = AnalogMultiChannelWriter(self.ao_motion_task.out_stream,
+                                                            auto_start=False)
+        # must use array with contiguous memory region because NI uses C arrays under the hood
+        # Shivam: This is the section where voltage values are made contiguous and encoded
+        ni_ao_sample_buffer = np.ascontiguousarray(step_voltages.transpose(), dtype=np.float)
+        # TODO timeout
+        sample_writer_stream.write_many_sample(ni_ao_sample_buffer, timeout=60)
+        
+        # e.g. "Dev1"
+        device_name = list(self.axes.items())[0][1].ch.split('/')[0]
+        
+        # configure counter input task
+        self.current_counter_task.timing.cfg_samp_clk_timing(
+            self.acq_rate,
+            source='/{}/ao/SampleClock'.format(device_name),
+            sample_mode=nidaqmx.constants.AcquisitionType.FINITE,
+            samps_per_chan=step_voltages.shape[0]
+        )
+        
+        # set the counter input to trigger / start acquisition when the AO starts
+        self.current_counter_task.triggers.arm_start_trigger.dig_edge_src = '/{}/ao/StartTrigger'.format(device_name)
+        self.current_counter_task.triggers.arm_start_trigger.trig_type = nidaqmx.constants.TriggerType.DIGITAL_EDGE
+        #self.ao_motion_task.triggers.start_trigger.disable_start_trig()
+        
+        # create counter stream object
+        sample_reader_stream = CounterReader(self.current_counter_task.in_stream)
+        
+        # must use array with contiguous memory region because NI uses C arrays under the hood
+        ni_ctr_sample_buffer = np.ascontiguousarray(np.zeros(step_voltages.shape[0]), dtype=np.uint32)
+        
+        # start the move
+        self.current_counter_task.start()
+        self.ao_motion_task.start()
+        # TODO timeout
+        sample_reader_stream.read_many_sample_uint32(ni_ctr_sample_buffer,
+                                        number_of_samples_per_channel=nidaqmx.constants.READ_ALL_AVAILABLE,
+                                        timeout=60)
+        
+        # wait for motion to complete
+        #time.sleep((1.1*step_voltages.shape[0] / self.acq_rate).to('s').m)
+        
+        self.current_counter_task.stop()
+        self.ao_motion_task.stop()
+        scanned = ni_ctr_sample_buffer.reshape((steps, pts_per_step+1))
+        averaged = np.diff(scanned).mean(axis=1)
+        self.position = final_point
+        print('what is my final point', final_point, self.position)
+        return averaged*self.acq_rate
+    
+    def linear_func(self, start_pt, stop_pt, steps):
+        """Generate a set of linearly spaced points between the start and stop point
+        return value is in volts"""
+        start_volts = np.array([])
+        stop_volts = np.array([])
+        for axis in self.axes:
+            start_volts = np.append(start_volts, self.axes[axis].units_to_volts(start_pt[axis]))
+            stop_volts = np.append(stop_volts, self.axes[axis].units_to_volts(stop_pt[axis]))
+        linear_steps = np.linspace(0.0, 1.0, steps)
+        # pt0 = [0, 0]
+        # pt1 =  [1, 2]
+        # np.ones = [1, 1, 1, 1, 1, 1, ...]
+                        # [[x, x, x, x, x, x....]
+                        # [y, y, y, y, y, y, y...]]
+                        
+                        # [[0.1, 0.2, ..., 1]
+                        # [0.2, 0.4, ..., 2]]
+        return np.outer(np.ones(steps), start_volts) + np.outer(linear_steps, stop_volts-start_volts)
 
 # ---------- high-level XYZ driver ----------
 class XYZSetup(NIDAQMotionController):
-    def __init__(self, x_ch, y_ch, z_ch, ctr_ch):
+    def __init__(self, x_ch, y_ch, z_ch, ctr_ch, acq_rate=15000):
         # Initialize the parent class (NIDAQMotionController)
-        super().__init__(ctr_ch, 15000, {
+        super().__init__(ctr_ch, acq_rate, {
             'x': NIDAQAxis(x_ch, 0.73 / 11.42, limits=(-114.2 / 0.73, 114.2 / 0.73)),  # Calibration: V/um
             'y': NIDAQAxis(y_ch, 1 / 11.42, limits=(-114.2, 114.2)),  # Calibration: V/um
             'z': NIDAQAxis(z_ch, 1 / 25, limits=(0, 250))  # Calibration: V/um
@@ -127,3 +223,7 @@ class XYZSetup(NIDAQMotionController):
     def finalize(self):
         self.move_to(0, 0, 0)  # Move to home position
         super().finalize()
+
+
+    def line_scan(self, init_point, final_point, steps, pts_per_step):
+        return super().line_scan(init_point, final_point, steps, pts_per_step)

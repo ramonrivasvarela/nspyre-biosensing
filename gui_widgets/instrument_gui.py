@@ -23,6 +23,7 @@ from nspyre import ProcessRunner
 from nspyre import InstrumentManager
 
 from pyqtgraph import SpinBox, ComboBox
+from special_widgets.unit_widgets import MLineEdit, MSpinBox
 
 from multiprocessing import Queue
 from nspyre import SaveWidget
@@ -242,73 +243,20 @@ class InstWidgetV2(QWidget):
                 self.title.setStyleSheet("font-weight: bold")
 
                 # Create the spinbox for this axis
-                self.spinbox = SpinBox()
-                self.spinbox.setFont(QFont("Sanserif", 15))
-                self.spinbox.setFixedWidth(160)
-                self.spinbox.setRange(self.min, self.max)
-                self.update_spinbox()
-                self.spinbox.editingFinished.connect(lambda: self.update_value())
+                self.step_label = MLineEdit(1)
+                self.spinbox = MSpinBox(self.value, self.min, self.max, self.step_label.umvalue)
+                                # Create the change label (QLineEdit)
+                
+                # self.step_label.setFont(QFont("Sanserif", 15))
+                # self.step_label.setFixedWidth(160)
+                # self.edit_step_label()
+                self.step_label.editingFinished.connect(lambda: self.spinbox.change_step(self.step_label.umvalue))
 
-                # Create the change label (QLineEdit)
-                self.step_label = QLineEdit("0")
-                self.step_label.setFont(QFont("Sanserif", 15))
-                self.step_label.setFixedWidth(160)
-                self.edit_step_label()
-                self.step_label.editingFinished.connect(lambda: self.edit_step_value())
 
-            def update_value(self):
-                text = self.spinbox.text().strip()
-                try:
-                    if text[-2:] == "nm":
-                        val_text = text[:-2].strip()
-                        self.value = float(val_text) * 1e-3
-                    elif text[-2:] == "um":
-                        val_text = text[:-2].strip()
-                        self.value = float(val_text)
-                    else:
-                        self.value = float(text)
-                    self.update_spinbox()
-                except ValueError as e:
-                    raise ValueError(f"Invalid input '{text}': cannot convert to float. Please enter a number with an optional unit 'nm' or 'um'.") from e
 
-            def update_spinbox(self, change=False):
-                if np.abs(self.value) >= 1:
-                    self.spinbox.setDecimals(7)
-                    self.spinbox.setValue(self.value)
-                    self.spinbox.setSuffix("um")
-                    self.spinbox.setSingleStep(self.step)
-                    self.spinbox.setMaximum(self.max)
-                    self.spinbox.setMinimum(self.min)
-                else:
-                    self.spinbox.setMaximum(self.max * 1e3)
-                    self.spinbox.setMinimum(self.min * 1e3)
-                    self.spinbox.setValue(self.value * 1e3)
-                    self.spinbox.setSuffix("nm")
-                    self.spinbox.setSingleStep(self.step * 1e3)
-                    self.spinbox.setDecimals(5)
+                
 
-            def edit_step_value(self):
-                text = self.step_label.text().strip()
-                try:
-                    if text[-2:] == "nm":
-                        val_text = text[:-2].strip()
-                        self.step = float(val_text) * 1e-3
-                    elif text[-2:] == "um":
-                        val_text = text[:-2].strip()
-                        self.step = float(val_text)
-                    else:
-                        self.step = float(text)
-                except ValueError as e:
-                    raise ValueError(f"Invalid input '{text}': cannot convert to float. Please enter a number with an optional unit 'nm' or 'um'.") from e
-
-                self.update_spinbox()
-                self.edit_step_label()
-
-            def edit_step_label(self):
-                if self.step < 1:
-                    self.step_label.setText(f"{self.step * 1e3:.1f} nm")
-                else:
-                    self.step_label.setText(f"{self.step:.3f} um")
+            
 
         self.x_control = AxisControl("x")
         self.y_control = AxisControl("y")
@@ -317,13 +265,11 @@ class InstWidgetV2(QWidget):
         # Initialize xyz_setup outside the signal connection
         if xyz_activation_boolean:
             self.xyz_setup = InstrumentManager().XYZcontrol
-            self.x_control.spinbox.editingFinished.connect(lambda: self.xyz_setup.move_x(self.x_control.value))
-            self.y_control.spinbox.editingFinished.connect(lambda: self.xyz_setup.move_y(self.y_control.value))
-            self.z_control.spinbox.editingFinished.connect(lambda: self.xyz_setup.move_z(self.z_control.value))
+            self.x_control.spinbox.editingFinished.connect(lambda: self.xyz_setup.move_x(self.x_control.spinbox.umvalue))
+            self.y_control.spinbox.editingFinished.connect(lambda: self.xyz_setup.move_y(self.y_control.spinbox.umvalue))
+            self.z_control.spinbox.editingFinished.connect(lambda: self.xyz_setup.move_z(self.z_control.spinbox.umvalue))
 
 
-
-        
     '''
     LAYOUT -----------------------------------------------------------------------------------------------------------------------------------------------
     '''
