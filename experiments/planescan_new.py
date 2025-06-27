@@ -1,0 +1,218 @@
+"""
+experiment to get a wide-field scan of a sample
+
+Written by Ramon Rivas
+Written on 6/12/2025
+
+"""
+
+#### BASIC IMPORTS
+from nspyre import nspyre_init_logger
+import logging
+from pathlib import Path
+from nspyre import DataSource, StreamingList # FOR SAVING
+from nspyre import experiment_widget_process_queue # FOR LIVE GUI CONTROL
+from nspyre import InstrumentManager # FOR OPERATING INSTRUMENTS
+#### GENERAL IMPORTS
+import time
+import numpy as np
+import rpyc.utils.classic
+####
+
+_HERE = Path(__file__).parent
+_logger = logging.getLogger(__name__)
+
+
+
+class PlaneScan:
+    def __init__(self, queue_to_exp=None, queue_from_exp=None):
+        """
+        Args:
+            queue_to_exp: A multiprocessing Queue object used to send messages
+                to the experiment from the GUI.
+            queue_from_exp: A multiprocessing Queue object used to send messages
+                to the GUI from the experiment.
+        """
+        self.queue_to_exp = queue_to_exp
+        self.queue_from_exp = queue_from_exp
+
+    def __enter__(self):
+        """Perform experiment setup."""
+        # config logging messages
+        # if running a method from the GUI, it will be run in a new process
+        # this logging call is necessary in order to separate log messages
+        # originating in the GUI from those in the new experiment subprocess
+        nspyre_init_logger(
+            log_level=logging.INFO,
+            log_path=_HERE / '../logs',
+            log_path_level=logging.DEBUG,
+            prefix=Path(__file__).stem,
+            file_size=10_000_000,
+        )
+        _logger.info('Created PlaneScan instance.')
+
+    def __exit__(self):
+        """Perform experiment teardown."""
+        _logger.info('Destroyed PlaneScan instance.')
+
+    def planescan(self, dataset: str, point_A : dict ,
+                    point_B : dict,
+                    point_C : dict,
+                    line_scan_steps: int, extent_steps: int,
+                    ctr_ch: str , repetitions: int ,
+                    stack_count: int , stack_stepsize: int ,
+                    stack_pospref: bool ,
+                    acq_rate: int , pts_per_step: int , xyz_pos: bool,
+                    excel :bool , snake_scan :bool , sleep_factor : float):
+        with InstrumentManager() as mgr, DataSource(dataset) as planescan_data:
+            # mgr.XYZcontrol.daq_controller.sleep_factor = sleep_factor
+            self.initialize(mgr, ctr_ch, acq_rate)
+            # starting point for scan
+            origin = (point_A['x'], point_A['y'], point_A['z'])
+            # this point gives the direction and bound of the line scan
+            scan_pt = (point_B['x'], point_B['y'], point_B['z'])
+            # this point gives the direction and extent of the "stepping" direction normal to the line scan direction
+            extent_pt = (point_C['x'], point_C['y'], point_C['z'])
+            line_scan_steps = line_scan_steps + 1
+
+            try:
+                if len(origin) != 3 or len(scan_pt) != 3 or len(extent_pt) != 3:
+                    raise TypeError("Each point must have three elements: x, y, and z.")
+                for f in origin + scan_pt + extent_pt:
+                    if not isinstance(f, (int, float)):
+                        raise TypeError("Each coordinate must be a numeric value.")
+            except Exception as e:
+                print('Point should be in the form of a dictionary with keys "x", "y", "z" and numeric values.')
+                raise
+
+            # converting points to numpy arrays (if needed, you could also scale these values)
+            origin = np.array(origin)
+            scan_pt = np.array(scan_pt)
+            extent_pt = np.array(extent_pt)
+            
+            # vector in the direction of the line scan
+            scan_vector = np.array(scan_pt) - np.array(origin)
+            if np.linalg.norm(scan_vector) < 0.001:
+                print('scan size can\'t be 0')
+                raise ValueError("Scan size can't be 0")
+
+            # vector from A to C
+            vector_AC = np.array(extent_pt) - np.array(origin)
+            
+            # projection of vector_AC on scan_vector
+            proj_vector = np.dot(scan_vector, vector_AC) * scan_vector / np.linalg.norm(scan_vector)**2
+            
+            # vector in the direction of stepping (normal to the line scan)
+            extent_vector = vector_AC - proj_vector
+            
+            # normal_to_plane vector
+            perp_vector = np.cross(scan_vector, extent_vector)        
+            
+            # z-stack vector size of step
+            stack_vector = perp_vector / np.linalg.norm(perp_vector) * stack_stepsize  
+            
+            #possible reorientation so that normal vector points up in z.
+            if ((stack_pospref) and (stack_vector[2] < 0)):
+                stack_vector = -stack_vector
+            
+            
+                
+            adjust_line = np.dot(origin, scan_vector)/np.linalg.norm(scan_vector) #returns scalar
+            adjust_step = np.dot(origin, extent_vector)/np.linalg.norm(extent_vector)
+            if not (xyz_pos):
+                adjust_line = 0
+                adjust_step = 0
+                
+            z_stack = (1 + stack_count) / 2
+            # we reassign the origin vector, so that it starts at the bottom of the z-stack range
+            origin = origin - stack_vector * z_stack
+            #print(z_stack)
+            heatmap = np.zeros((extent_steps + 1, line_scan_steps))
+            heatmap_dataset = StreamingList()
+            heatmap_dataset.append(heatmap.copy())
+            scan_vals = np.linspace(
+                            adjust_line,
+                            np.linalg.norm(scan_vector) + adjust_line,
+                            line_scan_steps
+                        )
+            step_val = s / extent_steps * np.linalg.norm(extent_vector) + adjust_step
+            for z in range(stack_count):
+                origin = origin + stack_vector
+                for rep in range(repetitions):
+                    for s in range(extent_steps + 1):
+                        line_scan_start_pt = np.array(origin) + s/(extent_steps) * extent_vector
+                        line_scan_stop_pt = line_scan_start_pt + scan_vector
+                        
+                        ## adding option for snake scan
+                        if snake_scan == True and (s+1)%2 == 0:
+                            print('s:', s)
+                            line_scan_start_pt = line_scan_stop_pt
+                            line_scan_stop_pt = np.array(origin) + s/(extent_steps) * extent_vector
+                        
+                        
+                        line_data = mgr.XYZcontrol.line_scan({'x': line_scan_start_pt[0],
+                                                        'y': line_scan_start_pt[1],
+                                                        'z': line_scan_start_pt[2]}, 
+                                                        {'x': line_scan_stop_pt[0],
+                                                        'y': line_scan_stop_pt[1],
+                                                        'z': line_scan_stop_pt[2]},
+                                                            line_scan_steps, pts_per_step)
+                        
+                        #import pdb; pdb.set_trace()                    #print(s / extent_steps * np.linalg.norm(extent_vector))                    #print(np.linspace(0, np.linalg.norm(scan_vector), line_scan_steps))                    #print(z)                    #print(origin)                    #print(z - z_stack + 1)
+
+                        ## in case of a snake scan
+                        if snake_scan == True and (s+1)%2 == 0:
+                            #print('line data:', line_data, 'type:', type(line_data))
+                            line_data = line_data[::-1]
+                        counts = rpyc.utils.classic.obtain(line_data)
+                        heatmap[s, :] = heatmap[s, :] + counts
+                        heatmap_dataset[0]=heatmap.copy()
+                        heatmap_dataset.updated_item(-1)
+                        ## scan_vals contains the x values corresponding to the line scan data
+                        
+                        #stack_pos= (z - z_stack + 1) * np.linalg.norm(stack_vector) + adjust_step
+
+                        # Append to streaming list and notify update
+                        planescan_data.push({
+                            'params':{
+                                'point_A': point_A,
+                                'point_B': point_B,
+                                'point_C': point_C,
+                                'line_scan_steps': line_scan_steps,
+                                'extent_steps': extent_steps,
+                                'ctr_ch': ctr_ch,
+                                'repetitions': repetitions,
+                                'stack_count': stack_count,
+                                'stack_stepsize': stack_stepsize,
+                                'stack_pospref': stack_pospref,
+                                'acq_rate': acq_rate,
+                                'pts_per_step': pts_per_step,
+                                'xyz_pos': xyz_pos,
+                                'excel': excel,
+                                'snake_scan': snake_scan,
+                                'sleep_factor': sleep_factor
+                            },
+                            'name': 'Heatmap',
+                            'xs': scan_vals,
+                            'ys': step_val,
+                            'data': {
+                                'line': heatmap_dataset,
+                            }
+                        })
+
+                        if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
+                            # the GUI has asked us nicely to exit
+                            self.finalize(mgr, excel)
+                            return
+
+    def initialize(self, mgr, ctr_ch='Dev1/ctr1', acq_rate=15000):
+        #create control task, action task already created in app initizalization
+        mgr.XYZcontrol.new_ctr_task(ctr_ch)
+        mgr.XYZcontrol.acq_rate = acq_rate
+
+        mgr.Pulser.Pulser.constant(([7],0.0,0.0))
+        mgr.DAQCounter.initialize()
+
+    def finalize(self,mgr, excel):
+        mgr.Pulser.set_state_off()
+        mgr.DAQCounter.finalize()
