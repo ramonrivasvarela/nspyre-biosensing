@@ -54,7 +54,7 @@ class CountsTime:
         """Perform experiment teardown."""
         _logger.info('Destroyed CountsTime instance.')
 
-    def confocal_counts_time(self, dataset: str, n_points: float, probe_time: float, clock_time: float):
+    def confocal_counts_time(self, dataset: str, n_points: int, probe_time: float, clock_time: float):
         """
         confocal counts vs time experiment that is static (does not track), under constant illumination.
 
