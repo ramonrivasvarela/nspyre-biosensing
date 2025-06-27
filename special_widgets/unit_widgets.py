@@ -207,16 +207,13 @@ class SecLineEdit(QLineEdit):
         self.setFont(QFont("Sanserif", 15))
         self.setFixedWidth(160)
         self.update_text()  # Initialize the text based on the value
-        self.editingFinished.connect(self.edit_value)  # Connect signal to update value
-                
+        self.editingFinished.connect(lambda: self.edit_value())  # Connect signal to update value
+
     def edit_value(self):
         """Update the value based on the text entered by the user."""
         text = self.text().strip()
         try:
-            if text.endswith("s"):
-                val_text = text[:-1].strip()
-                self.secvalue = float(val_text)
-            elif text.endswith("ms"):
+            if text.endswith("ms"):
                 val_text = text[:-2].strip()
                 self.secvalue = float(val_text) * 1e-3
             elif text.endswith("us"):
@@ -225,6 +222,9 @@ class SecLineEdit(QLineEdit):
             elif text.endswith("ns"):
                 val_text = text[:-2].strip()
                 self.secvalue = float(val_text) * 1e-9
+            elif text.endswith("s"):
+                val_text = text[:-1].strip()
+                self.secvalue = float(val_text)
             else:
                 self.secvalue = float(text)
         except ValueError as e:

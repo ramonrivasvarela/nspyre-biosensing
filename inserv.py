@@ -47,7 +47,7 @@ with InstrumentServer() as inserv:
       inserv.add(name = 'DLnsec', 
                   class_path= _HERE / 'drivers' / 'dr_dlnsec.py', 
                   class_name= 'DLnsec',
-                  args= ['COM9'])
+                  args= ['COM3'])
 
    #REQUIRED IMPORT: pulsestreamer
 
