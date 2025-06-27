@@ -55,15 +55,15 @@ class PlaneScan:
         """Perform experiment teardown."""
         _logger.info('Destroyed PlaneScan instance.')
 
-    def planescan(self, dataset=str, point_A={'x': 0, 'y': 0, 'z': 0},
-                    point_B={'x': 50, 'y': 0, 'z': 0},
-                    point_C={'x': 50, 'y': 0, 'z': 60},
-                    line_scan_steps=100, extent_steps=100,
-                    ctr_ch='Dev1/ctr1', repetitions=1,
-                    stack_count = 1, stack_stepsize = 1,
-                    stack_pospref = False,
-                    acq_rate=15000, pts_per_step=40, xyz_pos = True,
-                    excel = False, snake_scan = False, sleep_factor=1):
+    def planescan(self, dataset: str, point_A : dict ={'x': 0, 'y': 0, 'z': 0},
+                    point_B : dict ={'x': 50, 'y': 0, 'z': 0},
+                    point_C : dict ={'x': 50, 'y': 0, 'z': 60},
+                    line_scan_steps: int=100, extent_steps: int=100,
+                    ctr_ch: str ='Dev1/ctr1', repetitions: int =1,
+                    stack_count: int = 1, stack_stepsize: int = 1,
+                    stack_pospref: bool = False,
+                    acq_rate: int =15000, pts_per_step: int =40, xyz_pos: bool = True,
+                    excel :bool = False, snake_scan :bool = False, sleep_factor : float=1):
         with InstrumentManager() as mgr, DataSource(dataset) as planescan_data:
             # mgr.XYZcontrol.daq_controller.sleep_factor = sleep_factor
             self.initialize(mgr, ctr_ch, acq_rate)
