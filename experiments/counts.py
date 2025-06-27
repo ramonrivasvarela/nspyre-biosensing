@@ -54,36 +54,43 @@ class CountsTime:
         """Perform experiment teardown."""
         _logger.info('Destroyed CountsTime instance.')
 
-    def confocal_counts_time(self, dataset: str, time_per_point: float):
+    def confocal_counts_time(self, dataset: str, n_points: float, probe_time: float, clock_time: float):
         """
         confocal counts vs time experiment that is static (does not track), under constant illumination.
 
         Args:
             dataset: name of the dataset to push data to
-            device: name of the APD device for connecting
-            channel: name of the APD channel for connecting
             time_per_point: time in seconds t
             
         """
+        ## Set up experiment parameters
+        self.n_points = n_points
+        self.probe_time = probe_time
+        self.clock_time = clock_time
+
         # connect to the instrument server
         # connect to the data server and create a data set, or connect to an
         # existing one with the same name if it was created earlier.
         APD_counts = StreamingList()
-        with InstrumentManager() as mgr, DataSource(dataset) as counts_data: 
+        with InstrumentManager() as mgr, DataSource(dataset) as counts_data:
+            self.buffer = None 
             self.initialize(mgr)
-
+            seq = self.create_sequence(mgr)
             start_t = time.time()
             while True:
-                val = mgr.DAQCounter.read(time_per_point)
+                ## Start, Stream, Read. Data will be in the buffer.
+                mgr.DAQCounter.start_stream_read(mgr.Pulser, seq)
+                data = self.buffer_to_data()
 
-                APD_counts.append(np.array([np.array([time.time()-start_t]),np.array([val])]))
-                # TODO: experiment with making the above line of code less disgusting. Depends on how particular NSpyre is.
+
+                APD_counts.append(np.array([np.array([time.time()-start_t]),np.array([data])]))
+                # TODO: experiment with making the above line of code less disgusting. Depends on how particular NSpyre is about having np.arrays.
                 APD_counts.updated_item(-1)
 
-                counts_data.push({'params': {'time_per_point': time_per_point,},
+                counts_data.push({'params': {'n_points': n_points, 'probe_time': probe_time, 'clock_time': clock_time},
                                 'title': 'Counts vs Time (Confocal)',
                                 'xlabel': 'Time (s)',
-                                'ylabel': 'Counts',
+                                'ylabel': 'Counts (/s)',
                                 'datasets': {'counts' : APD_counts,
                                             }
                 })
@@ -94,13 +101,37 @@ class CountsTime:
                     self.finalize(mgr)
                     return
 
-
+    #### INITIALIZATION METHODS
 
     def initialize(self, mgr):
         """Initialize the experiment."""
         mgr.Pulser.constant(([7],0.0,0.0))
         mgr.DAQCounter.initialize()
-    
+        mgr.DAQCounter.set_sampling_rate(2/self.probe_time)  # Automatically determined by 2/probe_time
+        self.buffer = mgr.DAQCounter.create_buffer(self.n_points+1) # +1 to account for signal being a difference of counts
+
+
+
+    def create_sequence(self, mgr):
+        seq = mgr.Pulser.create_sequence()
+        clock_pulse = [(self.clock_time,1),(self.probe_time-self.clock_time,0)] ##ensure clock_time in nanoseconds
+        clock = clock_pulse * (self.n_points+1)
+        seq.setDigital(mgr.Pulser.channel_dict['clock'], clock)
+        return seq
+
+    #### EXPERIMENTAL LOOP METHODS
+
+    def buffer_to_data(self):
+        """ Convert the buffer to data. Not particularly interesting here, but more relevant for more complex experiments."""
+        if self.buffer is None:
+            raise ValueError("Buffer is not initialized.")
+        # Convert the buffer to a numpy array
+        all_data = self.buffer[1:] - self.buffer[0:-1]
+        data = np.sum(all_data)/ (self.probe_time * self.n_points)  #counts per second
+        return data
+
+    #### FINALIZATION METHODS
+
     def finalize(self, mgr):
         """Finalize the experiment."""
         mgr.Pulser.set_state_off()
