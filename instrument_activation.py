@@ -1,4 +1,4 @@
-pulser_activation_boolean=False
-xyz_activation_boolean=False
-sg_activation_boolean=False
+pulser_activation_boolean=True
+xyz_activation_boolean=True
+sg_activation_boolean=True
 dlnsec_activation_boolean=False
