@@ -147,3 +147,12 @@ class PulserClass():
         #self.plotSeq(self.sequence.getData(),'CWUriMRnew')
         #self.plotSeq(dchans,achans,dpatterns,apatterns,'CWUriMRnew') #works
         return experiment
+    
+    def pulse_setup(self, runs, mode,cam_trigger, ns_exp_time, ns_readout_time):#, mw_duty, mw_rep):
+        #print('\n using sequence without wait time')
+        seqs=[]
+        if cam_trigger == 'EXTERNAL_EXPOSURE':
+            seqs.append(self.WFODMR(runs, ns_exp_time, ns_readout_time,  mode = mode, FT = False))#, mw_duty = mw_duty, mw_rep = mw_rep))
+        else:
+            seqs.append(self.WFODMR(runs, ns_exp_time, ns_readout_time,10000000,5000000,mode))#, mw_duty = mw_duty, mw_rep = mw_rep))
+        return seqs

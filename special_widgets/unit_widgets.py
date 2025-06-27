@@ -354,3 +354,29 @@ class PointWidget(QWidget):
         self.x_edit.update_text()
         self.y_edit.update_text()
         self.z_edit.update_text()
+
+class FloatLineEdit(QLineEdit):
+    def __init__(self, value=0, prefix=''):
+        super().__init__()
+        self.value = value
+        self.setFont(QFont("Sanserif", 15))
+        self.setFixedWidth(160)
+        self.prefix=prefix 
+        self.update_text()  # Initialize the text based on the value
+        self.editingFinished.connect(self.edit_value)
+         # Connect signal to update value
+                
+    def edit_value(self):
+        """Update the value based on the text entered by the user."""
+        text = self.text().strip()
+        try:
+            self.value = float(text)
+        except ValueError as e:
+            raise ValueError(f"Invalid input '{text}': cannot convert to float. Please enter a number with an optional unit 'nm' or 'um'.") from e
+
+        self.update_text()
+
+    def update_text(self):
+        """Update the displayed text based on the current value."""
+        self.setText(f"{self.umvalue}")
+     

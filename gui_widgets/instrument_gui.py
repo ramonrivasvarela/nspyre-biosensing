@@ -23,7 +23,7 @@ from nspyre import ProcessRunner
 from nspyre import InstrumentManager
 
 from pyqtgraph import SpinBox, ComboBox
-from special_widgets.unit_widgets import MLineEdit, MSpinBox
+from special_widgets.unit_widgets import MLineEdit, MSpinBox, SecLineEdit, FloatLineEdit
 
 from multiprocessing import Queue
 from nspyre import SaveWidget
@@ -39,6 +39,10 @@ import logging
 
 from instrument_activation import xyz_activation_boolean
 
+from pyAndorSDK2 import atmcd, atmcd_codes, atmcd_errors
+
+import ctypes
+from drivers.dr_camera import Camera
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +69,7 @@ class InstWidgetV2(QWidget):
 
         self.init_sg396_widgets()
         self.init_xyz_control()
+        self.init_camera()
   
 
 
@@ -269,7 +274,85 @@ class InstWidgetV2(QWidget):
             self.y_control.spinbox.editingFinished.connect(lambda: self.xyz_setup.move_y(self.y_control.spinbox.umvalue))
             self.z_control.spinbox.editingFinished.connect(lambda: self.xyz_setup.move_z(self.z_control.spinbox.umvalue))
 
+    def init_camera(self):
+        # Create a round camera power button that cycles black, red, green
+        self.camera_power_button = QPushButton("Power")
+        self.camera_power_button.setFixedSize(40, 40)
+        self.sdk = atmcd("")  # Load the atmcd library
+        self.errors = atmcd_errors
+        self.camera=Camera(self.sdk, self.errors)
+        self.camera_on = False  # Initialize camera power state
+        
+        def set_camera_color(color):
+            self.camera_power_button.setStyleSheet(f"""
+                QPushButton {{
+                    border-radius: 20px;
+                    background-color: {color};
+                    border: 2px solid #888;
+                }}
+                QPushButton:pressed {{
+                    background-color: #555;
+                }}
+            """)
 
+        def check_power_status():
+            # Check the camera status and update the button color
+            status = self.camera.get_status()
+            self.camera_on=status
+            if status:
+                set_camera_color('green')
+            else:
+                set_camera_color('black')
+
+        check_power_status()
+
+        
+
+        def power_button_clicked():
+            if self.camera_on:
+                ret=self.camera.shutdown()
+                set_camera_color('black')
+                self.camera_on = False
+
+            else:
+                ret=self.camera.initialize()
+                print(f"Power button {ret}")
+                if ret:
+                    set_camera_color('green')
+                    self.camera_on = True
+                else:
+                    set_camera_color('red')
+            check_power_status()
+
+        self.camera_power_button.clicked.connect(lambda: power_button_clicked())
+        
+        self.camera_trigger_modes_label = QLabel("Trigger Modes:")
+        self.camera_trigger_modes_label.setFixedHeight(20)
+        self.camera_trigger_modes_label.setStyleSheet("font-weight: bold")
+        self.camera_trigger_modes_combo = QComboBox()
+        self.camera_trigger_modes_combo.addItems(["Internal", "External", "External Exposure Bulb"])
+        self.camera_trigger_modes_combo.setCurrentText("Internal")
+        self.camera_trigger_modes_combo.setStyleSheet("QComboBox { background-color: #2b2b2b; color: white; }")
+        self.camera_trigger_modes_combo.setFixedHeight(30)
+        self.camera_trigger_modes_combo.setFont(QFont(self.font, 12))
+        self.camera_trigger_modes_combo.currentTextChanged.connect(lambda: self.camera.set_trigger_mode(self.camera_trigger_modes_combo.currentText()))
+
+        self.camera_exp_time_label = QLabel("Exposure Time:")
+        self.camera_exp_time_label.setFixedHeight(20)
+        self.camera_exp_time_label.setStyleSheet("font-weight: bold")
+        self.camera_exp_time_line_edit = SecLineEdit(75e-3)  # Default exposure time of 75 ms
+        self.camera_exp_time_line_edit.editingFinished.connect(lambda: self.camera.set_exposure_time(self.camera_exp_time_line_edit.secvalue))
+
+        self.camera_shutter_label = QLabel("Shutter:")
+        self.camera_shutter_label.setFixedHeight(20)
+        self.camera_shutter_label.setStyleSheet("font-weight: bold")
+        self.camera_shutter_combo = QComboBox()
+        self.camera_shutter_combo.addItems(["Closed", "Open", "Auto"])
+        self.camera_shutter_combo.setCurrentText("Closed")
+        self.camera_shutter_combo.setStyleSheet("QComboBox { background-color: #2b2b2b; color: white; }")
+        self.camera_shutter_combo.setFixedHeight(30)
+        self.camera_shutter_combo.setFont(QFont(self.font, 12))
+        self.camera_shutter_combo.currentTextChanged.connect(lambda: self.camera.set_shutter(self.camera_shutter_combo.currentText()))
     '''
     LAYOUT -----------------------------------------------------------------------------------------------------------------------------------------------
     '''
@@ -316,6 +399,18 @@ class InstWidgetV2(QWidget):
         self.xyz_layout.addWidget(self.z_control.spinbox,7,1,1,1)
         self.xyz_layout.addWidget(self.z_control.step_label,7,2,1,1)
 
+        self.camera_frame=QFrame(self)
+        self.camera_frame.setStyleSheet("background-color: #454545")
+        self.camera_layout = QGridLayout(self.camera_frame)
+        self.camera_layout.setSpacing(10)
+
+        self.camera_layout.addWidget(self.camera_power_button, 1, 1, 1, 1)  
+        self.camera_layout.addWidget(self.camera_trigger_modes_label, 2, 1, 1, 1)
+        self.camera_layout.addWidget(self.camera_trigger_modes_combo, 2, 2, 1, 1)
+        self.camera_layout.addWidget(self.camera_exp_time_label, 3, 1, 1, 1)
+        self.camera_layout.addWidget(self.camera_exp_time_line_edit, 3, 2, 1, 1)  
+        self.camera_layout.addWidget(self.camera_shutter_label, 4, 1, 1, 1)
+        self.camera_layout.addWidget(self.camera_shutter_combo, 4, 2, 1, 1)
 
 
 
@@ -325,10 +420,11 @@ class InstWidgetV2(QWidget):
         # self.gui_layout.addLayout(self.DLnsec_layout)
 
         self.main_grid_layout = QGridLayout()  
-        self.main_grid_layout.addWidget(self.sg396_frame, 0, 0, 2, 1)  # Row 0, Column 0  
-        self.main_grid_layout.addWidget(self.xyz_frame, 1, 0, 1, 1)    # Row 1, Column 0 (below pulse_frame)  
-        self.setLayout(self.main_grid_layout)  
-    
+        self.main_grid_layout.addWidget(self.sg396_frame, 0, 0, 2, 1)  # Row 0, Column 0
+        self.main_grid_layout.addWidget(self.xyz_frame, 1, 0, 1, 1)    # Row 1, Column 0 (below pulse_frame)
+        self.main_grid_layout.addWidget(self.camera_frame, 2, 0, 1, 1)  # Row 2, Column 0 (below xyz_frame)
+        self.setLayout(self.main_grid_layout)
+
 
     '''
     INTERACTIVE WIDGET FUNCTIONS
