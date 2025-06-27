@@ -50,6 +50,12 @@ class PulserClass():
         """
         return self.Pulser.hasSequence()
     
+    def create_sequence(self):
+        """
+        Create a new sequence object and return it.
+        """
+        sequence = self.Pulser.createSequence()
+        return sequence
 
     def set_state(self, dig_chan, q=0.0, i=0.0):
         return self.Pulser.constant((dig_chan, q, i))
