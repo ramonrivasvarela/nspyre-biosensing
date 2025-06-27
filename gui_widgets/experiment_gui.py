@@ -135,23 +135,6 @@ class PlaneScanWidget(ExperimentWidget):
                          'PlaneScan',
                          'planescan',
                          title='Plane Scan')
-
-# class PlaneScanWidgetHeatMap(HeatMapWidget):
-#     def __init__(self):
-#         super().__init__()
-#         # create some default signal plots
-#         self.set_data(xs=,
-#                       ys=,
-#                       data=
-#                       )
-
-
-#         # retrieve legend object
-#         legend = self.line_plot.plot_widget.addLegend()
-#         # set the legend location
-#         legend.setOffset((-10, -50))
-
-#         self.datasource_lineedit.setText('counts v time')
         
 class WideFieldWidget(ExperimentWidget):
     def __init__(self):

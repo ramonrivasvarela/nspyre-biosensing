@@ -68,6 +68,7 @@ def main():
                 },
                 'Save': MainWidgetItem(nspyre.gui.widgets.save, 'SaveWidget', stretch=(1, 1)),
                 'Load': MainWidgetItem(nspyre.gui.widgets.load, 'LoadWidget', stretch=(1, 1)),
+                'Experiments': MainWidgetItem(experiment_gui, 'ExperimentWidget', stretch=(1, 1)),
             }
         )
 
