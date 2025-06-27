@@ -1,0 +1,31 @@
+2025-06-27 15:53:39.245 [    INFO] (        planescan.py:  52) Created PlaneScan instance.
+2025-06-27 15:53:39.255 [    INFO] (          gateway.py: 152) Gateway connected to instrument server at "localhost:42068".
+2025-06-27 15:53:39.270 [   DEBUG] (  selector_events.py:  54) Using selector: SelectSelector
+2025-06-27 15:53:39.276 [   DEBUG] (  _asyncio_worker.py:  81) Started DataSource event loop thread <Thread(Thread-1 (_event_loop_thread), started daemon 10072)>.
+2025-06-27 15:53:39.276 [   DEBUG] (      base_events.py: 843) Get address info localhost:30101, type=<SocketKind.SOCK_STREAM: 1>
+2025-06-27 15:53:39.286 [   DEBUG] (      base_events.py: 853) Getting address info localhost:30101, type=<SocketKind.SOCK_STREAM: 1> took 0.000ms: [(<AddressFamily.AF_INET6: 23>, <SocketKind.SOCK_STREAM: 1>, 0, '', ('::1', 30101, 0, 0)), (<AddressFamily.AF_INET: 2>, <SocketKind.SOCK_STREAM: 1>, 0, '', ('127.0.0.1', 30101))]
+2025-06-27 15:53:41.334 [   DEBUG] (      base_events.py:1110) <asyncio.TransportSocket fd=2564, family=AddressFamily.AF_INET, type=SocketKind.SOCK_STREAM, proto=0, laddr=('127.0.0.1', 52320), raddr=('127.0.0.1', 30101)> connected to localhost:30101: (<_SelectorSocketTransport fd=2564 read=polling write=<idle, bufsize=0>>, <asyncio.streams.StreamReaderProtocol object at 0x000002035E91A740>)
+2025-06-27 15:53:41.334 [    INFO] (           source.py:  88) Source connected to data server [('127.0.0.1', 30101)].
+2025-06-27 15:53:41.339 [   DEBUG] (           server.py: 113) Sent [1] bytes to ('127.0.0.1', 30101).
+2025-06-27 15:53:41.339 [   DEBUG] (           server.py: 113) Sent [9] bytes to ('127.0.0.1', 30101).
+2025-06-27 15:53:41.339 [   DEBUG] (           source.py: 119) Source finished negotiation with data server [('127.0.0.1', 30101)].
+2025-06-27 15:53:41.349 [    INFO] (          gateway.py: 173) Gateway disconnected from server at localhost:42068
+2025-06-27 15:53:41.354 [CRITICAL] (          logging.py:  32) Process Process-1:
+2025-06-27 15:53:41.357 [   DEBUG] (           source.py: 174) Source stopped - closing connection with data server [('127.0.0.1', 30101)].
+2025-06-27 15:53:41.359 [CRITICAL] (          logging.py:  32) Traceback (most recent call last):
+2025-06-27 15:53:41.359 [   DEBUG] (           server.py: 119) Closed socket [('127.0.0.1', 30101)].
+2025-06-27 15:53:41.359 [CRITICAL] (          logging.py:  32)   File "C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.10_3.10.3056.0_x64__qbz5n2kfra8p0\lib\multiprocessing\process.py", line 314, in _bootstrap
+2025-06-27 15:53:41.359 [   DEBUG] (      base_events.py: 672) Close <_WindowsSelectorEventLoop running=False closed=False debug=True>
+2025-06-27 15:53:41.359 [CRITICAL] (          logging.py:  32)     self.run()
+2025-06-27 15:53:41.359 [    INFO] (  _asyncio_worker.py:  89) Source [('localhost', 30101)] closed.
+2025-06-27 15:53:41.359 [CRITICAL] (          logging.py:  32)   File "C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.10_3.10.3056.0_x64__qbz5n2kfra8p0\lib\multiprocessing\process.py", line 108, in run
+2025-06-27 15:53:41.359 [CRITICAL] (          logging.py:  32)     self._target(*self._args, **self._kwargs)
+2025-06-27 15:53:41.359 [CRITICAL] (          logging.py:  32)   File "C:\Users\ramon\OneDrive\nspyre-biosensing\.venv\lib\site-packages\nspyre\misc\misc.py", line 256, in run_experiment
+2025-06-27 15:53:41.359 [CRITICAL] (          logging.py:  32)     fun(**fun_kwargs)
+2025-06-27 15:53:41.370 [CRITICAL] (          logging.py:  32)   File "C:\Users\ramon\OneDrive\nspyre-biosensing\experiments\planescan.py", line 69, in planescan
+2025-06-27 15:53:41.370 [CRITICAL] (          logging.py:  32)     self.initialize(mgr, ctr_ch, acq_rate)
+2025-06-27 15:53:41.370 [CRITICAL] (          logging.py:  32)   File "C:\Users\ramon\OneDrive\nspyre-biosensing\experiments\planescan.py", line 210, in initialize
+2025-06-27 15:53:41.370 [CRITICAL] (          logging.py:  32)     mgr.XYZcontrol.new_ctr_task(ctr_ch)
+2025-06-27 15:53:41.370 [CRITICAL] (          logging.py:  32)   File "C:\Users\ramon\OneDrive\nspyre-biosensing\.venv\lib\site-packages\nspyre\instrument\manager.py", line 102, in __getattr__
+2025-06-27 15:53:41.370 [CRITICAL] (          logging.py:  32)     return self.__getattribute__(attr)
+2025-06-27 15:53:41.370 [CRITICAL] (          logging.py:  32) AttributeError: 'InstrumentManager' object has no attribute 'XYZcontrol'

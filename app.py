@@ -69,7 +69,9 @@ def main():
                 'Save': MainWidgetItem(nspyre.gui.widgets.save, 'SaveWidget', stretch=(1, 1)),
                 'Load': MainWidgetItem(nspyre.gui.widgets.load, 'LoadWidget', stretch=(1, 1)),
                 'Experiments': {
-                    'Counts vs Time' : MainWidgetItem(experiment_gui, 'CountsWidget', stretch=(1, 1)),},
+                    'Counts vs Time' : MainWidgetItem(experiment_gui, 'CountsWidget', stretch=(1, 1)),
+                    'Planescan' : MainWidgetItem(experiment_gui, 'PlaneScanWidget', stretch=(1, 1)),},
+                
                 'Plotting' : {
                     'Flex Line Plot': MainWidgetItem(experiment_gui, 'CountsPlotWidget', stretch=(1, 1)),
                 }
