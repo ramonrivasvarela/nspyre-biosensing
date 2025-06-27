@@ -1,0 +1,14 @@
+# Python builds and venv
+__pycache__/
+*.py[cod]
+.venv/
+
+# Editor settings
+.vscode/
+.idea/
+
+# OS clutter
+.DS_Store
+Thumbs.db
+
+requirements.txt

@@ -126,7 +126,7 @@ class PlaneScanWidget(ExperimentWidget):
                              'widget': sleep_factor_sb},
             'dataset': {
                 'display_text': 'Data Set',
-                'widget': HeatMapWidget('planescan'),
+                'widget': QtWidgets.QLineEdit('planescan'),
             },
         }
 
