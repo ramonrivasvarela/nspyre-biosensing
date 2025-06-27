@@ -1,0 +1,42 @@
+2025-06-27 12:57:25.666 [    INFO] (           counts.py:  51) Created CountsTime instance.
+2025-06-27 12:57:25.678 [    INFO] (          gateway.py: 152) Gateway connected to instrument server at "localhost:42068".
+2025-06-27 12:57:25.687 [   DEBUG] (  selector_events.py:  54) Using selector: SelectSelector
+2025-06-27 12:57:25.687 [   DEBUG] (  _asyncio_worker.py:  81) Started DataSource event loop thread <Thread(Thread-1 (_event_loop_thread), started daemon 26096)>.
+2025-06-27 12:57:25.698 [   DEBUG] (      base_events.py: 843) Get address info localhost:30101, type=<SocketKind.SOCK_STREAM: 1>
+2025-06-27 12:57:25.698 [   DEBUG] (      base_events.py: 853) Getting address info localhost:30101, type=<SocketKind.SOCK_STREAM: 1> took 0.000ms: [(<AddressFamily.AF_INET6: 23>, <SocketKind.SOCK_STREAM: 1>, 0, '', ('::1', 30101, 0, 0)), (<AddressFamily.AF_INET: 2>, <SocketKind.SOCK_STREAM: 1>, 0, '', ('127.0.0.1', 30101))]
+2025-06-27 12:57:29.753 [ WARNING] (           source.py:  74) Source failed connecting to data server [('localhost', 30101)].
+2025-06-27 12:57:30.760 [    INFO] (          gateway.py: 173) Gateway disconnected from server at localhost:42068
+2025-06-27 12:57:30.763 [CRITICAL] (          logging.py:  32) Process Process-1:
+2025-06-27 12:57:30.765 [CRITICAL] (          logging.py:  32) Traceback (most recent call last):
+2025-06-27 12:57:30.765 [CRITICAL] (          logging.py:  32)   File "C:\Users\ramon\Downloads\nspyre-main\src\nspyre\data\source.py", line 69, in _main
+2025-06-27 12:57:30.765 [CRITICAL] (          logging.py:  32)     sock_reader, sock_writer = await asyncio.wait_for(
+2025-06-27 12:57:30.765 [CRITICAL] (          logging.py:  32)   File "C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.10_3.10.3056.0_x64__qbz5n2kfra8p0\lib\asyncio\tasks.py", line 445, in wait_for
+2025-06-27 12:57:30.765 [CRITICAL] (          logging.py:  32)     return fut.result()
+2025-06-27 12:57:30.765 [CRITICAL] (          logging.py:  32)   File "C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.10_3.10.3056.0_x64__qbz5n2kfra8p0\lib\asyncio\streams.py", line 48, in open_connection
+2025-06-27 12:57:30.773 [CRITICAL] (          logging.py:  32)     transport, _ = await loop.create_connection(
+2025-06-27 12:57:30.773 [CRITICAL] (          logging.py:  32)   File "C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.10_3.10.3056.0_x64__qbz5n2kfra8p0\lib\asyncio\base_events.py", line 1084, in create_connection
+2025-06-27 12:57:30.773 [CRITICAL] (          logging.py:  32)     raise OSError('Multiple exceptions: {}'.format(
+2025-06-27 12:57:30.773 [CRITICAL] (          logging.py:  32) OSError: Multiple exceptions: [Errno 10061] Connect call failed ('::1', 30101, 0, 0), [Errno 10061] Connect call failed ('127.0.0.1', 30101)
+2025-06-27 12:57:30.773 [CRITICAL] (          logging.py:  32) 
+2025-06-27 12:57:30.773 [CRITICAL] (          logging.py:  32) The above exception was the direct cause of the following exception:
+2025-06-27 12:57:30.773 [CRITICAL] (          logging.py:  32) 
+2025-06-27 12:57:30.777 [CRITICAL] (          logging.py:  32) Traceback (most recent call last):
+2025-06-27 12:57:30.777 [CRITICAL] (          logging.py:  32)   File "C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.10_3.10.3056.0_x64__qbz5n2kfra8p0\lib\multiprocessing\process.py", line 314, in _bootstrap
+2025-06-27 12:57:30.777 [CRITICAL] (          logging.py:  32)     self.run()
+2025-06-27 12:57:30.777 [CRITICAL] (          logging.py:  32)   File "C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.10_3.10.3056.0_x64__qbz5n2kfra8p0\lib\multiprocessing\process.py", line 108, in run
+2025-06-27 12:57:30.777 [CRITICAL] (          logging.py:  32)     self._target(*self._args, **self._kwargs)
+2025-06-27 12:57:30.777 [CRITICAL] (          logging.py:  32)   File "C:\Users\ramon\Downloads\nspyre-main\src\nspyre\misc\misc.py", line 256, in run_experiment
+2025-06-27 12:57:30.777 [CRITICAL] (          logging.py:  32)     fun(**fun_kwargs)
+2025-06-27 12:57:30.777 [CRITICAL] (          logging.py:  32)   File "C:\Users\ramon\OneDrive\nspyre-biosensing\experiments\counts.py", line 75, in confocal_counts_time
+2025-06-27 12:57:30.777 [CRITICAL] (          logging.py:  32)     with InstrumentManager() as mgr, DataSource(dataset) as counts_data:
+2025-06-27 12:57:30.777 [CRITICAL] (          logging.py:  32)   File "C:\Users\ramon\Downloads\nspyre-main\src\nspyre\data\_asyncio_worker.py", line 107, in __enter__
+2025-06-27 12:57:30.777 [CRITICAL] (          logging.py:  32)     self.start()
+2025-06-27 12:57:30.777 [CRITICAL] (          logging.py:  32)   File "C:\Users\ramon\Downloads\nspyre-main\src\nspyre\data\source.py", line 54, in start
+2025-06-27 12:57:30.777 [CRITICAL] (          logging.py:  32)     super().start()
+2025-06-27 12:57:30.777 [CRITICAL] (          logging.py:  32)   File "C:\Users\ramon\Downloads\nspyre-main\src\nspyre\data\_asyncio_worker.py", line 41, in start
+2025-06-27 12:57:30.777 [CRITICAL] (          logging.py:  32)     self._check_exc()
+2025-06-27 12:57:30.777 [CRITICAL] (          logging.py:  32)   File "C:\Users\ramon\Downloads\nspyre-main\src\nspyre\data\_asyncio_worker.py", line 103, in _check_exc
+2025-06-27 12:57:30.777 [CRITICAL] (          logging.py:  32)     raise self._exc
+2025-06-27 12:57:30.777 [CRITICAL] (          logging.py:  32)   File "C:\Users\ramon\Downloads\nspyre-main\src\nspyre\data\source.py", line 82, in _main
+2025-06-27 12:57:30.783 [CRITICAL] (          logging.py:  32)     raise ConnectionError(
+2025-06-27 12:57:30.783 [CRITICAL] (          logging.py:  32) ConnectionError: Failed connecting to data server [('localhost', 30101)].
