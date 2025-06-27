@@ -136,7 +136,7 @@ class PlaneScanWidget(ExperimentWidget):
                          'planescan',
                          title='Plane Scan')
 
-# class PlaneScanWidgetWithFlexLinePlot(HeatMapWidget):
+# class PlaneScanWidgetHeatMap(HeatMapWidget):
 #     def __init__(self):
 #         super().__init__()
 #         # create some default signal plots
