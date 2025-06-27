@@ -47,7 +47,7 @@ with InstrumentServer() as inserv:
       inserv.add(name = 'DLnsec', 
                   class_path= _HERE / 'drivers' / 'dr_dlnsec.py', 
                   class_name= 'DLnsec',
-                  args= ['COM3'])
+                  args= ['COM9'])
 
    #REQUIRED IMPORT: pulsestreamer
 
@@ -72,7 +72,8 @@ with InstrumentServer() as inserv:
       inserv.add(name = 'DAQCounter',
             class_path= _HERE / 'drivers' / 'dr_DAQ_counter.py',
             class_name= 'DAQCounter',
-            args= ['Dev1','ctr1']
+            args= ['Dev1'],
+            kwargs={'clk_pfi': 'PFI0', 'ctr_pfi': 'PFI3'}
             )
 
    # run a CLI (command-line interface) that allows the user to enter
