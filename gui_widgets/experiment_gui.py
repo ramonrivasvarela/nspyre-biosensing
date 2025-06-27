@@ -20,10 +20,27 @@ import experiments.widefield
 class CountsWidget(ExperimentWidget):
     def __init__(self):
         params_config = {
-            'time_per_point': {
-                'display_text': 'Time per Point',
+            'n_points': {
+                'display_text': '# Points',
+                'widget': SpinBox(
+                    value=1,
+                    dec = False,
+                ),
+            },
+
+            'probe_time': {
+                'display_text': 'Probe Time',
                 'widget': SpinBox(
                     value=0.1,
+                    suffix='s',
+                    siPrefix=True,
+                    dec=True,
+                ),
+            },
+            'clock_time': {
+                'display_text': 'Clock Time',
+                'widget': SpinBox(
+                    value=10e-9,
                     suffix='s',
                     siPrefix=True,
                     dec=True,
@@ -32,7 +49,7 @@ class CountsWidget(ExperimentWidget):
 
             'dataset': {
                 'display_text': 'Data Set',
-                'widget': QtWidgets.QLineEdit('odmr'),
+                'widget': QtWidgets.QLineEdit('counts'),
             },
         }
 
@@ -43,7 +60,7 @@ class CountsWidget(ExperimentWidget):
                         title='counts vs time')
 
 
-class FlexLinePlotWidgetWithODMRDefaults(FlexLinePlotWidget):
+class CountsPlotWidget(FlexLinePlotWidget):
     """Add some default settings to the FlexSinkLinePlotWidget."""
     def __init__(self):
         super().__init__()
