@@ -125,9 +125,14 @@ class DAQCounter:
         self.read_task.stop() 
         return 
     
-    def start_stream_read(self, pulses, sequence, n_runs, timeout):
+    
+    def start_stream_read(self, pulses, sequence, n_runs = 1, timeout = 10):
         """
         start, stream, and read from a single method by passing in the pulse streamer and all of its arguments.
+        pulses: PulseStreamer instance
+        sequence: Sequence object to stream
+        n_runs: number of runs to stream, to pass to the PulseStreamer
+        timeout: timeout for reading samples
         """
         if self.buffer is None:
             raise RuntimeError("Buffer not created. Call create_buffer() before starting the stream read.")
