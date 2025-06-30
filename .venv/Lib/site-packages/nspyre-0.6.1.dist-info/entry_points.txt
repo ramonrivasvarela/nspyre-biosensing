@@ -1,0 +1,4 @@
+[console_scripts]
+nspyre-dataserv=nspyre.cli.dataserv:_main
+nspyre-inserv=nspyre.cli.inserv:_main
+

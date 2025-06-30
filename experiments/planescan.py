@@ -127,20 +127,24 @@ class PlaneScan:
             # we reassign the origin vector, so that it starts at the bottom of the z-stack range
             origin = origin - stack_vector * z_stack
             #print(z_stack)
-            heatmap = np.zeros((extent_steps + 1, line_scan_steps))
+            heatmap = np.zeros((int(extent_steps) + 1, int(line_scan_steps)))
             heatmap_dataset = StreamingList()
             heatmap_dataset.append(heatmap.copy())
             scan_vals = np.linspace(
                             adjust_line,
                             np.linalg.norm(scan_vector) + adjust_line,
-                            line_scan_steps
+                            int(line_scan_steps)
                         )
-            step_val = s / extent_steps * np.linalg.norm(extent_vector) + adjust_step
-            for z in range(stack_count):
+            step_vals = np.linspace(
+                adjust_step,                                # start offset
+                np.linalg.norm(extent_vector) + adjust_step,# end offset
+                int(extent_steps) + 1                       # rows = extent_steps+1
+            )
+            for z in range(int(stack_count)):
                 origin = origin + stack_vector
-                for rep in range(repetitions):
-                    for s in range(extent_steps + 1):
-                        line_scan_start_pt = np.array(origin) + s/(extent_steps) * extent_vector
+                for rep in range(int(repetitions)):
+                    for s in range(int(extent_steps) + 1):
+                        line_scan_start_pt = np.array(origin) + s/(int(extent_steps)) * extent_vector
                         line_scan_stop_pt = line_scan_start_pt + scan_vector
                         
                         ## adding option for snake scan
@@ -194,7 +198,7 @@ class PlaneScan:
                             },
                             'name': 'Heatmap',
                             'xs': scan_vals,
-                            'ys': step_val,
+                            'ys': step_vals,
                             'data': {
                                 'line': heatmap_dataset,
                             }

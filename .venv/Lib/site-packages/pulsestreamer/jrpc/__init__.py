@@ -1,0 +1,2 @@
+#this file is needed for python2 compatibility
+from pulsestreamer.jrpc.pulse_streamer_jrpc import PulseStreamer

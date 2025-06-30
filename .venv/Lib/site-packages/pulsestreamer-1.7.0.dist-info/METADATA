@@ -1,0 +1,52 @@
+Metadata-Version: 2.1
+Name: pulsestreamer
+Version: 1.7.0
+Summary: A client software for Swabian Instrument's Pulse Streamer 8/2
+Home-page: https://www.swabianinstruments.com/pulse-streamer-8-2/
+License: MIT
+Author: Swabian Instruments GmbH
+Author-email: support@swabianinstruments.com
+Requires-Python: >=2.7
+Description-Content-Type: text/markdown
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Scientific/Engineering
+Classifier: Natural Language :: English
+Requires-Dist: requests
+Requires-Dist: tinyrpc<=1.1.0;python_version>="3.0"
+Requires-Dist: tinyrpc<1.0;python_version<"3.0"
+Requires-Dist: gevent-websocket
+Requires-Dist: numpy
+Requires-Dist: enum34;python_version<"3.4"
+Requires-Dist: grpcio ; extra == "grpc"
+Requires-Dist: protobuf>=3.20.0 ; extra == "grpc"
+Project-URL: Documentation, https://www.swabianinstruments.com/static/documentation/PulseStreamer/
+Project-URL: Hardware, https://www.swabianinstruments.com/pulse-streamer-8-2/
+Provides-Extra: grpc
+
+
+# Client software for Swabian Instrument's Pulse Streamer
+
+
+The Pulse Streamer 8/2 is a synchronous digital and analog arbitrary waveform generator with 8 digital and 2 analog output channels. 
+It comes with a powerful programming interface that allows you to define complex pulse sequences and arbitrary waveforms efficiently.
+
+# Installation
+
+```
+pip install pulsestreamer
+```
+
+The package also supports gRPC as an alternative communication protocol.
+You can install the package with grpc as
+
+```
+pip install pulsestreamer[grpc]
+```
+
+
+https://www.swabianinstruments.com
+Swabian Instruments GmbH, 2023

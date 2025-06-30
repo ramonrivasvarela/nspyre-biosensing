@@ -16,7 +16,7 @@ class DAQCounter:
     A class to handle reading from a DAQ counter using the NIDAQmx library.
     Assumes a clock channel and single counter channel. Edits will need to be made for different configurations, ex. more counters.
     '''
-    def __init__(self, dev, clk_pfi = 'PFI0', ctr_pfi = 'PFI3'):
+    def __init__(self, dev, clk_pfi = 'PFI0', apd_ctr = 'ctr1'): # counter channel requires ctr, clock channel requires pfi
         self.read_task = None
         self.reader = None
         self.buffer = None
@@ -30,7 +30,7 @@ class DAQCounter:
         self.n_ctrs = 1
         self.sampling_rate = 0 # TEMPORARY
         self.clk_channel = '/' + dev + '/' + clk_pfi
-        self.ctr_channel = '/' + dev + '/' + ctr_pfi
+        self.ctr_channel ='/' + dev + '/' + apd_ctr
 
 
 

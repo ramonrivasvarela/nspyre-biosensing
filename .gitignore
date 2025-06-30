@@ -1,11 +1,15 @@
 # Python builds and venv
 __pycache__/
 *.py[cod]
+<<<<<<< Updated upstream
 
+=======
+>>>>>>> Stashed changes
 
 # Editor settings
 .vscode/
 .idea/
+.venv/
 
 # OS clutter
 .DS_Store

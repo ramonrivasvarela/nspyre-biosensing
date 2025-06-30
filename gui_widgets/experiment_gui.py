@@ -11,7 +11,7 @@ from pyqtgraph.Qt import QtWidgets
 from PyQt6.QtWidgets import QSpinBox, QLineEdit, QCheckBox, QDoubleSpinBox, QMainWindow, QPushButton, QVBoxLayout, QWidget, QLabel
 from nspyre.gui.widgets import HeatMapWidget
 from special_widgets import unit_widgets
-from special_widgets.experiment_widget import ExperimentWidget
+#from special_widgets.experiment_widget import ExperimentWidget
 
 import experiments.counts
 import experiments.planescan
@@ -128,13 +128,21 @@ class PlaneScanWidget(ExperimentWidget):
                 'display_text': 'Data Set',
                 'widget': QtWidgets.QLineEdit('planescan'),
             },
+        
+        }
+        get_param_value_funs={
+            unit_widgets.PointWidget: lambda w: w.get_point(),
+            unit_widgets.MLineEdit:   lambda w: w.umvalue,
+            unit_widgets.HzLineEdit:  lambda w: w.hzvalue,
+            unit_widgets.SecLineEdit:  lambda w: w.secvalue,
+            unit_widgets.NSLineEdit:  lambda w: w.nsvalue,
         }
 
-        super().__init__(params_config,
+        super().__init__(params_config, 
                          experiments.planescan,
                          'PlaneScan',
                          'planescan',
-                         title='Plane Scan')
+                         title='Plane Scan', get_param_value_funs=get_param_value_funs)
         
 class WideFieldWidget(ExperimentWidget):
     def __init__(self):
@@ -233,10 +241,18 @@ class WideFieldWidget(ExperimentWidget):
             }
         }
 
+        get_param_value_funs={
+            unit_widgets.PointWidget: lambda w: w.get_point(),
+            unit_widgets.MLineEdit:   lambda w: w.umvalue,
+            unit_widgets.HzLineEdit:  lambda w: w.hzvalue,
+            unit_widgets.SecLineEdit:  lambda w: w.secvalue,
+            unit_widgets.NSLineEdit:  lambda w: w.nsvalue,
+        }
+
         super().__init__(
             params_config,
             experiments.widefield,
             'WideFieldODMR',
             'run_widefield_experiment',
-            title='Wide Field Imaging'
+            title='Wide Field Imaging', get_param_value_funs=get_param_value_funs
         )
