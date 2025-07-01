@@ -55,7 +55,7 @@ class PlaneScan:
         """Perform experiment teardown."""
         _logger.info('Destroyed PlaneScan instance.')
 
-    def planescan(self, dataset: str, point_A : dict ={'x': 0, 'y': 0, 'z': 0},
+    def planescan(self, plane_scan_dataset: str, point_A : dict ={'x': 0, 'y': 0, 'z': 0},
                     point_B : dict ={'x': 50, 'y': 0, 'z': 0},
                     point_C : dict ={'x': 50, 'y': 0, 'z': 60},
                     line_scan_steps: int=100, extent_steps: int=100,
@@ -64,7 +64,7 @@ class PlaneScan:
                     stack_pospref: bool = False,
                     acq_rate: int =15000, pts_per_step: int =40, xyz_pos: bool = True,
                     excel :bool = False, snake_scan :bool = False, sleep_factor : float=1):
-        with InstrumentManager() as mgr, DataSource(dataset) as planescan_data:
+        with InstrumentManager() as mgr, DataSource(plane_scan_dataset) as planescan_data:
             # mgr.XYZcontrol.daq_controller.sleep_factor = sleep_factor
             self.initialize(mgr, ctr_ch, acq_rate)
             # starting point for scan
@@ -146,20 +146,18 @@ class PlaneScan:
                     for s in range(int(extent_steps) + 1):
                         line_scan_start_pt = np.array(origin) + s/(int(extent_steps)) * extent_vector
                         line_scan_stop_pt = line_scan_start_pt + scan_vector
-                        
+                        print("running well.")
                         ## adding option for snake scan
                         if snake_scan == True and (s+1)%2 == 0:
                             print('s:', s)
                             line_scan_start_pt = line_scan_stop_pt
                             line_scan_stop_pt = np.array(origin) + s/(extent_steps) * extent_vector
-                        
-                        
-                        line_data = mgr.XYZcontrol.line_scan({'x': line_scan_start_pt[0],
-                                                        'y': line_scan_start_pt[1],
-                                                        'z': line_scan_start_pt[2]}, 
-                                                        {'x': line_scan_stop_pt[0],
-                                                        'y': line_scan_stop_pt[1],
-                                                        'z': line_scan_stop_pt[2]},
+                        line_data = mgr.XYZcontrol.line_scan({'x': float(line_scan_start_pt[0]),
+                                                        'y': float(line_scan_start_pt[1]),
+                                                        'z': float(line_scan_start_pt[2])},
+                                                        {'x': float(line_scan_stop_pt[0]),
+                                                        'y': float(line_scan_stop_pt[1]),
+                                                        'z': float(line_scan_stop_pt[2])},
                                                             line_scan_steps, pts_per_step)
                         
                         #import pdb; pdb.set_trace()                    #print(s / extent_steps * np.linalg.norm(extent_vector))                    #print(np.linspace(0, np.linalg.norm(scan_vector), line_scan_steps))                    #print(z)                    #print(origin)                    #print(z - z_stack + 1)
@@ -199,18 +197,21 @@ class PlaneScan:
                             'name': 'Heatmap',
                             'xs': scan_vals,
                             'ys': step_vals,
-                            'data': {
-                                'line': heatmap_dataset,
+                            'dataset': {
+                                'heatmap': heatmap_dataset,
                             }
                         })
+
 
                         if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
                             # the GUI has asked us nicely to exit
                             self.finalize(mgr, excel)
                             return
+            self.finalize(mgr, excel)
 
     def initialize(self, mgr, ctr_ch='Dev1/ctr1', acq_rate=15000):
         #create control task, action task already created in app initizalization
+        mgr.XYZcontrol.initialize()
         mgr.XYZcontrol.new_ctr_task(ctr_ch)
         mgr.XYZcontrol.acq_rate = acq_rate
 
@@ -220,3 +221,4 @@ class PlaneScan:
     def finalize(self,mgr, excel):
         mgr.Pulser.set_state_off()
         mgr.DAQCounter.finalize()
+        mgr.XYZcontrol.finalize()

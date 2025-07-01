@@ -65,7 +65,11 @@ class _HeatMapSettings(QThreadSafeObject):
                 self.run_main(callback, name, blocking=True)
     
     def remove_heatmap(self, name: str, callback: Optional[Callable]=None):
+<<<<<<< Updated upstream
         with QtCore.QMutexLocker(self.mutex): 
+=======
+        with QtCore.QMutexLocker(self.mutex):
+>>>>>>> Stashed changes
             if name not in self.series_settings:
                 _logger.info(
                     f'No plot with the name [{name}] exists. Ignoring remove_plot '

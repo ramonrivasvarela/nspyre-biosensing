@@ -55,8 +55,18 @@ class NIDAQMotionController():
             )
 
     def finalize(self):
+        # if self.ao_motion_task:
+        #     self.ao_motion_task.close()
         if self.ao_motion_task:
+            try:
+                self.ao_motion_task.stop()
+            except nidaqmx.errors.DaqError:
+                pass
             self.ao_motion_task.close()
+        self.ao_motion_task = None
+        self.counter_tasks.clear()
+        self.current_counter_task = None
+
         for t in self.counter_tasks:
             t.close()
 
@@ -120,7 +130,7 @@ class NIDAQMotionController():
                                                             auto_start=False)
         # must use array with contiguous memory region because NI uses C arrays under the hood
         # Shivam: This is the section where voltage values are made contiguous and encoded
-        ni_ao_sample_buffer = np.ascontiguousarray(step_voltages.transpose(), dtype=np.float)
+        ni_ao_sample_buffer = np.ascontiguousarray(step_voltages.transpose(), dtype=float)
         # TODO timeout
         sample_writer_stream.write_many_sample(ni_ao_sample_buffer, timeout=60)
         
@@ -162,7 +172,7 @@ class NIDAQMotionController():
         scanned = ni_ctr_sample_buffer.reshape((steps, pts_per_step+1))
         averaged = np.diff(scanned).mean(axis=1)
         self.position = final_point
-        print('what is my final point', final_point, self.position)
+        # print('what is my final point', final_point, self.position)
         return averaged*self.acq_rate
     
     def linear_func(self, start_pt, stop_pt, steps):

@@ -19,10 +19,10 @@ class MLineEdit(QLineEdit):
         """Update the value based on the text entered by the user."""
         text = self.text().strip()
         try:
-            if text.endswith("nm"):
+            if text.lower().endswith("nm"):
                 val_text = text[:-2].strip()
                 self.umvalue = float(val_text) * 1e-3
-            elif text.endswith("um"):
+            elif text.lower().endswith("um"):
                 val_text = text[:-2].strip()
                 self.umvalue = float(val_text)
             else:
@@ -34,7 +34,7 @@ class MLineEdit(QLineEdit):
 
     def update_text(self):
         """Update the displayed text based on the current value."""
-        if self.umvalue < 1:
+        if abs(self.umvalue) < 1:
             self.setText(f"{self.prefix}{self.umvalue * 1e3:.1f} nm")
         else:
             self.setText(f"{self.prefix}{self.umvalue:.3f} um")
@@ -95,41 +95,43 @@ class HzLineEdit(QLineEdit):
         self.setFont(QFont("Sanserif", 15))
         self.setFixedWidth(160)
         self.update_text()  # Initialize the text based on the value
-        self.editingFinished.connect(self.edit_value)  # Connect signal to update value
+        self.editingFinished.connect(self.edit_value)  
+        # Connect signal to update value
                 
     def edit_value(self):
         """Update the value based on the text entered by the user."""
         text = self.text().strip()
         try:
-            if text.endswith("Hz"):
-                val_text = text[:-2].strip()
-                self.hzvalue = float(val_text)
-            elif text.endswith("kHz"):
+
+            if text.lower().endswith("khz"):
                 val_text = text[:-3].strip()
                 self.hzvalue = float(val_text) * 1e3
-            elif text.endswith("MHz"):
+            elif text.lower().endswith("mhz"):
                 val_text = text[:-3].strip()
                 self.hzvalue = float(val_text) * 1e6
-            elif text.endswith("GHz"):
+            elif text.lower().endswith("ghz"):
                 val_text = text[:-3].strip()
                 self.hzvalue = float(val_text) * 1e9
+            elif text.lower().endswith("hz"):
+                val_text = text[:-2].strip()
+                self.hzvalue = float(val_text)
             else:
                 self.hzvalue = float(text)
         except ValueError as e:
-            raise ValueError(f"Invalid input '{text}': cannot convert to float. Please enter a number with an optional unit 'nm' or 'um'.") from e
+            raise ValueError(f"Invalid input '{text}': cannot convert to float. Please enter a number with an optional unit.") from e
 
         self.update_text()
 
     def update_text(self):
         """Update the displayed text based on the current value."""
         if self.hzvalue >= 1e9:
-            self.setText(f"{self.hzvalue*1e-9:.1f} GHz")
+            self.setText(f"{self.hzvalue*1e-9:.3f} GHz")
         elif self.hzvalue >= 1e6:
-            self.setText(f"{self.hzvalue*1e-6:.1f} MHz")
+            self.setText(f"{self.hzvalue*1e-6:.3f} MHz")
         elif self.hzvalue >= 1e3:
-            self.setText(f"{self.hzvalue*1e-3:.1f} kHz")
+            self.setText(f"{self.hzvalue*1e-3:.3f} kHz")
         else:
-            self.setText(f"{self.hzvalue:.3f} kHz")
+            self.setText(f"{self.hzvalue:.1f} Hz")
 
 class HzSpinBox(SpinBox):
     # Spin Box with flexible frequency units (Hz, kHz, MHz, GHz) depending on value
@@ -147,18 +149,19 @@ class HzSpinBox(SpinBox):
     def update_value(self):
         text = self.text().strip()
         try:
-            if text[-2:] == "Hz":
-                val_text = text[:-2].strip()
-                self.hzvalue = float(val_text)
-            elif text[-2:] == "kHz":
+
+            if text.lower().endswith("khz"):
                 val_text = text[:-3].strip()
                 self.hzvalue = float(val_text) * 1e3
-            elif text[-2:] == "MHz":
+            elif text.lower().endswith("mhz"):
                 val_text = text[:-3].strip()
                 self.hzvalue = float(val_text) * 1e6
-            elif text[-2:] == "GHz":
+            elif text.lower().endswith("ghz"):
                 val_text = text[:-3].strip()
                 self.hzvalue = float(val_text) * 1e9
+            elif text.lower().endswith("hz"):
+                val_text = text[:-2].strip()
+                self.hzvalue = float(val_text)
             else:
                 self.hzvalue = float(text)
         except ValueError as e:
@@ -213,16 +216,16 @@ class SecLineEdit(QLineEdit):
         """Update the value based on the text entered by the user."""
         text = self.text().strip()
         try:
-            if text.endswith("ms"):
+            if text.lower().endswith("ms"):
                 val_text = text[:-2].strip()
                 self.secvalue = float(val_text) * 1e-3
-            elif text.endswith("us"):
+            elif text.lower().endswith("us"):
                 val_text = text[:-2].strip()
                 self.secvalue = float(val_text) * 1e-6
-            elif text.endswith("ns"):
+            elif text.lower().endswith("ns"):
                 val_text = text[:-2].strip()
                 self.secvalue = float(val_text) * 1e-9
-            elif text.endswith("s"):
+            elif text.lower().endswith("s"):
                 val_text = text[:-1].strip()
                 self.secvalue = float(val_text)
             else:
@@ -235,13 +238,13 @@ class SecLineEdit(QLineEdit):
     def update_text(self):
         """Update the displayed text based on the current value."""
         if self.secvalue >= 1:
-            self.setText(f"{self.secvalue:.1f} s")
+            self.setText(f"{self.secvalue:.3f} s")
         elif self.secvalue >= 1e-3:
-            self.setText(f"{self.secvalue*1e3:.1f} ms")
+            self.setText(f"{self.secvalue*1e3:.3f} ms")
         elif self.secvalue >= 1e-6:
-            self.setText(f"{self.secvalue*1e6:.1f} us")
+            self.setText(f"{self.secvalue*1e6:.3f} us")
         else:
-            self.setText(f"{self.secvalue*1e9:.3f} ns")
+            self.setText(f"{self.secvalue*1e9:.1f} ns")
 
 class SecSpinBox(SpinBox):
     
@@ -260,18 +263,19 @@ class SecSpinBox(SpinBox):
     def update_value(self):
         text = self.text().strip()
         try:
-            if text[-2:] == "s":
-                val_text = text[:-1].strip()
-                self.secvalue = float(val_text)
-            elif text[-2:] == "ms":
+            
+            if text.lower().endswith("ms"):
                 val_text = text[:-2].strip()
                 self.secvalue = float(val_text) * 1e-3
-            elif text[-2:] == "us":
+            elif text.lower().endswith("us"):
                 val_text = text[:-2].strip()
                 self.secvalue = float(val_text) * 1e-6
-            elif text[-2:] == "ns":
+            elif text.lower().endswith("ns"):
                 val_text = text[:-2].strip()
                 self.secvalue = float(val_text) * 1e-9
+            elif text.lower().endswith("s"):
+                val_text = text[:-1].strip()
+                self.secvalue = float(val_text)
             else:
                 self.secvalue = float(text)
         except ValueError as e:
@@ -322,9 +326,9 @@ class PointWidget(QWidget):
         super().__init__()
         
         # Create three MLineEdit fields initialized with given values
-        self.x_edit = MLineEdit(x, "X:")
-        self.y_edit = MLineEdit(y, "Y:")
-        self.z_edit = MLineEdit(z, "Z:")
+        self.x_edit = MLineEdit(x, "")
+        self.y_edit = MLineEdit(y, "")
+        self.z_edit = MLineEdit(z, "")
         self.x_edit.setFixedWidth(120)
         self.y_edit.setFixedWidth(120)       
         self.z_edit.setFixedWidth(120)
@@ -378,5 +382,5 @@ class FloatLineEdit(QLineEdit):
 
     def update_text(self):
         """Update the displayed text based on the current value."""
-        self.setText(f"{self.umvalue}")
+        self.setText(f"{self.value}")
      

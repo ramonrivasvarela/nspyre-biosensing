@@ -74,6 +74,7 @@ def main():
                 
                 'Plotting' : {
                     'Flex Line Plot': MainWidgetItem(experiment_gui, 'CountsPlotWidget', stretch=(1, 1)),
+                    'Heat Map': MainWidgetItem(experiment_gui, 'PlaneScanHeatMapWidget', stretch=(1, 1)),
                 }
             }
         )

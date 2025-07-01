@@ -11,11 +11,18 @@ from pyqtgraph.Qt import QtWidgets
 from PyQt6.QtWidgets import QSpinBox, QLineEdit, QCheckBox, QDoubleSpinBox, QMainWindow, QPushButton, QVBoxLayout, QWidget, QLabel
 from nspyre.gui.widgets import HeatMapWidget
 from special_widgets import unit_widgets
+from nspyre import InstrumentManager
 #from special_widgets.experiment_widget import ExperimentWidget
-
+from nspyre import DataSource
 import experiments.counts
 import experiments.planescan
 import experiments.widefield
+
+import pyqtgraph as pg
+
+from special_widgets.heat_map_plot_widget import HeatMapPlotWidget
+
+cmap = pg.colormap.get('viridis')  
 
 class CountsWidget(ExperimentWidget):
     def __init__(self):
@@ -78,15 +85,17 @@ class CountsPlotWidget(FlexLinePlotWidget):
 class PlaneScanWidget(ExperimentWidget):
     def __init__(self):
         # Create SpinBoxes and set minimums
-        line_scan_steps_sb = SpinBox(value=100)
+        line_scan_steps_sb = QSpinBox(value=100)
         line_scan_steps_sb.setMinimum(1)
-        extent_steps_sb = SpinBox(value=100)
+        line_scan_steps_sb.setMaximum(1000)
+        extent_steps_sb = QSpinBox(value=100)
         extent_steps_sb.setMinimum(1)
-        repetitions_sb = SpinBox(value=1)
+        extent_steps_sb.setMaximum(1000)
+        repetitions_sb = QSpinBox(value=1)
         repetitions_sb.setMinimum(1)
-        stack_count_sb = SpinBox(value=1)
+        stack_count_sb = QSpinBox(value=1)
         stack_count_sb.setMinimum(1)
-        pts_per_step_sb = SpinBox(value=40)
+        pts_per_step_sb = QSpinBox(value=40)
         pts_per_step_sb.setMinimum(1)
         sleep_factor_sb = SpinBox(value=1)
         sleep_factor_sb.setMinimum(1)
@@ -124,7 +133,7 @@ class PlaneScanWidget(ExperimentWidget):
                            'widget': QCheckBox()},
             'sleep_factor': {'display_text': 'Sleep Factor',
                              'widget': sleep_factor_sb},
-            'dataset': {
+            'plane_scan_dataset': {
                 'display_text': 'Data Set',
                 'widget': QtWidgets.QLineEdit('planescan'),
             },
@@ -136,6 +145,7 @@ class PlaneScanWidget(ExperimentWidget):
             unit_widgets.HzLineEdit:  lambda w: w.hzvalue,
             unit_widgets.SecLineEdit:  lambda w: w.secvalue,
             unit_widgets.NSLineEdit:  lambda w: w.nsvalue,
+            QSpinBox: lambda w: w.value(),
         }
 
         super().__init__(params_config, 
@@ -143,7 +153,22 @@ class PlaneScanWidget(ExperimentWidget):
                          'PlaneScan',
                          'planescan',
                          title='Plane Scan', get_param_value_funs=get_param_value_funs)
+
+        def closeEvent(self):
+            with InstrumentManager() as mgr:
+                # Finalize the XYZ control if it was initialized
+                if hasattr(mgr, 'XYZcontrol'):
+                    mgr.XYZcontrol.finalize()
+
+class PlaneScanHeatMapWidget(HeatMapPlotWidget):
+    """Add some default settings to the FlexSinkLinePlotWidget."""
+    def __init__(self):
+        super().__init__()
+                # open in read-only mode; adjust dataset name if needed
+
+        self.datasource_lineedit.setText('planescan')
         
+
 class WideFieldWidget(ExperimentWidget):
     def __init__(self):
 
