@@ -14,7 +14,7 @@ import logging
 
 from nspyre import nspyre_init_logger
 
-from instrument_activation import xyz_activation_boolean, pulser_activation_boolean, sg_activation_boolean, dlnsec_activation_boolean
+from instrument_activation import xyz_activation_boolean, pulser_activation_boolean, sg_activation_boolean, dlnsec_activation_boolean, camera_activation_boolean
 
 
 _HERE = Path(__file__).parent
@@ -75,6 +75,13 @@ with InstrumentServer() as inserv:
             args= ['Dev1'],
             kwargs={'clk_pfi': 'PFI0', 'apd_ctr': 'ctr1'}
             )
+   if camera_activation_boolean:
+      #REQUIRED IMPORT: andor-sdk3
+      inserv.add(name = 'Camera',
+               class_path= _HERE / 'drivers' / 'dr_camera.py',
+               class_name= 'Camera',
+               args= []
+               )
 
    # run a CLI (command-line interface) that allows the user to enter
    # commands to control the server

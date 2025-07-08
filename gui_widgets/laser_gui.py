@@ -129,53 +129,51 @@ class InstWidget(QWidget):
             print('could not set DLnsec mode to EXT')
     
     def init_pulse_control(self):
+
         self.green_laser_label = QLabel("Green Laser:")
         self.green_laser_label.setFixedHeight(20)
         self.green_laser_label.setStyleSheet("font-weight: bold")
 
-        self.green_laser_on = QRadioButton("ON")
-        #self.green_laser_on.toggled.connect(lambda:self.green_laser_toggle(self.green_laser_on))
+        self.green_laser_on_button = QRadioButton("ON")
+        #self.green_laser_on_button.toggled.connect(lambda:self.green_laser_toggle(self.green_laser_on_button))
             
-        self.green_laser_off = QRadioButton("OFF")
-        self.green_laser_off.setChecked(True)
-        #self.green_laser_off.toggled.connect(lambda:self.blue_laser_toggle(self.green_laser_off))
+        self.green_laser_off_button = QRadioButton("OFF")
+        #self.green_laser_off_button.toggled.connect(lambda:self.blue_laser_toggle(self.green_laser_off_button))
 
         self.blue_laser_label = QLabel("488nm Laser:")
         self.blue_laser_label.setFixedHeight(20)
         self.blue_laser_label.setStyleSheet("font-weight: bold")
 
-        self.blue_laser_on = QRadioButton("ON")
+        self.blue_laser_on_button = QRadioButton("ON")
             
-        self.blue_laser_off = QRadioButton("OFF")
+        self.blue_laser_off_button = QRadioButton("OFF")
 
         self.switch_label = QLabel("Switch:")
         self.switch_label.setFixedHeight(20)
         self.switch_label.setStyleSheet("font-weight: bold")
 
-        self.switch_on = QRadioButton("ON")
+        self.switch_on_button = QRadioButton("ON")
 
-        self.switch_off = QRadioButton("OFF")
+        self.switch_off_button = QRadioButton("OFF")
 
 
         self.green_laser_group = QButtonGroup(self)
-        self.green_laser_group.addButton(self.green_laser_on)   # ON
-        self.green_laser_group.addButton(self.green_laser_off)  # OFF
-        self.green_laser_off.setChecked(True)  # Default OFF state
+        self.green_laser_group.addButton(self.green_laser_on_button)   # ON
+        self.green_laser_group.addButton(self.green_laser_off_button)  # OFF
+ # Default OFF state
 
         # Blue Laser Group (ON and OFF are exclusive)
         self.blue_laser_group = QButtonGroup(self)
-        self.blue_laser_group.addButton(self.blue_laser_on)   # ON
-        self.blue_laser_group.addButton(self.blue_laser_off)  # OFF
-        self.blue_laser_off.setChecked(True)
+        self.blue_laser_group.addButton(self.blue_laser_on_button)   # ON
+        self.blue_laser_group.addButton(self.blue_laser_off_button)  # OFF
 
         self.switch_group = QButtonGroup(self)
-        self.switch_group.addButton(self.switch_on)   # ON
-        self.switch_group.addButton(self.switch_off)  # OFF
-        self.switch_off.setChecked(True)
+        self.switch_group.addButton(self.switch_on_button)   # ON
+        self.switch_group.addButton(self.switch_off_button)  # OFF
 
-        self.green_laser_on.toggled.connect(lambda:self.change_experiment_state())
-        self.blue_laser_on.toggled.connect(lambda:self.change_experiment_state())
-        self.switch_on.toggled.connect(lambda:self.change_experiment_state())
+        self.green_laser_on_button.toggled.connect(lambda:self.change_experiment_state())
+        self.blue_laser_on_button.toggled.connect(lambda:self.change_experiment_state())
+        self.switch_on_button.toggled.connect(lambda:self.change_experiment_state())
 
         self.label= QLabel("Analog Control")
         self.label.setFixedHeight(20)
@@ -216,10 +214,7 @@ class InstWidget(QWidget):
                 """)
 
             def slider_changed(self):
-                self.value = (self.slider.value()-100)/100
-                self.label.setText(f"{self.value:.2f}")
-                    #with InstrumentManager() as mgr:
-                    #    mgr.DLnsec.power_settings(self.DLnsec_pwr)
+                self.set_value((self.slider.value()-100)/100)
                 
             def text_changed(self): # Makes sure text is valid, then sends off the value to the slider
                 text = self.label.text().strip()
@@ -234,11 +229,12 @@ class InstWidget(QWidget):
                     self.label.setText(f"{self.value:.2f}")
                     self.slider.setValue(int((self.value + 1) * 100))
                     raise ValueError(f"Invalid input '{val}': must be between -1 and 1.")
-                self.label.setText(f"{val:.2f}")
-                self.slider.setValue(int((val + 1) * 100))
-                self.value = val
+                self.set_value(val)
 
-                
+            def set_value(self, value):
+                self.value = value
+                self.label.setText(f"{self.value:.2f}")
+                self.slider.setValue(int((self.value + 1) * 100))
 
         self.q_analog = Analogs("Q")
         self.i_analog = Analogs("I")
@@ -274,6 +270,10 @@ class InstWidget(QWidget):
         self.mirror_boolean=False
         self.blue_laser_boolean=False
         self.green_laser_boolean=False
+
+        self.pulser_refresh_button=QPushButton("Refresh")
+        self.pulser_refresh_button.clicked.connect(lambda: self.refresh_pulser())
+        self.refresh_pulser()
 
     
 
@@ -316,14 +316,14 @@ class InstWidget(QWidget):
         self.pulse_layout.setSpacing(10)
 
         self.pulse_layout.addWidget(self.green_laser_label,1,1,1,1)
-        self.pulse_layout.addWidget(self.green_laser_on,1,2,1,1)
-        self.pulse_layout.addWidget(self.green_laser_off,1,3,1,1)
+        self.pulse_layout.addWidget(self.green_laser_on_button,1,2,1,1)
+        self.pulse_layout.addWidget(self.green_laser_off_button,1,3,1,1)
         self.pulse_layout.addWidget(self.blue_laser_label,2,1,1,1)
-        self.pulse_layout.addWidget(self.blue_laser_on,2,2,1,1)
-        self.pulse_layout.addWidget(self.blue_laser_off,2,3,1,1)
+        self.pulse_layout.addWidget(self.blue_laser_on_button,2,2,1,1)
+        self.pulse_layout.addWidget(self.blue_laser_off_button,2,3,1,1)
         self.pulse_layout.addWidget(self.switch_label,3,1,1,1)
-        self.pulse_layout.addWidget(self.switch_on,3,2,1,1)
-        self.pulse_layout.addWidget(self.switch_off,3,3,1,1)
+        self.pulse_layout.addWidget(self.switch_on_button,3,2,1,1)
+        self.pulse_layout.addWidget(self.switch_off_button,3,3,1,1)
 
         self.pulse_layout.addWidget(self.mirror_label,5,1,1,1)
         self.pulse_layout.addWidget(self.mirror_button,6,1,1,1)
@@ -338,6 +338,7 @@ class InstWidget(QWidget):
         self.pulse_layout.addWidget(self.i_analog.label,10,1,1,1)
         
         self.pulse_layout.addWidget(self.reset_button,11,1,1,1)
+        self.pulse_layout.addWidget(self.pulser_refresh_button,11,2,1,1)
         
 
         self.sig_gens_layout = QGridLayout()
@@ -430,14 +431,15 @@ class InstWidget(QWidget):
     def change_experiment_state(self): 
         with InstrumentManager() as mgr:
             dig_chan=[]
-            if self.green_laser_on.isChecked():
+            if self.green_laser_on_button.isChecked():
                 dig_chan.append(7)
-            if self.blue_laser_on.isChecked():
+            if self.blue_laser_on_button.isChecked():
                 dig_chan.append(3)
-            if self.switch_on.isChecked():
+            if self.switch_on_button.isChecked():
                 dig_chan.append(6)
             if self.i_analog.value<=1 and self.i_analog.value>=-1 and self.q_analog.value<=1 and self.q_analog.value>=-1:
                 mgr.Pulser.set_state(dig_chan, self.q_analog.value, self.i_analog.value)
+        self.refresh_pulser()
     
     
     
@@ -460,14 +462,14 @@ class InstWidget(QWidget):
         self.change_button_style()
         self.reset_function()
 
-    def flip_mirror_leave_laser_on(self):
+    def flip_mirror_leave_laser_on_button(self):
         self.change_button_style()
         dig_chan=[]
-        if self.green_laser_on.isChecked():
+        if self.green_laser_on_button.isChecked():
             dig_chan.append(7)
-        if self.blue_laser_on.isChecked():
+        if self.blue_laser_on_button.isChecked():
             dig_chan.append(3)
-        if self.switch_on.isChecked():
+        if self.switch_on_button.isChecked():
             dig_chan.append(6)
         with InstrumentManager() as mgr:
             mgr.Pulser.flip_mirror(dig_chan, self.q_analog.value, self.i_analog.value)
@@ -477,11 +479,11 @@ class InstWidget(QWidget):
 
     def reset_function(self):
         with InstrumentManager() as mgr:
-            self.q_analog.slider.setValue(100)
-            self.i_analog.slider.setValue(100)
-            self.green_laser_off.setChecked(True)
-            self.blue_laser_off.setChecked(True)
-            self.switch_off.setChecked(True)
+            self.q_analog.set_value(0)
+            self.i_analog.set_value(0)
+            self.green_laser_off_button.setChecked(True)
+            self.blue_laser_off_button.setChecked(True)
+            self.switch_off_button.setChecked(True)
             with InstrumentManager() as mgr:
                 mgr.Pulser.set_state_off()
             # self.q_analog.label.setText("0.00")
@@ -493,6 +495,31 @@ class InstWidget(QWidget):
             mgr.Pulser.set_state_off()
         if event:
             event.accept()
+
+    def refresh_pulser(self):
+        if pulser_activation_boolean:
+            with InstrumentManager() as mgr:
+                if mgr.Pulser.green_laser_on:
+                    self.green_laser_on_button.setChecked(True)
+                else:
+                    self.green_laser_off_button.setChecked(True)
+                if mgr.Pulser.blue_laser_on:
+                    self.blue_laser_on_button.setChecked(True)
+                else:
+                    self.blue_laser_off_button.setChecked(True)
+                if mgr.Pulser.switch_on:
+                    self.switch_on_button.setChecked(True)
+                else:
+                    self.switch_off_button.setChecked(True)
+                self.q_analog.set_value(mgr.Pulser.q_analog)
+                self.i_analog.set_value(mgr.Pulser.i_analog)
+        else:
+            self.green_laser_off_button.setChecked(True)
+            self.blue_laser_off_button.setChecked(True)
+            self.switch_off_button.setChecked(True)
+            self.q_analog.set_value(0)
+            self.i_analog.set_value(0)
+
     
     
 

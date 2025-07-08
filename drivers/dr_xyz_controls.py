@@ -64,22 +64,42 @@ class NIDAQMotionController():
                 pass
             self.ao_motion_task.close()
         self.ao_motion_task = None
+        for t in self.counter_tasks:
+            try:
+                t.close()
+            except Exception:
+                # you might log this if you want visibility into failures
+                pass
+
+        # 2) Now clear the list and reset the pointer
         self.counter_tasks.clear()
         self.current_counter_task = None
-
-        for t in self.counter_tasks:
-            t.close()
 
     def new_ctr_task(self, ctr_ch):
         self.current_counter_task = nidaqmx.Task('NIDAQMotionController_CTR_{}'.format(np.random.randint(2**31)))
         self.current_counter_task.ci_channels.add_ci_count_edges_chan(ctr_ch)
         self.counter_tasks.append(self.current_counter_task)
 
+    def end_ctr_task(self):
+        """End the current counter task and remove it from the list of tasks."""
+        if self.current_counter_task:
+            try:
+                self.current_counter_task.stop()
+            except nidaqmx.errors.DaqError:
+                pass
+            self.current_counter_task.close()
+            self.current_counter_task = None
+        # Remove the task from the list of counter tasks
+        self.counter_tasks = [t for t in self.counter_tasks if t is not None]
+
     # ---- motion ----
     # def _normalize_point(self, point):
     #     return {axis: self.axes[axis]._as_quantity(val) for axis, val in point.items()}
 
     def move(self, target: dict):
+        for name, axis in self.axes.items():
+            if target[name] < axis.limits[0] or target[name] > axis.limits[1]:
+                raise ValueError(f"{name} position {target[name]} is out of bounds {axis.limits}")
         steps = 10
         start_v = np.array([
             axis.units_to_volts(self.position[name])
@@ -193,6 +213,8 @@ class NIDAQMotionController():
                         # [[0.1, 0.2, ..., 1]
                         # [0.2, 0.4, ..., 2]]
         return np.outer(np.ones(steps), start_volts) + np.outer(linear_steps, stop_volts-start_volts)
+    
+  
 
 # ---------- high-level XYZ driver ----------
 class XYZSetup(NIDAQMotionController):
@@ -229,11 +251,15 @@ class XYZSetup(NIDAQMotionController):
             'y': y if y is not None else self.get_y(),
             'z': z if z is not None else self.get_z()
         })
+    
+    def move_to_dict(self, pos_dict):
+        """Move to a position specified by a dictionary with keys 'x', 'y', and 'z'."""
+        self.move_to(pos_dict['x'], pos_dict['y'], pos_dict['z'])
 
-    def finalize(self):
+    def reset_and_finalize(self):
         self.move_to(0, 0, 0)  # Move to home position
         super().finalize()
 
 
-    def line_scan(self, init_point, final_point, steps, pts_per_step):
-        return super().line_scan(init_point, final_point, steps, pts_per_step)
+    
+

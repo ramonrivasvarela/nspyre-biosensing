@@ -196,7 +196,7 @@ class PlaneScan:
                             'xs': scan_vals,
                             'ys': step_val,
                             'data': {
-                                'line': heatmap_dataset,
+                                'line': heatmap,
                             }
                         })
 

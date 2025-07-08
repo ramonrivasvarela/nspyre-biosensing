@@ -1,0 +1,8 @@
+
+{
+  "python.defaultInterpreterPath": "C:/Users/ramon/OneDrive/venvs/.venv/Scripts/python.exe",
+  "python.analysis.extraPaths": [
+    "C:/Users/ramon/OneDrive/venvs/nspyre-local/src"
+  ],
+  "python.analysis.autoSearchPaths": true
+}

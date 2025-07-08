@@ -62,6 +62,7 @@ class DAQCounter:
         """
 
         ## Set up the counter, connect it to the clock.
+        print(f'Initializing DAQCounter with clock channel {self.clk_channel} and counter channel {self.ctr_channel}')
         self.read_task = nidaqmx.Task()
         self.read_task.ci_channels.add_ci_count_edges_chan(
             self.ctr_channel,
@@ -139,8 +140,8 @@ class DAQCounter:
 
         if self.read_task is not None:
             self.read_task.start()
-        
-        pulses.stream(sequence, int(n_runs))
+
+        pulses.stream_sequence(sequence, n_runs)
 
         num_samps = self.reader.read_many_sample_uint32(
             self.buffer,

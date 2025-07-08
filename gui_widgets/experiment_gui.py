@@ -10,6 +10,7 @@ from pyqtgraph import SpinBox
 from pyqtgraph.Qt import QtWidgets
 from PyQt6.QtWidgets import QSpinBox, QLineEdit, QCheckBox, QDoubleSpinBox, QMainWindow, QPushButton, QVBoxLayout, QWidget, QLabel
 from nspyre.gui.widgets import HeatMapWidget
+import experiments.counts_new
 from special_widgets import unit_widgets
 from nspyre import InstrumentManager
 #from special_widgets.experiment_widget import ExperimentWidget
@@ -24,15 +25,26 @@ from special_widgets.heat_map_plot_widget import HeatMapPlotWidget
 
 cmap = pg.colormap.get('viridis')  
 
+get_param_value_funs={
+            unit_widgets.PointWidget: lambda w: w.get_point(),
+            unit_widgets.MLineEdit:   lambda w: w.umvalue,
+            unit_widgets.HzLineEdit:  lambda w: w.hzvalue,
+            unit_widgets.SecLineEdit:  lambda w: w.secvalue,
+            unit_widgets.NSLineEdit:  lambda w: w.nsvalue,
+            QSpinBox: lambda w: w.value(),
+        }
+
 class CountsWidget(ExperimentWidget):
     def __init__(self):
+        n_points_sb = QSpinBox()
+        n_points_sb.setMinimum(1)
+        n_points_sb.setMaximum(1000)
+        n_points_sb.setValue(10)
+        
         params_config = {
             'n_points': {
                 'display_text': '# Points',
-                'widget': SpinBox(
-                    value=1,
-                    dec = False,
-                ),
+                'widget': n_points_sb,
             },
 
             'probe_time': {
@@ -64,7 +76,7 @@ class CountsWidget(ExperimentWidget):
                         experiments.counts,
                         'CountsTime',
                         'confocal_counts_time',
-                        title='counts vs time')
+                        title='counts vs time', get_param_value_funs=get_param_value_funs)
 
 
 class CountsPlotWidget(FlexLinePlotWidget):
@@ -85,12 +97,16 @@ class CountsPlotWidget(FlexLinePlotWidget):
 class PlaneScanWidget(ExperimentWidget):
     def __init__(self):
         # Create SpinBoxes and set minimums
-        line_scan_steps_sb = QSpinBox(value=100)
-        line_scan_steps_sb.setMinimum(1)
+        line_scan_steps_sb = QSpinBox()
         line_scan_steps_sb.setMaximum(1000)
-        extent_steps_sb = QSpinBox(value=100)
-        extent_steps_sb.setMinimum(1)
+        line_scan_steps_sb.setValue(100)
+        line_scan_steps_sb.setMinimum(1)
+        
+        extent_steps_sb = QSpinBox()
         extent_steps_sb.setMaximum(1000)
+        extent_steps_sb.setValue(100)
+        extent_steps_sb.setMinimum(1)
+    
         repetitions_sb = QSpinBox(value=1)
         repetitions_sb.setMinimum(1)
         stack_count_sb = QSpinBox(value=1)
@@ -102,11 +118,11 @@ class PlaneScanWidget(ExperimentWidget):
 
         params_config = {
             'point_A': {'display_text': 'Point A',
-                        'widget': unit_widgets.PointWidget(0, 0, 0)},
+                        'widget': unit_widgets.PointWidget(-50, 0, 50)},
             'point_B': {'display_text': 'Point B',
-                        'widget': unit_widgets.PointWidget(50, 0, 0)},
+                        'widget': unit_widgets.PointWidget(50, 0, 50)},
             'point_C': {'display_text': 'Point C',
-                        'widget': unit_widgets.PointWidget(50, 0, 60)},
+                        'widget': unit_widgets.PointWidget(50, 0, 80)},
             'line_scan_steps': {'display_text': 'Line Scan Steps',
                                 'widget': line_scan_steps_sb},
             'extent_steps': {'display_text': 'Extent Steps',
@@ -127,25 +143,16 @@ class PlaneScanWidget(ExperimentWidget):
                              'widget': pts_per_step_sb},
             'xyz_pos': {'display_text': 'XYZ Position',
                         'widget': QCheckBox()},
-            'excel': {'display_text': 'Excel Export',
-                      'widget': QCheckBox()},
+
             'snake_scan': {'display_text': 'Snake Scan',
                            'widget': QCheckBox()},
             'sleep_factor': {'display_text': 'Sleep Factor',
                              'widget': sleep_factor_sb},
-            'plane_scan_dataset': {
+            'dataset': {
                 'display_text': 'Data Set',
                 'widget': QtWidgets.QLineEdit('planescan'),
             },
         
-        }
-        get_param_value_funs={
-            unit_widgets.PointWidget: lambda w: w.get_point(),
-            unit_widgets.MLineEdit:   lambda w: w.umvalue,
-            unit_widgets.HzLineEdit:  lambda w: w.hzvalue,
-            unit_widgets.SecLineEdit:  lambda w: w.secvalue,
-            unit_widgets.NSLineEdit:  lambda w: w.nsvalue,
-            QSpinBox: lambda w: w.value(),
         }
 
         super().__init__(params_config, 
@@ -154,11 +161,7 @@ class PlaneScanWidget(ExperimentWidget):
                          'planescan',
                          title='Plane Scan', get_param_value_funs=get_param_value_funs)
 
-        def closeEvent(self):
-            with InstrumentManager() as mgr:
-                # Finalize the XYZ control if it was initialized
-                if hasattr(mgr, 'XYZcontrol'):
-                    mgr.XYZcontrol.finalize()
+    
 
 class PlaneScanHeatMapWidget(HeatMapPlotWidget):
     """Add some default settings to the FlexSinkLinePlotWidget."""
@@ -262,16 +265,8 @@ class WideFieldWidget(ExperimentWidget):
             },
             'dataset': {
                 'display_text': 'Wide Field ODMR',
-                'widget': 5
+                'widget': QtWidgets.QLineEdit('WFODMR')
             }
-        }
-
-        get_param_value_funs={
-            unit_widgets.PointWidget: lambda w: w.get_point(),
-            unit_widgets.MLineEdit:   lambda w: w.umvalue,
-            unit_widgets.HzLineEdit:  lambda w: w.hzvalue,
-            unit_widgets.SecLineEdit:  lambda w: w.secvalue,
-            unit_widgets.NSLineEdit:  lambda w: w.nsvalue,
         }
 
         super().__init__(

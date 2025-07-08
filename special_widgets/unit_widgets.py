@@ -5,12 +5,13 @@ import numpy as np
 
 class MLineEdit(QLineEdit):
     # Line Edit with flexible length units (um, nm) depending on value
-    def __init__(self, value=0, prefix=''):
+    def __init__(self, value=0, prefix='', conversion=True):
         super().__init__()
         self.umvalue = value
         self.setFont(QFont("Sanserif", 15))
         self.setFixedWidth(160)
         self.prefix=prefix 
+        self.conversion=conversion
         self.update_text()  # Initialize the text based on the value
         self.editingFinished.connect(self.edit_value)
          # Connect signal to update value
@@ -34,7 +35,7 @@ class MLineEdit(QLineEdit):
 
     def update_text(self):
         """Update the displayed text based on the current value."""
-        if abs(self.umvalue) < 1:
+        if abs(self.umvalue) < 1 and self.conversion:
             self.setText(f"{self.prefix}{self.umvalue * 1e3:.1f} nm")
         else:
             self.setText(f"{self.prefix}{self.umvalue:.3f} um")
@@ -43,7 +44,7 @@ class MSpinBox(SpinBox):
     # Spinbox with flexible length units (nm, um) depending on value
     def __init__(self, value=0, min=0, max=1000, step=1):
         super().__init__()
-        self.hzvalue = value
+        self.umvalue = value
         self.setFont(QFont("Sanserif", 15))
         self.setFixedWidth(160)
         self.min=min
@@ -57,20 +58,20 @@ class MSpinBox(SpinBox):
         try:
             if text[-2:] == "nm":
                 val_text = text[:-2].strip()
-                self.hzvalue = float(val_text) * 1e-3
+                self.umvalue = float(val_text) * 1e-3
             elif text[-2:] == "um":
                 val_text = text[:-2].strip()
-                self.hzvalue = float(val_text)
+                self.umvalue = float(val_text)
             else:
-                self.hzvalue = float(text)
+                self.umvalue = float(text)
         except ValueError as e:
             raise ValueError(f"Invalid input '{text}': cannot convert to float. Please enter a number with an optional unit 'nm' or 'um'.") from e
         self.update_spinbox()
 
     def update_spinbox(self):
-        if np.abs(self.hzvalue) >= 1:
+        if np.abs(self.umvalue) >= 1:
             self.setDecimals(7)
-            self.setValue(self.hzvalue)
+            self.setValue(self.umvalue)
             self.setSuffix("um")
             self.setMaximum(self.max)
             self.setMinimum(self.min)
@@ -78,13 +79,17 @@ class MSpinBox(SpinBox):
         else:
             self.setMaximum(self.max * 1e3)
             self.setMinimum(self.min * 1e3)
-            self.setValue(self.hzvalue * 1e3)
+            self.setValue(self.umvalue * 1e3)
             self.setSuffix("nm")
             self.setDecimals(5)
             self.setSingleStep(self.step* 1e3)
 
     def change_step(self, step):
         self.step=step
+        self.update_spinbox()
+
+    def set_value(self, value):
+        self.umvalue=value
         self.update_spinbox()
 
 class HzLineEdit(QLineEdit):
@@ -326,9 +331,9 @@ class PointWidget(QWidget):
         super().__init__()
         
         # Create three MLineEdit fields initialized with given values
-        self.x_edit = MLineEdit(x, "")
-        self.y_edit = MLineEdit(y, "")
-        self.z_edit = MLineEdit(z, "")
+        self.x_edit = MLineEdit(x, "", conversion=False)  # No conversion for x
+        self.y_edit = MLineEdit(y, "", conversion=False)  # No conversion for y
+        self.z_edit = MLineEdit(z, "", conversion=False)  # No conversion for z
         self.x_edit.setFixedWidth(120)
         self.y_edit.setFixedWidth(120)       
         self.z_edit.setFixedWidth(120)
@@ -384,3 +389,27 @@ class FloatLineEdit(QLineEdit):
         """Update the displayed text based on the current value."""
         self.setText(f"{self.value}")
      
+class TemperatureLineEdit(QLineEdit):
+    def __init__(self, value=0, prefix=''):
+        super().__init__()
+        self.value = value
+        self.setFont(QFont("Sanserif", 15))
+        self.setFixedWidth(160)
+        self.prefix=prefix 
+        self.update_text()  # Initialize the text based on the value
+        self.editingFinished.connect(self.edit_value)
+         # Connect signal to update value
+                
+    def edit_value(self):
+        """Update the value based on the text entered by the user."""
+        text = self.text().strip()
+        try:
+            self.value = float(text)
+        except ValueError as e:
+            raise ValueError(f"Invalid input '{text}': cannot convert to float. Please enter a number.") from e
+
+        self.update_text()
+
+    def update_text(self):
+        """Update the displayed text based on the current value."""
+        self.setText(f"{self.value} °C")

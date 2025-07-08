@@ -1,4 +1,4 @@
-#from pyAndorSDK2 import atmcd, atmcd_codes, atmcd_errors
+from pyAndorSDK2 import atmcd, atmcd_codes, atmcd_errors
 import time
 import numpy as np
 import pickle
@@ -6,9 +6,16 @@ import ctypes
 import ctypes
 
 class Camera():
-    def __init__(self, sdk, errors):
-        self.sdk=sdk
-        self.errors=errors
+    def __init__(self):
+        self.sdk=atmcd("")
+        self.errors=atmcd_errors
+        self.exposure_time=0.075
+        self.trigger_mode="Internal"
+        
+        self.temperature=-70
+        self.gain=1
+        self.shutter="Open"
+
         
 
     def initialize(self):
@@ -25,14 +32,16 @@ class Camera():
         
 
     def check_Error_Codes(self, code, function_name="Function"):
-        if code==self.errors.Error_Codes.DRV_NOT_INITIALIZED:
-            raise RuntimeError(f"{function_name} failed. Camera is not initialized.")
+        if code==self.errors.Error_Codes.DRV_SUCCESS:
+            return f"{function_name} succeeded."
+        elif code==self.errors.Error_Codes.DRV_NOT_INITIALIZED:
+            raise RuntimeError(f"{function_name} failed. Camera is not initialized. Error code: {code}.")
         elif code==self.errors.Error_Codes.DRV_ACQUIRING:
-            raise RuntimeError(f"{function_name} failed. Camera is currently acquiring.")
+            raise RuntimeError(f"{function_name} failed. Camera is currently acquiring. Error code: {code}.")
         elif code==self.errors.Error_Codes.DRV_ERROR_ACK:
-            raise RuntimeError(f"{function_name} failed. Unable to communicate with card")
+            raise RuntimeError(f"{function_name} failed. Unable to communicate with card. Error code: {code}.")
         else:
-            raise RuntimeError(f"{function_name} failed due to other error. Consult function in https://andor.oxinst.com/downloads/uploads/Software%20Development%20Kit.pdf .")
+            raise RuntimeError(f"{function_name} failed due to other error. Error code: {code}. Consult function in https://andor.oxinst.com/downloads/uploads/Software%20Development%20Kit.pdf .")
 
     def set_trigger_mode(self, trigger_mode:str):
         if trigger_mode=="Internal":
@@ -49,19 +58,17 @@ class Camera():
 
     def set_temperature(self, temp_value:int):
         ret=self.sdk.SetTemperature(temp_value)
-        self.check_Error_Codes(ret, "SetTemperature")
+        if ret == self.errors.Error_Codes.DRV_SUCCESS:
+            return True 
+        else:
+            return False
         
 
     def get_temperature(self):
         ret, temp = self.sdk.GetTemperature()
-        allowed=[self.errors.Error_errors.DRV_SUCCESS, 
-                 self.errors.Error_errors.DRV_TEMP_STABILIZED, 
-                 self.errors.Error_errors.DRV_TEMP_NOT_STABILIZED, 
-                 self.errors.Error_errors.DRV_TEMP_STABILIZED]
-        if ret in allowed:
-            return ret, temp
-        else: 
-            raise RuntimeError("Failed to get temperature.")  
+        return ret, temp
+
+ 
 
     def start_acquisition(self):
         ret=self.sdk.StartAcquisition()
@@ -132,7 +139,7 @@ class Camera():
         return ret, all_data, validfirst, validlast
 
     def shutdown(self):
-        ret=self.sdk.Shutdown()
+        ret=self.sdk.ShutDown()
 
     def set_shutter(self, mode:str):
         ret=self.sdk.SetShutter()

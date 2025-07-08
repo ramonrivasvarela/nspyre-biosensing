@@ -49,7 +49,10 @@ def main():
         def app_close_event():
             print("Application is closing...")
             if xyz_activation_boolean:
-                mgr.XYZcontrol.finalize()
+                try:
+                    mgr.XYZcontrol.reset_and_finalize()
+                except Exception as e:
+                    print(f"Error finalizing XYZ control: {e}")
             if pulser_activation_boolean:
                 mgr.Pulser.set_state_off()
             if sg_activation_boolean:
@@ -70,7 +73,9 @@ def main():
                 'Load': MainWidgetItem(nspyre.gui.widgets.load, 'LoadWidget', stretch=(1, 1)),
                 'Experiments': {
                     'Counts vs Time' : MainWidgetItem(experiment_gui, 'CountsWidget', stretch=(1, 1)),
-                    'Planescan' : MainWidgetItem(experiment_gui, 'PlaneScanWidget', stretch=(1, 1)),},
+                    'Planescan' : MainWidgetItem(experiment_gui, 'PlaneScanWidget', stretch=(1, 1)),
+                    'Wide Field ODMR': MainWidgetItem(experiment_gui, 'WideFieldWidget', stretch=(1, 1)),
+                    },
                 
                 'Plotting' : {
                     'Flex Line Plot': MainWidgetItem(experiment_gui, 'CountsPlotWidget', stretch=(1, 1)),

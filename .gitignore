@@ -12,3 +12,7 @@ Thumbs.db
 
 requirements.txt
 logs
+
+experiments/counts
+
+experiments/counts_new

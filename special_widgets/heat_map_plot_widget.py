@@ -23,10 +23,10 @@ class _HeatMapSeriesSettings:
     def __init__(
         self,
         series: str,
-        hidden: bool = False,
+        show: bool = False,
     ):
         self.series = series
-        self.hidden = hidden
+        self.show = show
 
 class _HeatMapSettings(QThreadSafeObject):
     def __init__(self):
@@ -46,71 +46,65 @@ class _HeatMapSettings(QThreadSafeObject):
         self,
         name: str,
         series: str,
-        hidden: bool,
         callback: Optional[Callable]=None,
     ):
         with QtCore.QMutexLocker(self.mutex):
             if name in self.series_settings:
                 _logger.info(
-                    f'A plot with the name [{name}] already exists. Ignoring add_plot '
+                    f'A heatmap with the name [{name}] already exists. Ignoring new_heatmap '
                     'request.'
                 )
                 return
-            self.series_settings[name] = _HeatMapSeriesSettings(
-                series=series,
-                hidden=hidden,
-            )
+            if not self.series_settings:
+                self.series_settings[name] = _HeatMapSeriesSettings(
+                    series=series,
+                    show=True,
+                )
+            else: 
+                self.series_settings[name] = _HeatMapSeriesSettings(
+                    series=series,
+                    show=False,
+                )
             self.force_update = True
             if callback is not None:
                 self.run_main(callback, name, blocking=True)
     
-    def remove_heatmap(self, name: str, callback: Optional[Callable]=None):
-        with QtCore.QMutexLocker(self.mutex): 
-            if name not in self.series_settings:
-                _logger.info(
-                    f'No plot with the name [{name}] exists. Ignoring remove_plot '
-                    'request.'
-                )
-                return
-            
-            if callback is not None:
-                self.run_main(callback, name, blocking=True)
-
-            del self.series_settings[name]
-
-    def hide_heatmap(self, name: str, callback: Optional[Callable]=None):
+    def remove_heatmap(self, name, callback=None):
         with QtCore.QMutexLocker(self.mutex):
             if name not in self.series_settings:
                 _logger.info(
-                    f'No plot with the name [{name}] exists. Ignoring hide_plot '
-                    'request.'
+                    f'A heatmap with the name [{name}] does not exist. Ignoring '
+                    'remove_heatmap request.'
                 )
                 return
-            if self.series_settings[name].hidden:
-                _logger.info(
-                    f'Plot with the name [{name}] is already hidden. Ignoring hide_plot '
-                    'request.'
-                )
-                return
-            self.series_settings[name].hidden = True
+
             if callback is not None:
                 self.run_main(callback, name, blocking=True)
-    
+            show_deleted=self.series_settings[name].show
+            del self.series_settings[name]
+            if self.series_settings and show_deleted:
+                self.series_settings[next(iter(self.series_settings))].show = True
+            self.force_update = True
+
+
     def show_heatmap(self, name: str, callback: Optional[Callable]=None):
         with QtCore.QMutexLocker(self.mutex):
             if name not in self.series_settings:
                 _logger.info(
-                    f'No plot with the name [{name}] exists. Ignoring show_plot '
+                    f'No heatmap with the name [{name}] exists. Ignoring show_heatmap '
                     'request.'
                 )
                 return
-            if not self.series_settings[name].hidden:
+            if self.series_settings[name].show:
                 _logger.info(
-                    f'Plot with the name [{name}] is already visible. Ignoring show_plot '
+                    f'Heatmap with the name [{name}] is already visible. Ignoring show_heatmap '
                     'request.'
                 )
                 return
-            self.series_settings[name].hidden = False
+            for current_name in self.series_settings:
+                self.series_settings[current_name].show = False
+            self.series_settings[name].show = True
+            self.force_update = True
             if callback is not None:
                 self.run_main(callback, name, blocking=True)
     
@@ -118,15 +112,17 @@ class _HeatMapSettings(QThreadSafeObject):
         self,
         name: str,
         series: str,
+        shown: bool = False,
     ):
         with QtCore.QMutexLocker(self.mutex):
             if name not in self.series_settings:
                 _logger.info(
-                    f'No plot with the name [{name}] exists. Ignoring update_plot '
+                    f'No heatmap with the name [{name}] exists. Ignoring update_heatmap '
                     'request.'
                 )
                 return
             self.series_settings[name].series = series
+            self.series_settings[name].show = shown
             self.force_update = True
 
 
@@ -162,7 +158,7 @@ np.array([[4, 5, 6], [12.6, 13, 11.2]])])
             channel_2_data = StreamingList([np.array([[1, 2, 3], [3, 3.3, 3.1]]), \
 np.array([[4, 5, 6], [3.4, 3.6, 3.5]])])
             my_plot_data = {
-                'title': 'MyVoltagePlot',
+                'title': 'MyVoltagePflot',
                 'xlabel': 'Time (s)',
                 'ylabel': 'Amplitude (V)',
                 'datasets': {
@@ -186,7 +182,7 @@ np.array([[4, 5, 6], [3.4, 3.6, 3.5]])])
         """
         super().__init__()
 
-        self.heat_map = _HeatMapPlotWidget(
+        self.heatmap = _HeatMapPlotWidget(
             timeout=timeout, data_processing_func=data_processing_func 
         )
         
@@ -202,33 +198,28 @@ np.array([[4, 5, 6], [3.4, 3.6, 3.5]])])
         connect_button.clicked.connect(self._update_source_clicked)
 
         # heatmap settings
-        heat_map_settings_label= QtWidgets.QLabel('Heat Map Settings')
-        heat_map_settings_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignHCenter)
+        heatmap_settings_label= QtWidgets.QLabel('Heat Map Settings')
+        heatmap_settings_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignHCenter)
 
-        self.heat_map_name_lineedit = QtWidgets.QLineEdit("heatmap")
-        self.heat_map_series_lineedit = QtWidgets.QLineEdit("heatmap")
+        self.heatmap_name_lineedit = QtWidgets.QLineEdit("heatmap")
+        self.heatmap_series_lineedit = QtWidgets.QLineEdit("heatmap")
 
         show_button= QtWidgets.QPushButton('Show')
         show_button.clicked.connect(self._show_button_clicked)
 
-        hide_button = QtWidgets.QPushButton('Hide')
-        hide_button.clicked.connect(self._heat_map_selection_changed)
-
         update_button = QtWidgets.QPushButton('Update')
         update_button.clicked.connect(self._update_button_clicked)    
 
-        
+        remove_button = QtWidgets.QPushButton('Remove')
+        remove_button.clicked.connect(self._remove_button_clicked)
         # add button
         add_button = QtWidgets.QPushButton('Add')
         add_button.clicked.connect(self._add_button_clicked)
 
-        remove_button = QtWidgets.QPushButton('Remove')
-        remove_button.clicked.connect(self._remove_button_clicked)
-
-        heat_maps_label=QtWidgets.QLabel('Heat Maps')
-        heat_maps_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignHCenter)
-        self.heat_maps_list_widget = QtWidgets.QListWidget()
-        self.heat_maps_list_widget.currentItemChanged.connect(self._heat_map_selection_changed)
+        heatmaps_label=QtWidgets.QLabel('Heat Maps')
+        heatmaps_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignHCenter)
+        self.heatmaps_list_widget = QtWidgets.QListWidget()
+        self.heatmaps_list_widget.currentItemChanged.connect(self._heatmap_selection_changed)
 
         # spacer
         fixed_spacer = QtWidgets.QLabel('')
@@ -256,18 +247,18 @@ np.array([[4, 5, 6], [3.4, 3.6, 3.5]])])
                 'type': QtWidgets.QHBoxLayout,
                 'plot': {
                     'type': QtWidgets.QVBoxLayout,
-                    'label': heat_map_settings_label,
+                    'label': heatmap_settings_label,
                     'settings': {
                         'type': QtWidgets.QVBoxLayout,
                         'name': {
                             'type': QtWidgets.QHBoxLayout,
                             'label': QtWidgets.QLabel('Plot Name'),
-                            'edit': self.heat_map_name_lineedit,
+                            'edit': self.heatmap_name_lineedit,
                         },
                         'series': {
                             'type': QtWidgets.QHBoxLayout,
                             'label': QtWidgets.QLabel('Data Series'),
-                            'edit': self.heat_map_series_lineedit,
+                            'edit': self.heatmap_series_lineedit,
                         },
                         'spacer': expanding_spacer,
                     },
@@ -282,14 +273,13 @@ np.array([[4, 5, 6], [3.4, 3.6, 3.5]])])
                 },
                 'plots': {
                     'type': QtWidgets.QVBoxLayout,
-                    'label': heat_maps_label,
-                    'list': self.heat_maps_list_widget,
+                    'label': heatmaps_label,
+                    'list': self.heatmaps_list_widget,
                 },
                 'list_buttons': {
                     'type': QtWidgets.QVBoxLayout,
                     'spacer_t': fixed_spacer,
                     'show': show_button,
-                    'hide': hide_button,
                     'spacer_b': expanding_spacer,
                 },
             },
@@ -302,7 +292,7 @@ np.array([[4, 5, 6], [3.4, 3.6, 3.5]])])
         # splitter
         splitter = QtWidgets.QSplitter()
         splitter.setOrientation(QtCore.Qt.Orientation.Vertical)
-        splitter.addWidget(self.heat_map)
+        splitter.addWidget(self.heatmap)
         layout_container = QtWidgets.QWidget()
         layout_container.setLayout(self.layout_tree.layout)
         splitter.addWidget(layout_container)
@@ -313,65 +303,66 @@ np.array([[4, 5, 6], [3.4, 3.6, 3.5]])])
 
         self.setLayout(layout)
 
-    def _heat_map_selection_changed(self):
-        selected_item = self.heat_maps_list_widget.currentItem()
-        if selected_item is not None:
+    def _heatmap_selection_changed(self):
+        selected_item = self.heatmaps_list_widget.currentItem()
+        if selected_item is None:
             return
         name = selected_item.text()
-        self.heat_map.heat_map_settings.run_safe(
-            self.heat_map.heat_map_settings.get_settings,
+        self.heatmap.heatmap_settings.run_safe(
+            self.heatmap.heatmap_settings.get_settings,
             name,
-            callback=self._heat_map_selection_changed_callback,
+            callback=self._heatmap_selection_changed_callback,
         )
 
-    def _heat_map_selection_changed_callback(self, name:str, settings:_HeatMapSeriesSettings):
+    def _heatmap_selection_changed_callback(self, name:str, settings:_HeatMapSeriesSettings):
         """Callback for when the heat map selection changes."""
-        self.heat_map_name_lineedit.setText(name)
-        self.heat_map_series_lineedit.setText(settings.series)
+        self.heatmap_name_lineedit.setText(name)
+        self.heatmap_series_lineedit.setText(settings.series)
 
-    def _get_heat_map_settings(self):
-        name=self.heat_map_name_lineedit.text()
-        series=self.heat_map_series_lineedit.text()
+    def _get_heatmap_settings(self):
+        name=self.heatmap_name_lineedit.text()
+        series=self.heatmap_series_lineedit.text()
         return name, series
 
     def _update_button_clicked(self):
         """Called when the user clicks the update button."""
-        name, series = self._get_heat_map_settings()
-        self.heat_map.heat_map_settings.run_safe(
-            self.heat_map.heat_map_settings.update_settings,
+        name, series = self._get_heatmap_settings()
+        self.heatmap.heatmap_settings.run_safe(
+            self.heatmap.heatmap_settings.update_settings,
             name,
             series,
         )
     
     def _add_button_clicked(self):
         """Called when the user clicks the add button."""
-        name, series = self._get_heat_map_settings()
-        self.add_heat_map(name, series)
+        name, series = self._get_heatmap_settings()
+        self.add_heatmap(name, series)
 
-    def add_heat_map(self, name: str, series: str):
+    def add_heatmap(self, name: str, series: str):
         """Add a new heat map plot.
 
         Args:
             name: Name of the new heat map plot.
             series: Data series to plot.
         """
-        self.heat_map.heat_map_settings.run_safe(
-            self.heat_map.heat_map_settings.add_plot,
+        self.heatmap.heatmap_settings.run_safe(
+            self.heatmap.heatmap_settings.new_heatmap,
             name,
             series,
-            callback=self._add_heat_map_callback,
+            callback=self._add_heatmap_callback,
         )
+        
 
-    def _add_heat_map_callback(self, name: str):
+    def _add_heatmap_callback(self, name: str):
         """Callback for when a new heat map plot is added."""
-        self.heat_maps_list_widget.addItem(name)
-        self.heat_map.add_heat_map(name)
+        self.heatmaps_list_widget.addItem(name)
 
-    def _find_heat_map_item(self, name: str):
+
+    def _find_heatmap_item(self, name: str):
         """Find the heat map item with the given name."""
         list_widget_index=None
-        for i in range(self.heat_maps_list_widget.count()):
-            if self.heat_maps_list_widget.item(i).text() == name:
+        for i in range(self.heatmaps_list_widget.count()):
+            if self.heatmaps_list_widget.item(i).text() == name:
                 list_widget_index = i
                 break
         if list_widget_index is None:
@@ -383,106 +374,78 @@ np.array([[4, 5, 6], [3.4, 3.6, 3.5]])])
     
     def _remove_button_clicked(self):
         """Called when the user clicks the remove button."""
-        selected_item = self.heat_maps_list_widget.currentItem()
-        if selected_item is None:
-            _logger.warning('No heat map selected to remove.')
-            return
-        name = selected_item.text()
-        self.remove_heat_map(name)
+        # array of selected QListWidgetItems
+        selected_item = self.heatmaps_list_widget.currentItem()
+        if selected_item is not None:
+            name = selected_item.text()
+            self.remove_heatmap(name)
 
-
-    def remove_heat_map(self, name: str):
-        """Remove a heat map plot.
+    def remove_heatmap(self, name: str):
+        """Remove a heat map. Thread safe.
 
         Args:
-            name: Name of the heat map plot to remove.
+            name: Name of the heat map.
         """
-        self.heat_map.heat_map_settings.run_safe(
-            self.heat_map.heat_map_settings.remove_plot,
+        # remove the plot settings
+        self.heatmap.heatmap_settings.run_safe(
+            self.heatmap.heatmap_settings.remove_heatmap,
             name,
-            callback=self._remove_heat_map_callback,
+            callback=self._remove_heatmap_callback,
         )
+    
 
-    def _remove_heat_map_callback(self, name: str):
-        """Callback for when a heat map plot is removed."""
-        self.heat_maps_list_widget.takeItem(
-            self._find_heat_map_item(name)
-        )
-        self.heat_map.remove_heat_map(name)
+    def _remove_heatmap_callback(self, name: str):
+        """Called in main thread after a heat map is removed."""
+        # remove the heat map name from the list of heat maps
+        self.heatmaps_list_widget.takeItem(self._find_heatmap_item(name))
+        # remove the heat map from the pyqtgraph plotwidget
+        self.heatmap.heatmap_settings.series_settings[name].show = False
+        first_index=next(iter(self.heatmap.heatmap_settings.series_settings))
 
     def _show_button_clicked(self):
         """Called when the user clicks the show button."""
-        selected_item = self.heat_maps_list_widget.currentItem()
+        selected_item = self.heatmaps_list_widget.currentItem()
         if selected_item is not None:
             name = selected_item.text()
-            self.show_heat_map(name)
+            self.show_heatmap(name)
 
 
-    def show_heat_map(self, name: str):
+    def show_heatmap(self, name: str):
         """Show a heat map plot.
 
         Args:
             name: Name of the heat map plot to show.
         """
-        self.heat_map.heat_map_settings.run_safe(
-            self.heat_map.heat_map_settings.show_heatmap,
+        self.heatmap.heatmap_settings.run_safe(
+            self.heatmap.heatmap_settings.show_heatmap,
             name,
-            callback=self._show_heat_map_callback,
+            callback=self._show_heatmap_callback,
         )
 
 
-    def _show_heat_map_callback(self, name: str, settings: _HeatMapSeriesSettings):
+    def _show_heatmap_callback(self, name: str):
         """Callback for when the show button is clicked."""
-        self.heat_map.show_plot(name)
-        idx = self._find_heat_map_item(name)
+        for series_name in self.heatmap.heatmap_settings.series_settings:
+            self.heatmap.heatmap_settings.series_settings[series_name].show = False
+        self.heatmap.heatmap_settings.series_settings[name].show = True
+        idx = self._find_heatmap_item(name)
         normal_text_color = self.palette().color(QtGui.QPalette.ColorRole.Text)
         normal_bg_color = self.palette().color(QtGui.QPalette.ColorRole.Base)
-        self.heat_maps_list_widget.item(idx).setForeground(normal_text_color)
-        self.heat_maps_list_widget.item(idx).setBackground(normal_bg_color)
-
-    def _hide_button_clicked(self):
-        """Called when the user clicks the hide button."""
-        selected_item = self.heat_maps_list_widget.currentItem()
-        if selected_item is not None:
-            name = selected_item.text()
-            self.hide_heat_map(name)
-
-    def hide_heat_map(self, name: str):
-        """Hide a heat map plot.
-
-        Args:
-            name: Name of the heat map plot to hide.
-        """
-        self.heat_map.heat_map_settings.run_safe(
-            self.heat_map.heat_map_settings.hide_heatmap,
-            name,
-            callback=self._hide_heat_map_callback,
-        )
+        self.heatmaps_list_widget.item(idx).setForeground(normal_text_color)
+        self.heatmaps_list_widget.item(idx).setBackground(normal_bg_color)
 
 
-
-
-
-    def _hide_heat_map_callback(self, name: str, settings: _HeatMapSeriesSettings):
-        """Callback for when the hide button is clicked."""
-        self.heat_map.hide_plot(name)
-        # also remove the item from the list widget
-        list_widget_index = self._find_heat_map_item(name)
-        self.heat_maps_list_widget.item(list_widget_index).setForeground(QtCore.Qt.GlobalColor.gray)
-        self.heat_maps_list_widget.item(list_widget_index).setBackground(
-            self.palette().color(QtGui.QPalette.ColorRole.Mid)
-        )
 
 
     def _update_source_clicked(self):
         """Called when the user clicks the connect button."""
-        self.heat_map.new_source(self.datasource_lineedit.text())
+        self.heatmap.new_source(self.datasource_lineedit.text())
 
 
 class _HeatMapPlotWidget(HeatMapWidget):
     """See HeatMapPlotWidget."""
 
-    def __init__(self, timeout: float, colormap=pg.colormap.get('viridis')):
+    def __init__(self, timeout: float, data_processing_func:Optional[Callable], colormap=pg.colormap.get('viridis')):
         """
         Args:
             timeout: see :py:class:`HeatMapPlotWidget`.
@@ -490,12 +453,14 @@ class _HeatMapPlotWidget(HeatMapWidget):
         """
         self.timeout = timeout
         # protect access to the sink
-        self.heat_map_settings = _HeatMapSettings()
-        self.heat_map_settings.start()
+        self.heatmap_settings = _HeatMapSettings()
+        self.heatmap_settings.start()
+        self.current_heatmap = None
+        self.data_processing_func = data_processing_func
         super().__init__(colormap=colormap)
 
     def _stop(self):
-        self.heat_map_settings.stop()
+        self.heatmap_settings.stop()
         super()._stop()
 
     def new_source(self, data_set_name: str):
@@ -505,22 +470,22 @@ class _HeatMapPlotWidget(HeatMapWidget):
             data_set_name: Name of the new data set.
         """
         # run on the plot_settings thread since we'll need to acquire mutexes
-        self._new_source(data_set_name)
+        self.heatmap_settings.run_safe(self._new_source, data_set_name)
 
     def _new_source(self, data_set_name: str):
         # connect to a new data set
-        with QtCore.QMutexLocker(self.sink_mutex):
+        with QtCore.QMutexLocker(self.heatmap_settings.sink_mutex):
             try:
                 # connect to the new data source
-                self.sink = DataSink(data_set_name)
-                self.sink.start()
+                self.heatmap_settings.sink = DataSink(data_set_name)
+                self.heatmap_settings.sink.start()
 
                 # try to get the plot title and x/y labels
-                self.sink.pop(timeout=self.timeout)
+                self.heatmap_settings.sink.pop(timeout=self.timeout)
 
                 # set title
                 try:
-                    title = self.sink.title
+                    title = self.heatmap_settings.sink.title
                 except AttributeError:
                     _logger.info(
                         f'Data source [{data_set_name}] has no "title" '
@@ -530,7 +495,7 @@ class _HeatMapPlotWidget(HeatMapWidget):
 
                 # set xlabel
                 try:
-                    xlabel = self.sink.xlabel
+                    xlabel = self.heatmap_settings.sink.xlabel
                 except AttributeError:
                     _logger.info(
                         f'Data source [{data_set_name}] has no "xlabel" '
@@ -540,7 +505,7 @@ class _HeatMapPlotWidget(HeatMapWidget):
 
                 # set ylabel
                 try:
-                    ylabel = self.sink.ylabel
+                    ylabel = self.heatmap_settings.sink.ylabel
                 except AttributeError:
                     _logger.info(
                         f'Data source [{data_set_name}] has no "ylabel" '
@@ -548,17 +513,83 @@ class _HeatMapPlotWidget(HeatMapWidget):
                     )
                     ylabel = None
 
+                try:
+                    xs = self.heatmap_settings.sink.xs
+                except AttributeError:
+                    raise RuntimeError(
+                        f'Data source [{data_set_name}] has no "xs" '
+                        'attribute. Exiting...'
+                    )
+                else: 
+                    if not isinstance(xs, np.ndarray):
+                        raise RuntimeError(
+                            f'Data source [{data_set_name}] "xs" attribute must be a '
+                            f'numpy array, but has type [{type(xs)}]. Exiting...'
+                        )
+                try:
+                    ys = self.heatmap_settings.sink.ys
+                except AttributeError:
+                    raise RuntimeError(
+                        f'Data source [{data_set_name}] has no "ys" '
+                        'attribute. Exiting...'
+                    )
+                else:
+                    if not isinstance(ys, np.ndarray):
+                        raise RuntimeError(
+                            f'Data source [{data_set_name}] "ys" attribute must be a '
+                            f'numpy array, but has type [{type(ys)}]. Exiting...'
+                        )
                 
+                try:
+                    data = self.heatmap_settings.sink.datasets
+                except KeyError:
+                    _logger.error(f'Data series does not exist.')
+                    data= np.zeros((len(ys), len(xs)))
+
+                if not isinstance(data, dict):
+                    raise ValueError(
+                        f'Data series must be a dictionary of numpy arrays, '
+                        f'but has type [{type(data)}].'
+                    )
+
+                else:
+                    first_index=next(iter(data))
+                    # check for numpy array
+                    if not isinstance(data[first_index][0], np.ndarray):
+                        raise ValueError(
+                            f'Data series [{first_index}] must be a list of numpy '
+                            'arrays, but the first list element has type '
+                            f'[{type(data[first_index][0])}].'
+                        )
+                    # check numpy array shape
+                    if data[first_index].shape[0] != len(ys) or data[first_index].shape[1] != len(xs):
+                        raise ValueError(
+                            f'Data series does not match the x and y axes '
+                            f'shapes: {data[first_index].shape}, {ys.shape}, {xs.shape}'
+                        )
+
 
                 # set the new title/labels in the main thread
+                self.heatmap_settings.run_main(
+                    self._new_source_callback,
+                    title,
+                    xlabel,
+                    ylabel,
+                )
 
-                self._new_source_callback(title, xlabel, ylabel, blocking=True)
+                with QtCore.QMutexLocker(self.heatmap_settings.mutex):
+                    if not isinstance(data[first_index], np.ndarray):
+                        raise ValueError("Not an nd array. The type is {}".format(type(data[first_index])))
+
+                    self.set_data(xs, ys, data[first_index])
+                    self.heatmap_settings.series_settings[first_index].shown = True
+
 
 
 
                 # force plot the data since we used the first pop() to extract the
                 # plot info
-                self.force_update = True
+                self.heatmap_settings.force_update = True
             except (TimeoutError, RuntimeError) as err:
                 self.teardown()
                 raise RuntimeError(
@@ -581,69 +612,100 @@ class _HeatMapPlotWidget(HeatMapWidget):
 
     def _close_source(self):
         """Disconnect from the data source."""
-        with QtCore.QMutexLocker(self.sink_mutex):
-            if self.sink is not None:
-                self.sink.stop()
-                self.sink = None
+        with QtCore.QMutexLocker(self.heatmap_settings.sink_mutex):
+            if self.heatmap_settings.sink is not None:
+                self.heatmap_settings.sink.stop()
+                self.heatmap_settings.sink = None
 
     def update(self):
         """Update the plot if there is new data available."""
-        with QtCore.QMutexLocker(self.sink_mutex):
-            if self.sink is None:
-                # rate limit how often update() runs if there is no sink connected
-                time.sleep(0.1)
+        with QtCore.QMutexLocker(self.heatmap_settings.sink_mutex):
+            # Check if we need to force update even without a sink
+            
+            if self.heatmap_settings.sink is None:
+                if self.heatmap_settings.force_update:
+                    # Handle force update even without sink (e.g., when showing/hiding heatmaps)
+                    self.heatmap_settings.force_update = False
+                    self._update_display()
+                else:
+                    # rate limit how often update() runs if there is no sink connected
+                    time.sleep(0.1)
                 return
 
-            if self.force_update:
-                self.force_update = False
+            if self.heatmap_settings.force_update:
+                self.heatmap_settings.force_update = False
             else:
                 try:
                     # wait for new data to be available from the sink
-                    self.sink.pop(timeout=self.timeout)
+                    self.heatmap_settings.sink.pop(timeout=self.timeout)
                 except TimeoutError:
                     return
 
+            if self.data_processing_func is not None:
+                self.data_processing_func(self.heatmap_settings.sink)
 
-            with QtCore.QMutexLocker(self.sink_mutex):
+            self._update_display()
 
-                try: 
-                    xs = self.sink.xs
-                except KeyError:
-                    _logger.error(f'Data source has no "xs" attribute.')
-                    xs= np.arange(0, 100)
-                try:
-                    ys = self.sink.ys
-                except KeyError:
-                    _logger.error(f'Data source has no "ys" attribute.')
-                    ys = np.arange(0, 100)
-                # pick out the particular data series
-                try:
-                    data = self.sink.datasets["heatmap"]
-                except KeyError:
-                    _logger.error(f'Data series [heatmap] does not exist.')
-                    data= np.zeros((len(ys), len(xs)))
+    def _update_display(self):
+        """Update the heatmap display based on current settings."""
+        with QtCore.QMutexLocker(self.heatmap_settings.mutex):
+            for heatmap_name in self.heatmap_settings.series_settings:
+                settings=self.heatmap_settings.series_settings[heatmap_name]
+                series=settings.series
+                show=settings.show
+                if show:
+                    if self.heatmap_settings.sink is not None:
+                        try: 
+                            xs = self.heatmap_settings.sink.xs
+                        except (KeyError, AttributeError):
+                            _logger.error(f'Data source has no "xs" attribute.')
+                            xs= np.arange(0, 100)
+                        try:
+                            ys = self.heatmap_settings.sink.ys
+                        except (KeyError, AttributeError):
+                            _logger.error(f'Data source has no "ys" attribute.')
+                            ys = np.arange(0, 100)
+                        # pick out the particular data series
+                        try:
+                            data = self.heatmap_settings.sink.datasets
+                        except (KeyError, AttributeError):
+                            _logger.error(f'Data series does not exist.')
+                            data= {series: np.zeros((len(ys), len(xs)))}
 
-                if not isinstance(data, list):
-                    raise ValueError(
-                        f'Data series [heatmap] must be a list of numpy arrays, '
-                        f'but has type [{type(data)}].'
-                    )
+                        if not isinstance(data, dict):
+                            raise ValueError(
+                                f'Data series must be a dictionary of numpy arrays, '
+                                f'but has type [{type(data)}].'
+                            )
 
-                else:
-                    # check for numpy array
-                    if not isinstance(data[0], np.ndarray):
-                        raise ValueError(
-                            f'Data series [heatmap] must be a list of numpy '
-                            'arrays, but the first list element has type '
-                            f'[{type(data[0])}].'
-                        )
-                    # check numpy array shape
-                    if data.shape[0] != len(ys) or data.shape[1] != len(xs):
-                        raise ValueError(
-                            f'Data series does not match the x and y axes '
-                            f'shapes: {data.shape}, {ys.shape}, {xs.shape}'
-                        )
-
-
-                # update the plot
-                self.set_data(xs, ys, data)
+                        if series in data:
+                            # check for numpy array
+                            if isinstance(data[series], list) and len(data[series]) > 0:
+                                if not isinstance(data[series][0], np.ndarray):
+                                    raise ValueError(
+                                        f'Data series [{series}] must be a list of numpy '
+                                        'arrays, but the first list element has type '
+                                        f'[{type(data[series][0])}].'
+                                    )
+                                # Use the first array in the list
+                                plot_data = data[series][0] if isinstance(data[series], list) else data[series]
+                            else:
+                                plot_data = data[series]
+                            
+                            # check numpy array shape
+                            if plot_data.shape[0] != len(ys) or plot_data.shape[1] != len(xs):
+                                _logger.warning(
+                                    f'Data series shape mismatch: {plot_data.shape} vs expected ({len(ys)}, {len(xs)})'
+                                )
+                                # Try to resize or use what we have
+                                if plot_data.size > 0:
+                                    self.set_data(xs, ys, plot_data)
+                                    self._process_data()
+                            else:
+                                self.set_data(xs, ys, plot_data)
+                                self._process_data()
+                    else:
+                        # No sink available, but we still want to update display (e.g., show/hide)
+                        _logger.debug(f'No data source available for heatmap [{heatmap_name}]')
+                        # Optionally clear the display or show a placeholder
+                        break  # Exit after first shown heatmap when no sink

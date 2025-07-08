@@ -24,6 +24,11 @@ class PulserClass():
         self.Pulser = PulseStreamer(ip)
         self.sequence = self.Pulser.createSequence()
         self.sub_sequence = self.Pulser.createSequence()
+        self.green_laser_on=False
+        self.blue_laser_on=False
+        self.switch_on=False
+        self.q_analog=0
+        self.i_analog=0
         
 ## Should change it according to crosstalk between I and Q. If no crosstalk should be 0.5 and 0
         
@@ -40,7 +45,22 @@ class PulserClass():
         self.IQright = [0.357, 0.350]
         self.channel_dict = {"clock": 0, "camera": 1, "405": 2, "488":3, "647": 4, "mirror": 5, "switch": 6, "laser": 7, "": None}
 
-
+    def change_state(self, dig_chan:list, q:float=0.0, i:float=0.0):
+        """
+        Change the state of the pulser.
+        """
+        self.blue_laser_on = False
+        self.green_laser_on = False
+        self.switch_on = False
+        for chan in dig_chan:
+            if chan==3:
+                self.blue_laser_on = True
+            if chan==7:
+                self.green_laser_on = True
+            if chan==6:
+                self.switch_on = True
+        self.q_analog = q
+        self.i_analog = i
 
     
     
@@ -58,24 +78,41 @@ class PulserClass():
         return sequence
 
     def set_state(self, dig_chan, q=0.0, i=0.0):
+        self.change_state(dig_chan, q, i)
         return self.Pulser.constant((dig_chan, q, i))
     
     def set_state_off(self):
+        self.change_state([], 0, 0)
         return self.Pulser.constant(([], 0, 0))
 
     def stream(self, duration:int, dig_chan:list, i:float=0, q:float=0, n_runs:int=1):
         pulse = [(duration, dig_chan, i, q)]
+        self.change_state(dig_chan, q, i)
         self.Pulser.stream(pulse, n_runs)
+        self.change_state([], q, i)
+
+
+    def stream_sequence(self, sequence:Sequence, n_runs:int=1):
+        """
+        Stream a sequence object for n_runs.
+        WARNING: WILL NOT CHANGE self.blue_laser_on, self.green_laser_on, self.switch_on, self.q_analog, or self.i_analog.
+        Use self.change_state() to change the state of the pulser before streaming.
+        """
+        self.Pulser.stream(sequence, n_runs)
 
     def flip_mirror(self, output=[], i=0, q=0, n_runs=1):
         pulse = [(1000000, [5], 0, 0)]
+        self.change_state([], 0, 0)
         self.Pulser.stream(pulse, n_runs, final=OutputState(output, i, q))
+        self.change_state(output, q, i)
     
     def stream_umOFF(self,seq,n_runs): #
         self.Pulser.stream(seq,n_runs, final = OutputState([],-1,0))
+        self.change_state([], -1, 0)
 
     def reset(self):
         self.Pulser.reset()
+        self.change_state([], 0, 0)
 
     def WFODMR(self, runs, ns_exp_time, ns_readout_time, trig = 10000000, buff = 5000000, mode = 'QAM', FT = True): 
         '''

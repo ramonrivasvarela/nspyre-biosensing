@@ -55,19 +55,19 @@ class PlaneScan:
         """Perform experiment teardown."""
         _logger.info('Destroyed PlaneScan instance.')
 
-    def planescan(self, plane_scan_dataset: str, point_A : dict ={'x': 0, 'y': 0, 'z': 0},
+    def planescan(self, dataset: str, point_A : dict ={'x': 0, 'y': 0, 'z': 0},
                     point_B : dict ={'x': 50, 'y': 0, 'z': 0},
                     point_C : dict ={'x': 50, 'y': 0, 'z': 60},
                     line_scan_steps: int=100, extent_steps: int=100,
                     ctr_ch: str ='Dev1/ctr1', repetitions: int =1,
                     stack_count: int = 1, stack_stepsize: int = 1,
                     stack_pospref: bool = False,
-                    acq_rate: int =15000, pts_per_step: int =40, xyz_pos: bool = True,
-                    excel :bool = False, snake_scan :bool = False, sleep_factor : float=1):
-        with InstrumentManager() as mgr, DataSource(plane_scan_dataset) as planescan_data:
+                    acq_rate: int =15000, pts_per_step: int =40, xyz_pos: bool = True, snake_scan :bool = False, sleep_factor : float=1):
+        with InstrumentManager() as mgr, DataSource(dataset) as planescan_data:
             # mgr.XYZcontrol.daq_controller.sleep_factor = sleep_factor
-            self.initialize(mgr, ctr_ch, acq_rate)
+            
             # starting point for scan
+            current_position= mgr.XYZcontrol.get_position()
             origin = (point_A['x'], point_A['y'], point_A['z'])
             # this point gives the direction and bound of the line scan
             scan_pt = (point_B['x'], point_B['y'], point_B['z'])
@@ -125,33 +125,57 @@ class PlaneScan:
                 
             z_stack = (1 + stack_count) / 2
             # we reassign the origin vector, so that it starts at the bottom of the z-stack range
-            origin = origin - stack_vector * z_stack
+            
             #print(z_stack)
-            heatmap = np.zeros((int(extent_steps) + 1, int(line_scan_steps)))
+            heatmap = np.zeros((extent_steps + 1, line_scan_steps))
+            if snake_scan:
+                heatmap= np.zeros((extent_steps + 1, line_scan_steps))
+            _logger.info(f"heatmap shape: {heatmap.shape}")
             heatmap_dataset = StreamingList()
             heatmap_dataset.append(heatmap.copy())
             scan_vals = np.linspace(
                             adjust_line,
                             np.linalg.norm(scan_vector) + adjust_line,
-                            int(line_scan_steps)
+                            line_scan_steps
                         )
             step_vals = np.linspace(
                 adjust_step,                                # start offset
                 np.linalg.norm(extent_vector) + adjust_step,# end offset
-                int(extent_steps) + 1                       # rows = extent_steps+1
+                extent_steps + 1                            # rows = extent_steps+1
             )
-            for z in range(int(stack_count)):
+            if stack_count>1:
+                self.check_limit(mgr, origin-stack_vector*(z_stack-1), 'origin-stack_vector*(z_stack-1)')
+                self.check_limit(mgr, origin+stack_vector*(z_stack-1), 'origin+stack_vector*(z_stack-1)')
+                self.check_limit(mgr, origin+scan_vector-stack_vector*(z_stack-1), 'origin+scan_vector-stack_vector*(z_stack-1)')
+                self.check_limit(mgr, origin+extent_vector-stack_vector*(z_stack-1), 'origin+extent_vector-stack_vector*(z_stack-1)')
+                self.check_limit(mgr, origin+scan_vector+extent_vector-stack_vector*(z_stack-1), 'origin+scan_vector+extent_vector-stack_vector*(z_stack-1)')
+                self.check_limit(mgr, origin+scan_vector+stack_vector*(z_stack-1), 'origin+scan_vector+stack_vector*(z_stack-1)')
+                self.check_limit(mgr, origin+extent_vector+stack_vector*(z_stack-1), 'origin+extent_vector+stack_vector*(z_stack-1)')
+                self.check_limit(mgr, origin+scan_vector+extent_vector+stack_vector*(z_stack-1), 'origin+scan_vector+extent_vector+stack_vector*(z_stack-1)')
+            else:
+                self.check_limit(mgr, origin, 'origin')
+                self.check_limit(mgr, origin+scan_vector, 'origin+scan_vector')
+                self.check_limit(mgr, origin+extent_vector, 'origin+extent_vector')
+                self.check_limit(mgr, origin+scan_vector+extent_vector, 'origin+scan_vector+extent_vector')
+            if snake_scan:
+                scan_vals=scan_vals
+            self.initialize(mgr, ctr_ch, acq_rate)
+            origin = origin - stack_vector * z_stack
+            for z in range(stack_count):
                 origin = origin + stack_vector
-                for rep in range(int(repetitions)):
-                    for s in range(int(extent_steps) + 1):
-                        line_scan_start_pt = np.array(origin) + s/(int(extent_steps)) * extent_vector
-                        line_scan_stop_pt = line_scan_start_pt + scan_vector
+                for rep in range(repetitions):
+                    print(origin)
+                    for s in range(extent_steps + 1):
+                        
+                        line_scan_start_pt = origin + s/(extent_steps) * extent_vector
+                        line_scan_stop_pt = line_scan_start_pt + scan_vector 
                         print("running well.")
                         ## adding option for snake scan
                         if snake_scan == True and (s+1)%2 == 0:
                             print('s:', s)
-                            line_scan_start_pt = line_scan_stop_pt
-                            line_scan_stop_pt = np.array(origin) + s/(extent_steps) * extent_vector
+                            line_scan_start_pt = line_scan_stop_pt#-scan_vector/(line_scan_steps)
+                            line_scan_stop_pt = origin + s/(extent_steps) * extent_vector#-scan_vector/(line_scan_steps)
+                        
                         line_data = mgr.XYZcontrol.line_scan({'x': float(line_scan_start_pt[0]),
                                                         'y': float(line_scan_start_pt[1]),
                                                         'z': float(line_scan_start_pt[2])},
@@ -163,9 +187,13 @@ class PlaneScan:
                         #import pdb; pdb.set_trace()                    #print(s / extent_steps * np.linalg.norm(extent_vector))                    #print(np.linspace(0, np.linalg.norm(scan_vector), line_scan_steps))                    #print(z)                    #print(origin)                    #print(z - z_stack + 1)
 
                         ## in case of a snake scan
-                        if snake_scan == True and (s+1)%2 == 0:
+                        if snake_scan == True:
+                            
+                            if (s+1)%2 == 0:
                             #print('line data:', line_data, 'type:', type(line_data))
-                            line_data = line_data[::-1]
+                                line_data = line_data[::-1]
+                            
+                            
                         counts = rpyc.utils.classic.obtain(line_data)
                         heatmap[s, :] = heatmap[s, :] + counts
                         heatmap_dataset[0]=heatmap.copy()
@@ -175,8 +203,9 @@ class PlaneScan:
                         #stack_pos= (z - z_stack + 1) * np.linalg.norm(stack_vector) + adjust_step
 
                         # Append to streaming list and notify update
+                        # Push data for live plotting: use StreamingList objects, not raw numpy arrays
                         planescan_data.push({
-                            'params':{
+                            'params': {
                                 'point_A': point_A,
                                 'point_B': point_B,
                                 'point_C': point_C,
@@ -190,35 +219,48 @@ class PlaneScan:
                                 'acq_rate': acq_rate,
                                 'pts_per_step': pts_per_step,
                                 'xyz_pos': xyz_pos,
-                                'excel': excel,
                                 'snake_scan': snake_scan,
                                 'sleep_factor': sleep_factor
                             },
                             'name': 'Heatmap',
                             'xs': scan_vals,
                             'ys': step_vals,
-                            'dataset': {
-                                'heatmap': heatmap_dataset,
+                            'datasets': {
+                                # streaming list holds updated heatmap frames
+                                'heatmap': heatmap,
                             }
                         })
 
 
+
+
                         if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
                             # the GUI has asked us nicely to exit
-                            self.finalize(mgr, excel)
+                            self.finalize(mgr, current_position)
                             return
-            self.finalize(mgr, excel)
+            self.finalize(mgr, current_position)
 
     def initialize(self, mgr, ctr_ch='Dev1/ctr1', acq_rate=15000):
         #create control task, action task already created in app initizalization
-        mgr.XYZcontrol.initialize()
+        #mgr.XYZcontrol.initialize()           # (calls finalize internally if needed)
         mgr.XYZcontrol.new_ctr_task(ctr_ch)
         mgr.XYZcontrol.acq_rate = acq_rate
 
-        mgr.Pulser.Pulser.constant(([7],0.0,0.0))
-        mgr.DAQCounter.initialize()
+        mgr.Pulser.set_state([7],0.0,0.0)
+        #mgr.DAQCounter.initialize()
 
-    def finalize(self,mgr, excel):
+    def finalize(self,mgr, current_position):
         mgr.Pulser.set_state_off()
-        mgr.DAQCounter.finalize()
-        mgr.XYZcontrol.finalize()
+        mgr.XYZcontrol.move_to_dict(current_position)
+        mgr.XYZcontrol.end_ctr_task()  # End the counter task
+        #mgr.XYZcontrol.finalize()
+        #mgr.DAQCounter.finalize()
+    
+    def check_limit(self, mgr, point, str=""):
+        """Check if the point is within the limits of the XYZ control."""
+        if point[0]<mgr.XYZcontrol.axes['x'].limits[0] or point[0]>mgr.XYZcontrol.axes['x'].limits[1]:
+            raise ValueError(f"x position {point[0]} of point {str} is out of bounds {mgr.XYZcontrol.axes['x'].limits}")
+        if point[1]<mgr.XYZcontrol.axes['y'].limits[0] or point[1]>mgr.XYZcontrol.axes['y'].limits[1]:
+            raise ValueError(f"y position {point[1]} of point {str} is out of bounds {mgr.XYZcontrol.axes['y'].limits}")
+        if point[2]<mgr.XYZcontrol.axes['z'].limits[0] or point[2]>mgr.XYZcontrol.axes['z'].limits[1]:
+            raise ValueError(f"z position {point[2]} of point {str} is out of bounds {mgr.XYZcontrol.axes['z'].limits}")
