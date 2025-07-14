@@ -16,6 +16,8 @@ from importlib import reload
 
 import numpy as np
 
+import time
+
 from nspyre import DataSink
 from nspyre import LinePlotWidget
 from nspyre import ParamsWidget
@@ -38,12 +40,6 @@ from PyQt6.QtCore import Qt, QTimer
 import logging
 
 from instrument_activation import xyz_activation_boolean
-
-from pyAndorSDK2 import atmcd, atmcd_codes, atmcd_errors
-
-import ctypes
-from drivers.dr_camera import Camera
-from special_widgets.unit_widgets import TemperatureLineEdit
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +66,6 @@ class InstWidgetV2(QWidget):
 
         self.init_sg396_widgets()
         self.init_xyz_control()
-        self.init_camera()
   
 
 
@@ -278,67 +273,6 @@ class InstWidgetV2(QWidget):
             self.y_control.spinbox.editingFinished.connect(lambda: self.xyz_setup.move_y(self.y_control.spinbox.umvalue))
             self.z_control.spinbox.editingFinished.connect(lambda: self.xyz_setup.move_z(self.z_control.spinbox.umvalue))
 
-    def init_camera(self):
-        # Create a normal rectangular camera power button
-        self.camera_power_button = QPushButton("Power")
-        # Use default or custom rectangular size
-        self.camera_power_button.setFixedHeight(30)
-        self.camera_on = False  # Initialize camera power state
-        
-
-            
-        self.camera=InstrumentManager().Camera
-            
-            
-        
-
-        self.camera_power_button.clicked.connect(lambda: power_button_clicked())
-        
-        self.camera_trigger_modes_label = QLabel("Trigger Modes:")
-        self.camera_trigger_modes_label.setFixedHeight(20)
-        self.camera_trigger_modes_label.setStyleSheet("font-weight: bold")
-        self.camera_trigger_modes_combo = QComboBox()
-        self.camera_trigger_modes_combo.addItems(["Internal", "External", "External Exposure Bulb"])
-        self.camera_trigger_modes_combo.setCurrentText("Internal")
-        self.camera_trigger_modes_combo.setStyleSheet("QComboBox { background-color: #2b2b2b; color: white; }")
-        self.camera_trigger_modes_combo.setFixedHeight(30)
-        self.camera_trigger_modes_combo.setFont(QFont(self.font, 12))
-        self.camera_trigger_modes_combo.currentTextChanged.connect(lambda: self.camera.set_trigger_mode(self.camera_trigger_modes_combo.currentText()))
-
-        self.camera_exp_time_label = QLabel("Exposure Time:")
-        self.camera_exp_time_label.setFixedHeight(20)
-        self.camera_exp_time_label.setStyleSheet("font-weight: bold")
-        self.camera_exp_time_line_edit = SecLineEdit(75e-3)  # Default exposure time of 75 ms
-        self.camera_exp_time_line_edit.editingFinished.connect(lambda: self.camera.set_exposure_time(self.camera_exp_time_line_edit.secvalue))
-
-        self.camera_shutter_label = QLabel("Shutter:")
-        self.camera_shutter_label.setFixedHeight(20)
-        self.camera_shutter_label.setStyleSheet("font-weight: bold")
-        self.camera_shutter_combo = QComboBox()
-        self.camera_shutter_combo.addItems(["Closed", "Open", "Auto"])
-        self.camera_shutter_combo.setCurrentText("Closed")
-        self.camera_shutter_combo.setStyleSheet("QComboBox { background-color: #2b2b2b; color: white; }")
-        self.camera_shutter_combo.setFixedHeight(30)
-        self.camera_shutter_combo.setFont(QFont(self.font, 12))
-        self.camera_shutter_combo.currentTextChanged.connect(lambda: self.camera.set_shutter(self.camera_shutter_combo.currentText()))
-
-        self.camera_temperature_label = QLabel("Temperature:")
-        self.camera_temperature_label.setFixedHeight(20)
-        self.camera_temperature_label.setStyleSheet("font-weight: bold")
-        self.camera_temperature_line_edit = TemperatureLineEdit(25)  # Default temperature of 25 °C
-        self.camera_temperature_line_edit.editingFinished.connect(lambda: self.camera.set_temperature(self.camera_temperature_line_edit.value))
-
-        self.camera_temperature_set_line_edit = TemperatureLineEdit(25)  # Default temperature of 25 °C
-        self.camera_temperature_set_line_edit.editingFinished.connect(lambda: self.camera.set_temperature(self.camera_temperature_set_line_edit.value))
-        self.camera_temperature_set_button = QPushButton("Set")
-        self.camera_temperature_set_button.clicked.connect(lambda: self.change_camera_temperature(self.camera_temperature_set_line_edit.value))
-
-        
-
-        self.camera_refresh_button=QPushButton("Refresh")
-        self.camera_refresh_button.clicked.connect(lambda: self.refresh_camera_settings())
-
-        self.check_power_status()
     '''
     LAYOUT -----------------------------------------------------------------------------------------------------------------------------------------------
     '''
@@ -387,21 +321,6 @@ class InstWidgetV2(QWidget):
 
         self.xyz_layout.addWidget(self.xyz_refresh_button, 5, 1, 1, 1)
 
-        self.camera_frame=QFrame(self)
-        self.camera_frame.setStyleSheet("background-color: #454545")
-        self.camera_layout = QGridLayout(self.camera_frame)
-        self.camera_layout.setSpacing(10)
-
-        self.camera_layout.addWidget(self.camera_power_button, 1, 1, 1, 1)  
-        self.camera_layout.addWidget(self.camera_trigger_modes_label, 2, 1, 1, 1)
-        self.camera_layout.addWidget(self.camera_trigger_modes_combo, 2, 2, 1, 1)
-        self.camera_layout.addWidget(self.camera_exp_time_label, 3, 1, 1, 1)
-        self.camera_layout.addWidget(self.camera_exp_time_line_edit, 3, 2, 1, 1)  
-        self.camera_layout.addWidget(self.camera_shutter_label, 4, 1, 1, 1)
-        self.camera_layout.addWidget(self.camera_shutter_combo, 4, 2, 1, 1)
-
-
-
        
 
 
@@ -410,7 +329,6 @@ class InstWidgetV2(QWidget):
         self.main_grid_layout = QGridLayout()  
         self.main_grid_layout.addWidget(self.sg396_frame, 0, 0, 1, 1)  # Row 0, Column 0
         self.main_grid_layout.addWidget(self.xyz_frame, 1, 0, 1, 1)    # Row 1, Column 0 (below pulse_frame)
-        self.main_grid_layout.addWidget(self.camera_frame, 2, 0, 1, 1)  # Row 2, Column 0 (below xyz_frame)
         self.setLayout(self.main_grid_layout)
 
 
@@ -502,118 +420,15 @@ class InstWidgetV2(QWidget):
             self.sg396_status_label.setText("SRS SG396 Status: OFF")
     
     def refresh_xyz_position(self):
+        """Refresh the XYZ position values."""
         with InstrumentManager() as mgr:
             try:
-                x_position=mgr.XYZcontrol.get_x()
-                y_position=mgr.XYZcontrol.get_y()
-                z_position=mgr.XYZcontrol.get_z()
+                x_position = mgr.XYZcontrol.get_x()
+                y_position = mgr.XYZcontrol.get_y()
+                z_position = mgr.XYZcontrol.get_z()
                 self.x_control.spinbox.set_value(x_position)
                 self.y_control.spinbox.set_value(y_position)
                 self.z_control.spinbox.set_value(z_position)
-            except: 
+            except RuntimeError:
                 raise RuntimeError("Can't extract positions.")
-            
-    def change_camera_temperature(self, temperature):
-        """Change the camera temperature."""
-        try:
-            with InstrumentManager() as mgr:
-                mgr.Camera.set_temperature(temperature)
-                print(f"Camera temperature set to {temperature} °C")
-        except Exception as e:
-            print(f"Error setting camera temperature: {e}")
-
-    def set_power_button_color(self, color):
-        # Remove circular border; default rectangular shape
-        self.camera_power_button.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {color};
-                border: 2px solid #888;
-            }}
-            QPushButton:pressed {{
-                background-color: #555;
-            }}
-        """)
-
-    def check_power_status(self):
-        # Check the camera status and update the button color
-        status = self.camera.get_status()
-        self.camera_on=status
-        if status:
-            self.set_power_button_color('green')
-            print("Camera is connected.")
-        else:
-            self.set_power_button_color('black')
-            print("Camera is not connected.")
-
-
-
-    
-
-    def power_button_clicked(self):
-        if self.camera_on:
-            ret=self.camera.shutdown()
-            self.set_power_button_color('black')
-            print("Camera off.")
-            self.camera_on = False
-
-        else:
-            ret=self.camera.initialize()
-            print(f"Power button {ret}")
-            if ret:
-                self.set_power_button_color('green')
-                print("Connection successful.")
-                self.camera_on = True
-            else:
-                self.set_power_button_color('red')
-                print("Connection unsuccessful.")
-    
-    def set_temperature_button_color(self, color):
-        # Remove circular border; default rectangular shape
-        self.camera_temperature_line_edit.setStyleSheet(f"""
-            QLineEdit {{
-                background-color: {color};
-            }}
-        """)
-
-    def check_temperature_status(self):
-        # Check the camera status and update the button color
-        status = self.camera.get_temperature()
-        if status=="Set":
-            self.set_temperature_button_color('green', self.camera_temperature_button)
-            print("Camera is connected.")
-        elif status=="Changing" or "Not Stabilized":
-            self.set_temperature_button_color('blue', self.camera_temperature_button)
-        elif status=="Drifted":
-            self.set_temperature_button_color('yellow', self.camera_temperature_button)
-        else:
-            self.set_temperature_button_color('red', self.camera_temperature_button)
-            print("Camera is not connected.")
-
-    def check_temperature_status(self):
-        # Check the camera temperature and update the display
-        temperature = self.camera.get_temperature()
-        self.temperature_display.setText(f"Temperature: {temperature} °C")
-
-    def power_button_clicked(self):
-        if self.camera_on:
-            ret=self.camera.shutdown()
-            set_power_button_color('black', self.camera_power_button)
-            print("Camera off.")
-            self.camera_on = False
-
-        else:
-            ret=self.camera.initialize()
-            print(f"Power button {ret}")
-            if ret:
-                set_power_button_color('green', self.camera_power_button)
-                print("Connection successful.")
-                self.camera_on = True
-            else:
-                set_power_button_color('red', self.camera_power_button)
-                print("Connection unsuccessful.")
-        check_power_status() 
-
-# def kill_process(self):
-#     """Stop the run process."""
-#     self.run_proc.kill()
 

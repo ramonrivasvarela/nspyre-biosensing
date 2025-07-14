@@ -16,8 +16,9 @@ from nspyre import InstrumentManager
 #from special_widgets.experiment_widget import ExperimentWidget
 from nspyre import DataSource
 import experiments.counts
-import experiments.planescan
-import experiments.widefield
+import experiments
+import experiments
+import experiments
 
 import pyqtgraph as pg
 
@@ -275,4 +276,68 @@ class WideFieldWidget(ExperimentWidget):
             'WideFieldODMR',
             'run_widefield_experiment',
             title='Wide Field Imaging', get_param_value_funs=get_param_value_funs
+        )
+
+class SpatialFeedbackWidget(ExperimentWidget):
+    def __init__(self):
+        ctr_ch_le = QLineEdit('Dev1/ctr1')
+        x_initial_le = unit_widgets.MLineEdit(0)
+        y_initial_le = unit_widgets.MLineEdit(0)
+        z_initial_le = unit_widgets.MLineEdit(0)
+        do_z_cb = QCheckBox()
+        do_z_cb.setChecked(True)
+        sleep_time_le = unit_widgets.SecLineEdit(0.4)
+        xyz_step_le = unit_widgets.MLineEdit(0.5e-7)
+        shrink_every_x_iter_sb = QSpinBox()
+        shrink_every_x_iter_sb.setMinimum(1)
+        shrink_every_x_iter_sb.setValue(1)
+        starting_point_cb = QtWidgets.QComboBox()
+        starting_point_cb.addItems(['user_input', 'current_position (ignore input)'])
+        starting_point_cb.setCurrentText('current_position (ignore input)')
+
+        params_config = {
+            'ctr_ch': {
+                'display_text': 'Center Channel',
+                'widget': ctr_ch_le,
+            },
+            'x_initial': {
+                'display_text': 'X Initial',
+                'widget': x_initial_le,
+            },
+            'y_initial': {
+                'display_text': 'Y Initial',
+                'widget': y_initial_le,
+            },
+            'z_initial': {
+                'display_text': 'Z Initial',
+                'widget': z_initial_le,
+            },
+            'do_z': {
+                'display_text': 'Do Z',
+                'widget': do_z_cb,
+            },
+            'sleep_time': {
+                'display_text': 'Sleep Time',
+                'widget': sleep_time_le,
+            },
+            'xyz_step': {
+                'display_text': 'XYZ Step',
+                'widget': xyz_step_le,
+            },
+            'shrink_every_x_iter': {
+                'display_text': 'Shrink Every X Iterations',
+                'widget': shrink_every_x_iter_sb,
+            },
+            'starting_point': {
+                'display_text': 'Starting Point',
+                'widget': starting_point_cb,
+            },
+        }
+
+        super().__init__(
+            params_config,
+            experiments.spacefb,
+            'SpatialFeedback',
+            'spatial_feedback',
+            title='Spatial Feedback', get_param_value_funs=get_param_value_funs
         )

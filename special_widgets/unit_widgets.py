@@ -250,6 +250,12 @@ class SecLineEdit(QLineEdit):
             self.setText(f"{self.secvalue*1e6:.3f} us")
         else:
             self.setText(f"{self.secvalue*1e9:.1f} ns")
+    
+    def set_value(self, value):
+        """Set the value and update the text."""
+        self.secvalue = value
+        self.nsvalue = self.secvalue * 1e9
+        self.update_text()
 
 class SecSpinBox(SpinBox):
     
@@ -390,26 +396,58 @@ class FloatLineEdit(QLineEdit):
         self.setText(f"{self.value}")
      
 class TemperatureLineEdit(QLineEdit):
-    def __init__(self, value=0, prefix=''):
+    def __init__(self, value=20, prefix='', max=20, min=-20, asinteger=False):
         super().__init__()
-        self.value = value
+        self.max=max
+        self.min=min
+        self.asinteger=asinteger
+        if value < self.min or value > self.max:
+            self.value=20
+        else:
+            self.value = value
+        if self.asinteger:
+            self.value = int(self.value)
         self.setFont(QFont("Sanserif", 15))
         self.setFixedWidth(160)
         self.prefix=prefix 
         self.update_text()  # Initialize the text based on the value
         self.editingFinished.connect(self.edit_value)
+        
+    
          # Connect signal to update value
                 
     def edit_value(self):
         """Update the value based on the text entered by the user."""
-        text = self.text().strip()
+        if self.text()[-2:]=="°C":
+            text = self.text()[:-2].strip()
+        else:
+            text = self.text().strip()
         try:
-            self.value = float(text)
+            value = float(text)
+        
         except ValueError as e:
             raise ValueError(f"Invalid input '{text}': cannot convert to float. Please enter a number.") from e
-
+        if value < self.min or value > self.max:
+            raise ValueError(f"Temperature value must be between {self.min} and {self.max} °C.")
+        if self.asinteger:
+            value = int(value)
+        self.value = value
         self.update_text()
 
     def update_text(self):
         """Update the displayed text based on the current value."""
-        self.setText(f"{self.value} °C")
+        if self.asinteger:
+            self.setText(f"{self.value} °C")
+        else:
+            self.setText(f"{self.value:.2f} °C")
+
+    def set_value(self, value):
+        """Set the value and update the displayed text."""
+        if value < self.min or value > self.max:
+            raise ValueError(f"Temperature value must be between {self.min} and {self.max} °C.")
+        else:
+            if self.asinteger:
+                self.value = int(value)
+            else:
+                self.value = value
+            self.update_text()

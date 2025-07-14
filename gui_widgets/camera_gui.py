@@ -1,0 +1,389 @@
+from PyQt6.QtWidgets import QWidget, QFrame, QGridLayout, QPushButton, QLabel, QComboBox, QSpinBox
+from PyQt6.QtGui import QFont
+from PyQt6.QtCore import Qt
+from nspyre import InstrumentManager
+from special_widgets.unit_widgets import SecLineEdit, TemperatureLineEdit
+import time
+import numpy as np
+
+class CameraWidget(QWidget):
+    """
+    Camera control widget extracted from Instrument GUI.
+    """
+    def __init__(self, font: str = "Arial"):
+        super().__init__()
+        self.font = font
+        self.camera_on = False
+        self.camera = InstrumentManager().Camera
+
+        self.init_widgets()
+        self.create_layout()
+
+        # self.check_power_status()
+        # self.check_temperature_status()
+        # self.check_cooler_status()
+
+        self.refresh_camera_settings()
+
+    def init_widgets(self):
+        # Power button
+        self.power_button = QPushButton("Power")
+        self.power_button.setFixedHeight(30)
+        self.power_button.clicked.connect(self.power_button_clicked)
+
+        # Trigger mode
+        self.trigger_label = QLabel("Trigger Modes:")
+        self.trigger_label.setFixedHeight(20)
+        self.trigger_label.setStyleSheet("font-weight: bold")
+        self.trigger_combo = QComboBox()
+        self.trigger_combo.addItems(["Internal", "External", "External Exposure Bulb"])
+        self.trigger_combo.setCurrentText("Internal")
+        self.trigger_combo.setStyleSheet("QComboBox { background-color: #2b2b2b; color: white; }")
+        self.trigger_combo.setFixedHeight(30)
+        self.trigger_combo.setFont(QFont(self.font, 12))
+        self.trigger_combo.currentTextChanged.connect(lambda t: self.camera.set_trigger_mode(t))
+
+        # Exposure time
+        self.exp_label = QLabel("Exposure Time:")
+        self.exp_label.setFixedHeight(20)
+        self.exp_label.setStyleSheet("font-weight: bold")
+        self.exp_input = SecLineEdit(75e-3)
+        self.exp_input.editingFinished.connect(lambda: self.camera.set_exposure_time(self.exp_input.secvalue))
+
+        # Shutter
+        self.shutter_label = QLabel("Shutter:")
+        self.shutter_label.setFixedHeight(20)
+        self.shutter_label.setStyleSheet("font-weight: bold")
+        self.shutter_combo = QComboBox()
+        self.shutter_combo.addItems(["Closed", "Open", "Auto"])
+        self.shutter_combo.setCurrentText("Auto")
+        self.shutter_combo.setStyleSheet("QComboBox { background-color: #2b2b2b; color: white; }")
+        self.shutter_combo.setFixedHeight(30)
+        self.shutter_combo.setFont(QFont(self.font, 12))
+        self.shutter_combo.currentTextChanged.connect(lambda s: self.camera.set_shutter(s))
+
+        #Gain
+        self.gain_label = QLabel("Gain:")
+        self.gain_label.setFixedHeight(20)
+        self.gain_label.setStyleSheet("font-weight: bold")
+        self.gain_sb=QSpinBox()
+        self.gain_sb.setRange(0, 255)  # Example range, adjust as needed
+        self.gain_sb.editingFinished.connect(lambda: self.camera.set_emccdgain(self.gain_sb.value()))
+        self.optimize_gain_button = QPushButton("Optimize Gain")
+        self.optimize_gain_button.clicked.connect(lambda: self.optimize_gain(self.gain_sb.value()))
+
+        # Temperature
+        self.temp_label = QLabel("Temperature:")
+        self.temp_label.setFixedHeight(20)
+        self.temp_label.setStyleSheet("font-weight: bold")
+        self.temp_input = TemperatureLineEdit(value=0, max=100, min=-100)
+        self.temp_input.editingFinished.connect(lambda: self.check_temperature_status())
+
+        # Cooling
+        self.cool_input = TemperatureLineEdit(18, max=20, min=-100, asinteger=True)
+        self.cool_button = QPushButton("Cool")
+        self.cool_button.clicked.connect(self.cool_button_clicked)
+
+        # Read mode
+        self.read_mode_label = QLabel("Read Mode:")
+        self.read_mode_label.setFixedHeight(20)
+        self.read_mode_label.setStyleSheet("font-weight: bold")
+        self.read_mode_combo = QComboBox()
+        self.read_mode_combo.addItems([
+            "Full Vertical Binning",
+            "Multi-Track",
+            "Random-Track",
+            "Single-Track",
+            "Image"
+        ])
+        self.read_mode_combo.setCurrentText(self.camera.read_mode)
+        self.read_mode_combo.currentTextChanged.connect(lambda m: self.camera.set_read_mode(m))
+
+        # Acquisition mode
+        self.acq_mode_label = QLabel("Acquisition Mode:")
+        self.acq_mode_label.setFixedHeight(20)
+        self.acq_mode_label.setStyleSheet("font-weight: bold")
+        self.acq_mode_combo = QComboBox()
+        self.acq_mode_combo.addItems([
+            "Single Scan",
+            "Accumulate",
+            "Kinetics",
+            "Fast Kinetics",
+            "Run Till Abort"
+        ])
+        self.acq_mode_combo.setCurrentText(self.camera.acquisition_mode)
+        self.acq_mode_combo.currentTextChanged.connect(lambda m: self.camera.set_acquisition_mode(m))
+
+        # Number of accumulations
+        self.acc_label = QLabel("Num. Accumulations:")
+        self.acc_label.setFixedHeight(20)
+        self.acc_label.setStyleSheet("font-weight: bold")
+        self.acc_sb = QSpinBox()
+        self.acc_sb.setRange(1, 1000)
+        self.acc_sb.setValue(self.camera.number_accumulations)
+        self.acc_sb.editingFinished.connect(lambda: self.camera.set_number_accumulations(self.acc_sb.value()))
+
+        # Number of kinetics
+        self.kinetics_label = QLabel("Num. Kinetics:")
+        self.kinetics_label.setFixedHeight(20)
+        self.kinetics_label.setStyleSheet("font-weight: bold")
+        self.kinetics_sb = QSpinBox()
+        self.kinetics_sb.setRange(1, 1000)
+        self.kinetics_sb.setValue(self.camera.number_kinetics)
+        self.kinetics_sb.editingFinished.connect(lambda: self.camera.set_number_kinetics(self.kinetics_sb.value()))
+
+        # Refresh
+        self.refresh_button = QPushButton("Refresh")
+        self.refresh_button.clicked.connect(lambda: self.refresh_camera_settings())
+        self.set_button = QPushButton("Set")
+        self.set_button.clicked.connect(lambda: self.set_button_clicked())
+        self.cooler_status_button = QPushButton("Cooler OFF")
+        self.cooler_status_button.clicked.connect(lambda: self.cooler_status_button_clicked())
+
+    def create_layout(self):
+        frame = QFrame(self)
+        frame.setStyleSheet("background-color: #454545")
+        layout = QGridLayout(frame)
+        layout.setSpacing(10)
+
+        layout.addWidget(self.power_button, 1, 1, 1, 1)
+        layout.addWidget(self.trigger_label, 2, 1, 1, 1)
+        layout.addWidget(self.trigger_combo, 2, 2, 1, 1)
+        layout.addWidget(self.exp_label, 3, 1, 1, 1)
+        layout.addWidget(self.exp_input, 3, 2, 1, 1)
+        layout.addWidget(self.shutter_label, 4, 1, 1, 1)
+        layout.addWidget(self.shutter_combo, 4, 2, 1, 1)
+        layout.addWidget(self.gain_label, 5, 1, 1, 1)
+        layout.addWidget(self.gain_sb, 5, 2, 1, 1)
+        layout.addWidget(self.optimize_gain_button, 5, 3, 1, 1)
+        # Read and acquisition modes
+        layout.addWidget(self.read_mode_label, 6, 1, 1, 1)
+        layout.addWidget(self.read_mode_combo, 6, 2, 1, 1)
+        layout.addWidget(self.acq_mode_label, 7, 1, 1, 1)
+        layout.addWidget(self.acq_mode_combo, 7, 2, 1, 1)
+        # Number controls
+        layout.addWidget(self.acc_label, 8, 1, 1, 1)
+        layout.addWidget(self.acc_sb, 8, 2, 1, 1)
+        layout.addWidget(self.kinetics_label, 9, 1, 1, 1)
+        layout.addWidget(self.kinetics_sb, 9, 2, 1, 1)
+        # Temperature and cooling
+        layout.addWidget(self.temp_label, 10, 1, 1, 1)
+        layout.addWidget(self.temp_input, 10, 2, 1, 1)
+        layout.addWidget(self.cool_input, 10, 3, 1, 1)
+        layout.addWidget(self.cool_button, 10, 4, 1, 1)
+        # Actions
+        layout.addWidget(self.refresh_button, 11, 1, 1, 1)
+        layout.addWidget(self.set_button, 11, 2, 1, 1)
+        layout.addWidget(self.cooler_status_button, 11, 3, 1, 1)
+
+        main_layout = QGridLayout(self)
+        main_layout.addWidget(frame, 0, 0, 1, 1)
+        self.setLayout(main_layout)
+
+    def set_button_color(self, widget, color):
+        widget.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {color};
+                border: 2px solid #888;
+            }}
+            QPushButton:pressed {{
+                background-color: #555;
+            }}
+        """)
+
+    def power_button_clicked(self):
+        status = self.camera.get_status()
+        # 20002 indicates success
+        if status == 20002:
+            self.check_temperature_status()
+            ret = self.camera.shutdown() if self.camera_on else self.camera.initialize()
+            color = 'black' if self.camera_on else ('green' if ret else 'red')
+            self.set_button_color(self.power_button, color)
+            self.camera_on = not self.camera_on and bool(ret)
+            print("Camera off." if not self.camera_on else "Connection successful.")
+        else:
+            # attempt initialization if not connected
+            ret = self.camera.initialize()
+            color = 'green' if ret else 'red'
+            self.set_button_color(self.power_button, color)
+            self.camera_on = bool(ret)
+            print("Connection unsuccessful." if not ret else "Camera on.")
+        if self.camera_on:
+            self.set_camera_settings()
+        else: 
+            self.refresh_camera_settings()
+
+    def check_power_status(self):
+        status = self.camera.get_status()
+        # 20002 indicates camera connected
+        color = 'green' if status == 20002 else 'black'
+        self.set_button_color(self.power_button, color)
+        self.camera_on = (status == 20002)
+        print("Camera is connected." if self.camera_on else "Camera is not connected.")
+        return status
+
+    def check_temperature_status(self):
+        status, temp = self.camera.get_temperature_status()
+        
+        # Use raw Andor temperature status codes
+        if status == 20036:  # DRV_TEMP_STABILIZED
+            color = 'green'
+            self.temp_input.set_value(temp)
+        elif status in (20037, 20035):  # NOT_REACHED or NOT_STABILIZED
+            color = 'blue'
+            self.temp_input.set_value(temp)
+        elif status == 20040:  # DRV_TEMP_DRIFT
+            color = 'yellow'
+            self.temp_input.set_value(temp)
+        elif status ==20034:
+            color = 'red'
+            self.temp_input.set_value(temp)
+        else:
+            color="red"
+            self.temp_input.setText("Not available")
+        self.temp_input.setStyleSheet(f"background-color: {color}")
+        print(f"Temperature status {status}, temp {temp} °C")
+        return status
+
+    def cool_button_clicked(self):
+        goal = self.cool_input.value
+        print(f"Cooling to {goal} °C")
+        ret=self.camera.cool_old(int(goal))
+        self.check_temperature_status()
+        self.check_cooler_status()
+        
+
+    def refresh_camera_settings(self):
+        print("Refreshing camera settings...")
+        status=self.check_power_status()
+        self.check_cooler_status()
+        self.check_temperature_status()
+        if self.camera.temperature_goal is not None:
+            # Set the temperature goal if it exists
+            self.cool_input.set_value(self.camera.temperature_goal)
+        self.exp_input.set_value(self.camera.exposure_time)
+        self.trigger_combo.setCurrentText(self.camera.trigger_mode)
+        self.shutter_combo.setCurrentText(self.camera.shutter)
+        self.gain_sb.setValue(self.camera.emccdgain)
+        # Refresh new camera parameters
+        self.read_mode_combo.setCurrentText(self.camera.read_mode)
+        self.acq_mode_combo.setCurrentText(self.camera.acquisition_mode)
+        self.acc_sb.setValue(self.camera.number_accumulations)
+        self.kinetics_sb.setValue(self.camera.number_kinetics)
+
+    
+    def set_button_clicked(self):
+        status=self.check_power_status()
+        if status == 20002:  # Camera is connected
+            self.set_camera_settings()
+
+    def set_camera_settings(self):
+        goal = self.cool_input.value
+        print(f"Setting camera settings: {goal} °C")
+        self.camera.set_temperature(int(goal))
+        self.camera.set_exposure_time(self.exp_input.secvalue)
+        self.camera.set_trigger_mode(self.trigger_combo.currentText())
+        self.camera.set_shutter(self.shutter_combo.currentText())
+        self.camera.set_emccdgain(self.gain_sb.value())
+        # Apply read mode, acquisition mode, accumulations, and kinetics
+        self.camera.set_read_mode(self.read_mode_combo.currentText())
+        self.camera.set_acquisition_mode(self.acq_mode_combo.currentText())
+        self.camera.set_number_accumulations(self.acc_sb.value())
+        self.camera.set_number_kinetics(self.kinetics_sb.value())
+        self.check_temperature_status()
+        self.check_cooler_status()
+
+    def cooler_status_button_clicked(self):
+        current_text = self.cooler_status_button.text()
+        ret=self.camera.is_cooler_on()
+        # if ret==1 and current_text == "Cooler OFF":
+        #     self.cooler_status_button.setText("Cooler ON")
+        # if ret==0 and current_text == "Cooler ON":
+        #     self.cooler_status_button.setText("Cooler OFF")
+        if ret==1 and current_text == "Reset Temperature":
+            achieved=self.camera.cooler_off()
+            # if achieved == 20002:
+            #     self.cooler_status_button.setText("Cooler OFF")
+            # print("Cooler turned off.")
+        if ret==0 and current_text == "Cooler OFF":
+            achieved=self.camera.cooler_on()
+            # if achieved == 20002:
+            #     self.cooler_status_button.setText("Cooler ON")
+        self.check_cooler_status()  
+    
+    def check_cooler_status(self):
+        """
+        Check the cooler status and update the button text accordingly.
+        """
+        ret = self.camera.is_cooler_on()
+        if ret == 1:
+            self.cooler_status_button.setText("Reset Temperature")
+        else:
+            self.cooler_status_button.setText("Cooler OFF")
+        print(f"Cooler status: {'ON' if ret == 1 else 'OFF'}")
+    
+    def optimize_gain(self, gain=1):
+        with InstrumentManager() as mgr:
+            print('optimizing gain...')
+            mx = 0
+            safety_counter = 0
+            err= self.camera.set_emccdgain(gain)  # setting Electron Multiplier Gain
+            if err != 20002:
+                raise RuntimeError(f"SetEMCCDGain({gain}) failed (code {err})")
+            while(mx<=2.0e4 or mx>=2.9e4) and safety_counter<50 and err==20002:
+                safety_counter += 1
+                print(f"Safety counter: {safety_counter}")
+                self.camera.start_acquisition()
+                ret = self.camera.get_status()
+                print(f"Start Acquisition returned {ret}")
+                if not ret == 20002:
+                    print('Starting Acquisition Failed, ending process...')
+                    return
+                #print('Starting Acquisition', ret)
+                time.sleep(0.1) #Give time to start acquisition
+                #mgr.Pulser.stream_umOFF([3], 1) 
+                #mgr.sg.set_frequency(2.87e9) ## make sure the sg frequency is set! (overhead of <1ms)
+                timeout_counter = 0
+                while(self.camera.get_total_number_images_acquired()[1]<1 and timeout_counter<=2000): #20 second hard-coded limit!
+                    time.sleep(0.05)#Might want to base wait time on pulse streamer signal
+                    timeout_counter+=1
+                ret, data, _, _ = self.camera.sdk.GetImages16(1,1,1024**2) #cut out first image here
+                #print("Number of images collected in current acquisition: ", mgr.sdk.GetTotalNumberImagesAcquired()[1])
+                # temp_image = self.img_1D_to_2D(all_data[:1024**2],1024,1024) 
+                temp_image = self.img_1D_to_2D(data, 1024, 1024)
+                mx = np.max(temp_image)
+                print(f'gain of {gain}, mx is {mx}')
+                if(mx<=1.0e4):
+                    print('signal really low, raising gain +3')
+                    gain+=3
+                elif mx<=2.0e4:
+                    print('raising gain +1')
+                    gain+=1
+                elif mx>=3.2e4:
+                    print(f'Warning, risk of saturation! Max pixel value {mx} detected')
+                    gain-=5
+                elif mx>=2.9e4: 
+                    print(f'Warning, risk of saturation! Max pixel value {mx} detected')  
+                    gain-=2
+                if gain <= 0:
+                    gain = 1
+                err=self.camera.set_emccdgain(gain)#setting Electron Multiplier Gain
+                self.camera.prepare_acquisition()
+                if gain>=150:
+                    print('Warning! Gain too high! Re-adjust experiment parameters, or turn off optimize_gain, or edit the limit in the spyrelet code. Aborting...')
+                    return
+                time.sleep(0.6)
+            gain_string = f'optimum gain determined to be {gain}, giving max pixel value of roughly {mx}'
+            print(gain_string)
+            ret=self.camera.set_emccdgain(gain)
+            self.gain_sb.setValue(self.camera.emccdgain)
+
+    def img_1D_to_2D(self, img_1D,x_len,y_len):
+        '''
+        turns a singular 1D list of integers x_len*y_len long into a 2D array. Cuts and stacks, does not snake.
+        '''
+        img = np.zeros((x_len,y_len), dtype='int')
+        for j in range(y_len):
+            img[j,:] = img_1D[x_len*j:x_len*(j+1)] #np arrays count down first, then horizontally. That is, my image is saved as an array of rows, not an array of columns
+        return img
+

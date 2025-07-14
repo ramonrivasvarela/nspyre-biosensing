@@ -105,10 +105,35 @@ class PulserClass():
         self.change_state([], 0, 0)
         self.Pulser.stream(pulse, n_runs, final=OutputState(output, i, q))
         self.change_state(output, q, i)
-    
-    def stream_umOFF(self,seq,n_runs): #
-        self.Pulser.stream(seq,n_runs, final = OutputState([],-1,0))
-        self.change_state([], -1, 0)
+
+
+    def stream_umOFF(self,
+                     dig_channels: list[int],
+                     n_runs: int,
+                     i: float = 0.0,
+                     q: float = 0.0,
+                     final_channels: list[int] = []):
+        """
+        Stream a pulse on dig_channels with analog I/Q, then set final state.
+        """
+        # Build sequence
+        seq = self.Pulser.createSequence()
+        seq.setDigital(dig_channels[0], [(1_000_000, 1)])
+        seq.setAnalog(0, [(1_000_000, i)])
+        seq.setAnalog(1, [(1_000_000, q)])
+
+        # Update state
+        self.change_state(dig_channels, q, i)
+
+        # Stream sequence
+        self.Pulser.stream(
+            seq,
+            n_runs,
+            final=OutputState(final_channels, -1.0, 0.0)
+        )
+
+        # Final update
+        self.change_state(final_channels, 0.0, -1.0)
 
     def reset(self):
         self.Pulser.reset()
@@ -199,3 +224,5 @@ class PulserClass():
         else:
             seqs.append(self.WFODMR(runs, ns_exp_time, ns_readout_time,10000000,5000000,mode))#, mw_duty = mw_duty, mw_rep = mw_rep))
         return seqs
+
+    

@@ -21,12 +21,13 @@ from nspyre import nspyreApp
 from gui_widgets import laser_gui
 from gui_widgets import instrument_gui
 from gui_widgets import experiment_gui
+from gui_widgets import camera_gui
 
 from drivers.insmgr import MyInstrumentManager
 from nspyre import InstrumentManager
 
 
-from instrument_activation import xyz_activation_boolean, pulser_activation_boolean, sg_activation_boolean, dlnsec_activation_boolean
+from instrument_activation import xyz_activation_boolean, pulser_activation_boolean, sg_activation_boolean, dlnsec_activation_boolean, camera_activation_boolean
 
 
 _HERE = Path(__file__).parent
@@ -57,6 +58,8 @@ def main():
                 mgr.Pulser.set_state_off()
             if sg_activation_boolean:
                 mgr.sg.set_rf_toggle(0)
+            if camera_activation_boolean:
+                mgr.Camera.shutdown()
 
             print("Cleanup complete.")
 
@@ -67,7 +70,8 @@ def main():
         main_widget = MainWidget(
             {   'Instruments' : {
                 'Lasers': MainWidgetItem(laser_gui, 'InstWidget', stretch=(1, 1)),
-                'SG & XYZ': MainWidgetItem(instrument_gui, 'InstWidgetV2', stretch=(1, 1))
+                'SG & XYZ': MainWidgetItem(instrument_gui, 'InstWidgetV2', stretch=(1, 1)),
+                'Camera': MainWidgetItem(camera_gui, 'CameraWidget', stretch=(1, 1)),
                 },
                 'Save': MainWidgetItem(nspyre.gui.widgets.save, 'SaveWidget', stretch=(1, 1)),
                 'Load': MainWidgetItem(nspyre.gui.widgets.load, 'LoadWidget', stretch=(1, 1)),
