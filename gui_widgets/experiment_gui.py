@@ -8,17 +8,15 @@ from nspyre import ExperimentWidget
 from nspyre import DataSink
 from pyqtgraph import SpinBox
 from pyqtgraph.Qt import QtWidgets
-from PyQt6.QtWidgets import QSpinBox, QLineEdit, QCheckBox, QDoubleSpinBox, QMainWindow, QPushButton, QVBoxLayout, QWidget, QLabel
-from nspyre.gui.widgets import HeatMapWidget
-import experiments.counts_new
+from PyQt6.QtWidgets import QSpinBox, QLineEdit, QCheckBox
 from special_widgets import unit_widgets
 from nspyre import InstrumentManager
 #from special_widgets.experiment_widget import ExperimentWidget
 from nspyre import DataSource
 import experiments.counts
-import experiments
-import experiments
-import experiments
+import experiments.planescan
+import experiments.widefield
+import experiments.spatialfb
 
 import pyqtgraph as pg
 
@@ -281,9 +279,10 @@ class WideFieldWidget(ExperimentWidget):
 class SpatialFeedbackWidget(ExperimentWidget):
     def __init__(self):
         ctr_ch_le = QLineEdit('Dev1/ctr1')
-        x_initial_le = unit_widgets.MLineEdit(0)
-        y_initial_le = unit_widgets.MLineEdit(0)
-        z_initial_le = unit_widgets.MLineEdit(0)
+        initial_position=unit_widgets.PointWidget(0, 0, 0)
+        # x_initial_le = unit_widgets.MLineEdit(0)
+        # y_initial_le = unit_widgets.MLineEdit(0)
+        # z_initial_le = unit_widgets.MLineEdit(0)
         do_z_cb = QCheckBox()
         do_z_cb.setChecked(True)
         sleep_time_le = unit_widgets.SecLineEdit(0.4)
@@ -300,17 +299,9 @@ class SpatialFeedbackWidget(ExperimentWidget):
                 'display_text': 'Center Channel',
                 'widget': ctr_ch_le,
             },
-            'x_initial': {
-                'display_text': 'X Initial',
-                'widget': x_initial_le,
-            },
-            'y_initial': {
-                'display_text': 'Y Initial',
-                'widget': y_initial_le,
-            },
-            'z_initial': {
-                'display_text': 'Z Initial',
-                'widget': z_initial_le,
+            'initial_position': {
+                'display_text': 'Initial position',
+                'widget': initial_position,
             },
             'do_z': {
                 'display_text': 'Do Z',
@@ -336,7 +327,7 @@ class SpatialFeedbackWidget(ExperimentWidget):
 
         super().__init__(
             params_config,
-            experiments.spacefb,
+            experiments.spatialfb,
             'SpatialFeedback',
             'spatial_feedback',
             title='Spatial Feedback', get_param_value_funs=get_param_value_funs

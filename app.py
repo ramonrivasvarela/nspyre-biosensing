@@ -79,6 +79,7 @@ def main():
                     'Counts vs Time' : MainWidgetItem(experiment_gui, 'CountsWidget', stretch=(1, 1)),
                     'Planescan' : MainWidgetItem(experiment_gui, 'PlaneScanWidget', stretch=(1, 1)),
                     'Wide Field ODMR': MainWidgetItem(experiment_gui, 'WideFieldWidget', stretch=(1, 1)),
+                    'Spatial Feedback': MainWidgetItem(experiment_gui, 'SpatialFeedbackWidget', stretch=(1, 1)),
                     },
                 
                 'Plotting' : {
