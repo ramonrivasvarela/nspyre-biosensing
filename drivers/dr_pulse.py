@@ -85,11 +85,29 @@ class PulserClass():
         self.change_state([], 0, 0)
         return self.Pulser.constant(([], 0, 0))
 
-    def stream(self, duration:int, dig_chan:list, i:float=0, q:float=0, n_runs:int=1):
-        pulse = [(duration, dig_chan, i, q)]
-        self.change_state(dig_chan, q, i)
-        self.Pulser.stream(pulse, n_runs)
-        self.change_state([], q, i)
+    def stream(self, duration:int, dig_chans:list, i:float=0, q:float=0, n_runs:int=1):
+        # Build sequence
+        seq = self.Pulser.createSequence()
+        for dig_chan in dig_chans:
+            try:
+                seq.setDigital(dig_chan, [(duration, 1)])
+            except KeyError:
+                raise ValueError(f"Digital channel {dig_chan} not found in channel dictionary.")
+        seq.setAnalog(0, [(duration, i)])
+        seq.setAnalog(1, [(duration, q)])
+
+        # Update state
+        #self.change_state(dig_chan, q, i)
+
+        # Stream sequence
+        self.Pulser.stream(
+            seq,
+            n_runs
+            
+        )
+
+        # Final update
+        #self.change_state(dig_chan, q, i)
 
 
     def stream_sequence(self, sequence:Sequence, n_runs:int=1):
@@ -107,33 +125,14 @@ class PulserClass():
         self.change_state(output, q, i)
 
 
-    def stream_umOFF(self,
-                     dig_channels: list[int],
-                     n_runs: int,
-                     i: float = 0.0,
-                     q: float = 0.0,
-                     final_channels: list[int] = []):
-        """
-        Stream a pulse on dig_channels with analog I/Q, then set final state.
-        """
-        # Build sequence
-        seq = self.Pulser.createSequence()
-        seq.setDigital(dig_channels[0], [(1_000_000, 1)])
-        seq.setAnalog(0, [(1_000_000, i)])
-        seq.setAnalog(1, [(1_000_000, q)])
-
-        # Update state
-        self.change_state(dig_channels, q, i)
-
-        # Stream sequence
-        self.Pulser.stream(
-            seq,
-            n_runs,
-            final=OutputState(final_channels, -1.0, 0.0)
-        )
-
-        # Final update
-        self.change_state(final_channels, 0.0, -1.0)
+    def stream_umOFF(self,seq,n_runs,AM = True, SWITCH = True): #for shutting off the microwave via AM and Switch
+        digital_set = []
+        if SWITCH:
+            digital_set.append(self.channel_dict['switch'])
+        analog_set = 0
+        if AM:
+            analog_set = -1
+        self.Pulser.stream(seq,n_runs, final = OutputState(digital_set, analog_set,0))
 
     def reset(self):
         self.Pulser.reset()
@@ -188,17 +187,6 @@ class PulserClass():
             cam += cam_seq + cam_seq
             laser += laser_seq + laser_seq
 
-        dchans = [self.channel_dict['laser'],self.channel_dict['clock'],self.channel_dict['camera']]
-        achans = [0,1]
-        dpatterns = [laser,cam]
-        if mode == 'QAM':
-            apatterns = [mwI,mwQ]
-        elif mode == 'AM' or mode == 'SWITCH':
-            apatterns = [mwI]
-        if mode == 'SWITCH':
-            dchans.append(self.channel_dict['switch'])
-            dpatterns.append(switch)
-
 
         experiment.setDigital(self.channel_dict['488'], laser)
         experiment.setDigital(self.channel_dict['camera'], cam)
@@ -224,5 +212,21 @@ class PulserClass():
         else:
             seqs.append(self.WFODMR(runs, ns_exp_time, ns_readout_time,10000000,5000000,mode))#, mw_duty = mw_duty, mw_rep = mw_rep))
         return seqs
+    
+    def pulse_for_widefield(self, runs, mode, cam_trigger, ns_exp_time, ns_readout_time, AM_mode = True, switch_mode = True):
+        """
+        Pulse sequence for widefield imaging.
+        """
+        if cam_trigger == 'External':
+            pulse=self.WFODMR(runs, ns_exp_time, ns_readout_time,  mode = mode, FT = False)#, mw_duty = mw_duty, mw_rep = mw_rep))
+        else:
+            pulse=self.WFODMR(runs, ns_exp_time, ns_readout_time,10000000,5000000,mode)#, mw_duty = mw_duty, mw_rep = mw_rep))
+        digital_set = []
+        if switch_mode:
+            digital_set.append(self.channel_dict['switch'])
+        analog_set = 0
+        if AM_mode:
+            analog_set = -1
+        self.Pulser.stream(pulse,runs, final = OutputState(digital_set, analog_set,0))
 
     

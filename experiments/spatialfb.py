@@ -66,7 +66,7 @@ class SpatialFeedback():
         """Perform experiment teardown."""
         _logger.info('Destroyed PlaneScan instance.')
 
-    def spatial_feedback(self, ctr_ch, initial_position, do_z, sleep_time, xyz_step,\
+    def spatial_feedback(self, ctr_ch, initial_position, do_z, sleep_time, xyz_step,
             shrink_every_x_iter, starting_point):
         with InstrumentManager() as mgr:
             self.initialize(mgr, ctr_ch, initial_position, starting_point)
@@ -97,12 +97,12 @@ class SpatialFeedback():
                     for e in [1, -1]:
                         keepGoing = True
                         #print('\n before first read')
-                        dataZBefore = self.read(sleep_time)
+                        dataZBefore = self.read(mgr, sleep_time)
                         print('\n DataZBefore:', dataZBefore)
                         while(keepGoing):
                             mgr.XYZcontrol.move_to_dict({'x': x_center, 'y': y_center, 'z': z_center + e * (xyz_step + .02)})
                             #print('\n before next read')
-                            dataZAfter = self.read(sleep_time)
+                            dataZAfter = self.read(mgr, sleep_time)
                             print('\n DataZAfter:', dataZAfter)
                             if dataZAfter < dataZBefore:
                                 keepGoing = False
@@ -110,6 +110,10 @@ class SpatialFeedback():
                             else:
                                 z_center = z_center + e * (xyz_step + .02)
                                 dataZBefore = dataZAfter
+                            if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
+                                # the GUI has asked us nicely to exit
+                                self.finalize(mgr)
+                                return
                     print('\n z scanned:', x_center, y_center, z_center)
                         
                 #######################################################################################
@@ -118,81 +122,97 @@ class SpatialFeedback():
                 for e in [1, -1]:
                     keepGoing = True
                     #print('\n before first read')
-                    dataXBefore = self.read(sleep_time)
+                    dataXBefore = self.read(mgr, sleep_time)
                     print('\n DataXBefore:', dataXBefore)
                     while(keepGoing):
-                        self.XYZcontrol.move_to_dict({'x': x_center + e * xyz_step, 'y': y_center, 'z': z_center})
+                        mgr.XYZcontrol.move_to_dict({'x': x_center + e * xyz_step, 'y': y_center, 'z': z_center})
                         #print('\n before next read')
-                        dataXAfter = self.read(sleep_time)
+                        dataXAfter = self.read(mgr, sleep_time)
                         print('\n DataXAfter:', dataXAfter)
                         if dataXAfter < dataXBefore:
                             keepGoing = False
-                            self.XYZcontrol.move_to_dict({'x': x_center, 'y': y_center, 'z': z_center})
+                            mgr.XYZcontrol.move_to_dict({'x': x_center, 'y': y_center, 'z': z_center})
                         else:
                             x_center = x_center + e * xyz_step
                             dataXBefore = dataXAfter
+                        if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
+                            # the GUI has asked us nicely to exit
+                            self.finalize(mgr)
+                            return
                 print('\n x scanned:', x_center, y_center, z_center)
                 #######################################################################################
                 #####                                  y scan                                    ######
                 #######################################################################################
                 for e in [1, -1]:
                     keepGoing = True
-                    dataYBefore = self.read(sleep_time)
+                    dataYBefore = self.read(mgr, sleep_time)
                     print('\n DataYBefore:', dataYBefore)
                     while(keepGoing):
                         # Move via XYZcontrol
-                        self.XYZcontrol.move_to_dict({'x': x_center, 'y': y_center + e * xyz_step, 'z': z_center})
-                        dataYAfter = self.read(sleep_time)
+                        mgr.XYZcontrol.move_to_dict({'x': x_center, 'y': y_center + e * xyz_step, 'z': z_center})
+                        dataYAfter = self.read(mgr, sleep_time)
                         print('\n DataYAfter:', dataYAfter)
                         if dataYAfter < dataYBefore:
                             keepGoing = False
                             # Move back via XYZcontrol
-                            self.XYZcontrol.move_to_dict({'x': x_center, 'y': y_center, 'z': z_center})
+                            mgr.XYZcontrol.move_to_dict({'x': x_center, 'y': y_center, 'z': z_center})
                         else:
                             y_center = y_center + e * xyz_step
                             dataYBefore = dataYAfter
+                        if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
+                            # the GUI has asked us nicely to exit
+                            self.finalize(mgr)
+                            return
                 print('\n y scanned:', x_center, y_center, z_center)
                 counter += 1
                 if counter >= shrink_every_x_iter:
                     counter = 0
                     xyz_step = xyz_step / 2
+                if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
+                    # the GUI has asked us nicely to exit
+                    self.finalize(mgr)
+                    return
                 
             
-            print("final position:", self.urixyz.daq_controller.position)
+            print("final position:", mgr.XYZcontrol.position)
             self.finalize(mgr)
 
 
-        def read(self, deltaT):
-            #import pdb; pdb.set_trace()
-            #print(self.urixyz.daq_controller.counter_tasks[0])
-            ctrs_start = rpyc.utils.classic.obtain(mgr.XYZcontrol.current_counter_task.read(1)[0])#()
-            print(ctrs_start)
-            time.sleep(deltaT)
-            print('\n sleep finishes')
-            ctrs_end = rpyc.utils.classic.obtain(mgr.XYZcontrol.current_counter_task.read(1)[0])#()
-            print(ctrs_end)
-            dctrs = ctrs_end - ctrs_start
-            ctrs_rate = dctrs / deltaT
-            # # ctrs_rate = self.urixyz.daq_controller.counter_tasks[-1].read()
-            return ctrs_rate
-            
-            
-        def initialize(self, mgr, ctr_ch, initial_position, starting_point):
-            
-            if starting_point == 'user_input':            
-                self.XYZcontrol.move_to_dict(initial_position)
-            self.init_x = mgr.XYZcontrol.get_x()
-            self.init_y = mgr.XYZcontrol.get_y()
-            self.init_z = mgr.XYZcontrol.get_z()
-            mgr.Pulser.set_state([7],0.0,0.0)   
-            print('ctr ch:' + ctr_ch)
-            mgr.XYZcontrol.new_ctr_task(ctr_ch)
-            print('\n ctr_ch should be added')
-            return
+    def read(self, mgr, deltaT):
+        #import pdb; pdb.set_trace()
+        #print(self.urixyz.daq_controller.counter_tasks[0])
+        ctrs_start = rpyc.utils.classic.obtain(mgr.XYZcontrol.current_counter_task.read(1)[0])#()
+        print(ctrs_start)
+        time.sleep(deltaT)
+        print('\n sleep finishes')
+        ctrs_end = rpyc.utils.classic.obtain(mgr.XYZcontrol.current_counter_task.read(1)[0])#()
+        print(ctrs_end)
+        dctrs = ctrs_end - ctrs_start
+        ctrs_rate = dctrs / deltaT
+        # print("dctrs", dctrs)
+        # print("deltaT", deltaT)
+        # # ctrs_rate = self.urixyz.daq_controller.counter_tasks[-1].read()
+        return ctrs_rate
+        
+        
+    def initialize(self, mgr, ctr_ch, initial_position, starting_point):
+        
+        if starting_point == 'user_input':            
+            mgr.XYZcontrol.move_to_dict(initial_position)
+        self.init_x = mgr.XYZcontrol.get_x()
+        self.init_y = mgr.XYZcontrol.get_y()
+        self.init_z = mgr.XYZcontrol.get_z()
+        mgr.Pulser.set_state([7],0.0,0.0)   
+        print('ctr ch:' + ctr_ch)
+        mgr.XYZcontrol.new_ctr_task(ctr_ch)
+        mgr.XYZcontrol.current_counter_task.start()
+        print('\n ctr_ch should be added')
+        return
 
     def finalize(self, mgr):
         mgr.XYZcontrol.end_ctr_task()
         mgr.Pulser.set_state_off()
+    
         return
 
     def gaussian(self,xs, a=1, x=0, width=1, b=0):

@@ -1,7 +1,8 @@
-from PyQt6.QtWidgets import QLineEdit, QWidget, QHBoxLayout, QLabel
+from PyQt6.QtWidgets import QLineEdit, QWidget, QHBoxLayout, QLabel, QVBoxLayout
 from PyQt6.QtGui import QFont
 from pyqtgraph import SpinBox
 import numpy as np
+from PyQt6.QtCore import Qt
 
 class MLineEdit(QLineEdit):
     # Line Edit with flexible length units (um, nm) depending on value
@@ -343,15 +344,15 @@ class PointWidget(QWidget):
         self.x_edit.setFixedWidth(120)
         self.y_edit.setFixedWidth(120)       
         self.z_edit.setFixedWidth(120)
-        self.setMinimumWidth(400)
         
         # Create a horizontal layout and add labels and the MLineEdits
         layout = QHBoxLayout()
+        layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         layout.addWidget(self.x_edit)
         layout.addWidget(self.y_edit)
         layout.addWidget(self.z_edit)
-        
         self.setLayout(layout)
+
     
     def get_point(self):
         """Return a dictionary of the current values for x, y, and z."""
@@ -360,7 +361,10 @@ class PointWidget(QWidget):
             "y": self.y_edit.umvalue,
             "z": self.z_edit.umvalue
         }
-    
+
+    def get_position(self):
+        return (self.x_edit.umvalue, self.y_edit.umvalue, self.z_edit.umvalue)
+
     def set_point(self, x, y, z):
         """Set the values for x, y, and z and update the displayed text."""
         self.x_edit.umvalue = x
@@ -369,6 +373,45 @@ class PointWidget(QWidget):
         self.x_edit.update_text()
         self.y_edit.update_text()
         self.z_edit.update_text()
+
+class HzIntervalWidget(QWidget):
+    def __init__(self, start, end=0, interval=0):
+        super().__init__()
+        
+        # Create three MLineEdit fields initialized with given values
+        self.start_edit = HzLineEdit(start)  # No conversion for start
+        self.end_edit = HzLineEdit(end)  # No conversion for end
+        self.interval_edit = HzLineEdit(interval)  # No conversion for interval
+        self.start_edit.setFixedWidth(120)
+        self.end_edit.setFixedWidth(120)       
+        self.interval_edit.setFixedWidth(120)
+        self.setMinimumWidth(400)
+        
+        # Create a horizontal layout and add labels and the MLineEdits
+        layout = QHBoxLayout()
+        layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        layout.addWidget(self.start_edit)
+        layout.addWidget(self.end_edit)
+        layout.addWidget(self.interval_edit)
+
+        self.setLayout(layout)
+    
+    def get_range(self):
+        """Return a dictionary of the current values for start, end, and interval."""
+        return (
+            self.start_edit.hzvalue,
+            self.end_edit.hzvalue,
+            self.interval_edit.hzvalue
+        )
+
+    def set_range(self, start, end, interval):
+        """Set the values for start, end, and interval and update the displayed text."""
+        self.start_edit.hzvalue = start
+        self.end_edit.hzvalue = end
+        self.interval_edit.hzvalue = interval
+        self.start_edit.update_text()
+        self.end_edit.update_text()
+        self.interval_edit.update_text()
 
 class FloatLineEdit(QLineEdit):
     def __init__(self, value=0, prefix=''):
@@ -394,6 +437,11 @@ class FloatLineEdit(QLineEdit):
     def update_text(self):
         """Update the displayed text based on the current value."""
         self.setText(f"{self.value}")
+
+    def set_value(self, value):
+        """Set the value and update the text."""
+        self.value = value
+        self.update_text()
      
 class TemperatureLineEdit(QLineEdit):
     def __init__(self, value=20, prefix='', max=20, min=-20, asinteger=False):
@@ -437,9 +485,9 @@ class TemperatureLineEdit(QLineEdit):
     def update_text(self):
         """Update the displayed text based on the current value."""
         if self.asinteger:
-            self.setText(f"{self.value} °C")
+            self.setText(f"{self.prefix} {self.value} °C")
         else:
-            self.setText(f"{self.value:.2f} °C")
+            self.setText(f"{self.prefix} {self.value:.2f} °C")
 
     def set_value(self, value):
         """Set the value and update the displayed text."""
@@ -451,3 +499,119 @@ class TemperatureLineEdit(QLineEdit):
             else:
                 self.value = value
             self.update_text()
+
+class ThreeValueWidget(QWidget):
+    def __init__(self, value1=0, value2=0, value3=0, prefix1='', prefix2='', prefix3=''):
+        super().__init__()
+        
+        # Create three FloatLineEdit fields initialized with given values
+        self.value1_edit = FloatLineEdit(value1, prefix1)
+        self.value2_edit = FloatLineEdit(value2, prefix2)
+        self.value3_edit = FloatLineEdit(value3, prefix3)
+        self.value1_edit.setFixedWidth(50)
+        self.value2_edit.setFixedWidth(50)       
+        self.value3_edit.setFixedWidth(50)
+        self.setMinimumWidth(400)
+        
+        # Create a horizontal layout and add labels and the FloatLineEdits
+        layout = QHBoxLayout()
+        layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        layout.addWidget(self.value1_edit)
+        layout.addWidget(self.value2_edit)
+        layout.addWidget(self.value3_edit)
+        
+        self.setLayout(layout)
+
+    def get_values(self):
+        """Return a dictionary of the current values for start, end, and interval."""
+        return (
+            self.value1_edit.value,
+            self.value2_edit.value,
+            self.value3_edit.value
+        )
+
+    def set_values(self, value1, value2, value3):
+        """Set the values for start, end, and interval and update the displayed text."""
+        self.value1_edit.value = value1
+        self.value2_edit.value = value2
+        self.value3_edit.value = value3
+        self.value1_edit.update_text()
+        self.value2_edit.update_text()
+        self.value3_edit.update_text()
+
+class FlexiblePointWidget(QWidget):
+    def __init__(self, number=1):
+        super().__init__()
+
+        self.list_of_widgets=[]
+
+        self.number=number
+        self.layout=QVBoxLayout()
+
+        self.change_number(self.number)
+
+        
+        
+
+    def add_point(self, x=0, y=0, R=0, r=0):
+        """Add a point with the given x, y, R, and r values."""
+        point_widget = MFourWidget(x, y, R, r)
+        self.list_of_widgets.append(point_widget)
+        self.layout.addWidget(point_widget)
+
+    def get_points(self):
+        """Return a list of the current values for x, y, R, and r."""
+        ret=[]
+        for widget in self.list_of_widgets:
+            ret.append(widget.get_position())
+        return ret
+
+    def change_number(self, number):
+        current_size= len(self.list_of_widgets)
+        if number > current_size:
+            for i in range(current_size, number):
+                self.add_point()
+        elif number < current_size:
+            for i in range(current_size, number, -1):
+                self.layout.removeWidget(self.list_of_widgets[i-1])
+        self.setLayout(self.layout)
+
+class FourValueWidget(QWidget):
+    def __init__(self, x=0, y=0, R=0, r=0):
+        super().__init__()
+        
+        # Create four MLineEdit fields initialized with given values
+        self.x_edit = MLineEdit(x, "", conversion=False)  # No conversion for x
+        self.y_edit = MLineEdit(y, "", conversion=False)  # No conversion for y
+        self.R_edit = MLineEdit(R, "", conversion=False)  # No conversion for R
+        self.r_edit = MLineEdit(r, "", conversion=False)  # No conversion for w
+        
+        # Set fixed width for each edit field
+        self.x_edit.setFixedWidth(120)
+        self.y_edit.setFixedWidth(120)
+        self.z_edit.setFixedWidth(120)
+        self.r_edit.setFixedWidth(120)
+
+        # Create a horizontal layout and add labels and the MLineEdits
+        layout = QHBoxLayout()
+        layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        layout.addWidget(self.x_edit)
+        layout.addWidget(self.y_edit)
+        layout.addWidget(self.z_edit)
+        layout.addWidget(self.r_edit)
+
+        self.setLayout(layout)
+
+    def get_position(self):
+        return (self.x_edit.umvalue, self.y_edit.umvalue, self.z_edit.umvalue, self.r_edit.umvalue)
+
+    def set_point(self, x, y, z, r):
+        """Set the values for x, y, z, and r and update the displayed text."""
+        self.x_edit.umvalue = x
+        self.y_edit.umvalue = y
+        self.z_edit.umvalue = z
+        self.r_edit.umvalue = r
+        self.x_edit.update_text()
+        self.y_edit.update_text()
+        self.z_edit.update_text()
+        self.r_edit.update_text()

@@ -275,6 +275,9 @@ class InstWidget(QWidget):
         self.pulser_refresh_button.clicked.connect(lambda: self.refresh_pulser())
         self.refresh_pulser()
 
+        self.camera_trigger_button = QPushButton("Camera Trigger")
+        self.camera_trigger_button.clicked.connect(lambda: self.trigger_camera())
+
     
 
     
@@ -339,6 +342,7 @@ class InstWidget(QWidget):
         
         self.pulse_layout.addWidget(self.reset_button,11,1,1,1)
         self.pulse_layout.addWidget(self.pulser_refresh_button,11,2,1,1)
+        self.pulse_layout.addWidget(self.camera_trigger_button,11,3,1,1)
         
 
         self.sig_gens_layout = QGridLayout()
@@ -520,11 +524,14 @@ class InstWidget(QWidget):
             self.q_analog.set_value(0)
             self.i_analog.set_value(0)
 
-    
-    
-
-
+    def trigger_camera(self):
+        """
+        Trigger the camera to take a picture.
+        This is a placeholder function and should be implemented with actual camera control logic.
+        """
         
+        with InstrumentManager() as mgr:
+            mgr.Pulser.stream(1000000, [1], 0, 0)
 
 
     #def init_laser_widgets(self):

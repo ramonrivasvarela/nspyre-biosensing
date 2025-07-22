@@ -17,7 +17,6 @@ from nspyre import InstrumentManager # FOR OPERATING INSTRUMENTS
 import time
 import numpy as np
 import nidaqmx
-from nidaqmx.constants import Edge, CountDirection
 ####
 
 _HERE = Path(__file__).parent
@@ -74,21 +73,22 @@ class CountsTime:
         # connect to the data server and create a data set, or connect to an
         # existing one with the same name if it was created earlier.
         APD_counts = StreamingList()
-        with InstrumentManager() as mgr, DataSource(dataset) as counts_data:
+        with InstrumentManager() as mgr, DataSource(dataset) as counts_data:  # +1 to account for signal being a difference of counts
             self.initialize(mgr)
+            seq = self.create_sequence(mgr)
             start_t = time.time()
             while True:
                 ## Start, Stream, Read. Data will be in the buffer.
-                ctrs_start = self.read_task.read()
-                time.sleep(self.probe_time)
-                ctrs_end = self.read_task.read()
-                dctrs = ctrs_end - ctrs_start
-                ctrs_rate = dctrs / self.probe_time
+                # mgr.Pulser.stream_sequence(seq)
+                self.start_stream_read(mgr, seq, timeout=100)
+                data = self.buffer_to_data(mgr)
 
-                APD_counts.append(np.array([np.array([time.time()-start_t]),np.array([ctrs_rate])]))
+
+                APD_counts.append(np.array([np.array([time.time()-start_t]),np.array([data])]))
                 # TODO: experiment with making the above line of code less disgusting. Depends on how particular NSpyre is about having np.arrays.
                 APD_counts.updated_item(-1)
                 print("Running well.")
+
                 counts_data.push({'params': {'n_points': n_points, 'probe_time': probe_time, 'clock_time': clock_time},
                                 'title': 'Counts vs Time (Confocal)',
                                 'xlabel': 'Time (s)',
@@ -107,20 +107,12 @@ class CountsTime:
 
     def initialize(self, mgr):
         """Initialize the experiment."""
-        mgr.XYZcontrol.finalize()  # Ensure XYZ control is finalized before starting the experiment
         mgr.Pulser.set_state([7],0.0,0.0)
-        dev_channel = 'Dev1/ctr1'
-        self.read_task = nidaqmx.Task()
-        self.read_task.ci_channels.add_ci_count_edges_chan(
-                                dev_channel,
-                                edge=Edge.RISING,
-                                initial_count=0,
-                                count_direction=CountDirection.COUNT_UP
-        )
+         # +1 to account for signal being a difference of counts
+        mgr.DAQCounter.intialize(self.n_points+1)  # +1 to account for signal being a difference of counts
+        mgr.DAQ
 
-        
-        self.read_task.start()
-        self.read_task.read()
+
 
     def create_sequence(self, mgr):
         seq = mgr.Pulser.create_sequence()
@@ -131,12 +123,12 @@ class CountsTime:
 
     #### EXPERIMENTAL LOOP METHODS
 
-    def buffer_to_data(self):
+    def buffer_to_data(self, mgr):
         """ Convert the buffer to data. Not particularly interesting here, but more relevant for more complex experiments."""
-        if self.buffer is None:
+        if mgr.DAQCounter.buffer is None:
             raise ValueError("Buffer is not initialized.")
         # Convert the buffer to a numpy array
-        all_data = self.buffer[1:] - self.buffer[0:-1]
+        all_data = mgr.DAQCounter.buffer[1:] - mgr.DAQCounter.buffer[0:-1]
         data = np.sum(all_data)/ (self.probe_time * self.n_points)  #counts per second
         return data
 
@@ -145,9 +137,37 @@ class CountsTime:
     def finalize(self, mgr):
         """Finalize the experiment."""
         mgr.Pulser.set_state_off()
-        self.read_task.stop()
-        self.read_task.close()
-        self.read_task = None
+        mgr.XYZcontrol.end_task()
+
+    def start_stream_read(self, mgr, sequence, timeout = 10):
+        """
+        start, stream, and read from a single method by passing in the pulse streamer and all of its arguments.
+        pulses: PulseStreamer instance
+        sequence: Sequence object to stream
+        n_runs: number of runs to stream, to pass to the PulseStreamer
+        timeout: timeout for reading samples
+        """
+        # if mgr.DAQCounter.buffer is None:
+        #     raise RuntimeError("Buffer not created. Call create_buffer() before starting the stream read.")
+
+        if mgr.DAQCounter.buffer is None:
+            mgr.DAQCounter.create_buffer(self.n_points+1)  # +1 to account for signal being a difference of counts
+
+        if mgr.DAQCounter.read_task is not None:
+            mgr.DAQCounter.read_task.start()
+
+        mgr.Pulser.stream_sequence(sequence)
+
+        num_samps = mgr.DAQCounter.reader.read_many_sample_uint32(
+            mgr.DAQCounter.buffer,
+            number_of_samples_per_channel= mgr.DAQCounter.n_samples,
+            timeout= timeout
+        )
+
+        if num_samps < mgr.DAQCounter.n_samples:
+            raise RuntimeError('Something went wrong: buffer issue, not enough samples read.')
+        mgr.DAQCounter.read_task.stop() 
+        return 
 
 
 

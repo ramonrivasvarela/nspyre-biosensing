@@ -80,10 +80,10 @@ class _HeatMapSettings(QThreadSafeObject):
 
             if callback is not None:
                 self.run_main(callback, name, blocking=True)
-            show_deleted=self.series_settings[name].show
+            # show_deleted=self.series_settings[name].show
             del self.series_settings[name]
-            if self.series_settings and show_deleted:
-                self.series_settings[next(iter(self.series_settings))].show = True
+            # if self.series_settings and show_deleted:
+            #     self.series_settings[next(iter(self.series_settings))].show = True
             self.force_update = True
 
 
@@ -455,7 +455,6 @@ class _HeatMapPlotWidget(HeatMapWidget):
         # protect access to the sink
         self.heatmap_settings = _HeatMapSettings()
         self.heatmap_settings.start()
-        self.current_heatmap = None
         self.data_processing_func = data_processing_func
         super().__init__(colormap=colormap)
 
@@ -474,14 +473,25 @@ class _HeatMapPlotWidget(HeatMapWidget):
 
     def _new_source(self, data_set_name: str):
         # connect to a new data set
+        
+
+        
         with QtCore.QMutexLocker(self.heatmap_settings.sink_mutex):
             try:
-                # connect to the new data source
+                if self.heatmap_settings.sink is not None:
+                    self.heatmap_settings.sink.stop()
+                    self.heatmap_settings.sink = None
                 self.heatmap_settings.sink = DataSink(data_set_name)
                 self.heatmap_settings.sink.start()
 
-                # try to get the plot title and x/y labels
+                # ② try to grab the first packet (may timeout)
                 self.heatmap_settings.sink.pop(timeout=self.timeout)
+
+                # ③ swap it in under a *short* critical section
+
+                # old_sink, self.heatmap_settings.sink = self.heatmap_settings.sink, sink
+                # if old_sink:
+                #     old_sink.stop()
 
                 # set title
                 try:
@@ -539,7 +549,7 @@ class _HeatMapPlotWidget(HeatMapWidget):
                             f'Data source [{data_set_name}] "ys" attribute must be a '
                             f'numpy array, but has type [{type(ys)}]. Exiting...'
                         )
-                
+                    
                 try:
                     data = self.heatmap_settings.sink.datasets
                 except KeyError:
@@ -551,23 +561,7 @@ class _HeatMapPlotWidget(HeatMapWidget):
                         f'Data series must be a dictionary of numpy arrays, '
                         f'but has type [{type(data)}].'
                     )
-
-                else:
-                    first_index=next(iter(data))
-                    # check for numpy array
-                    if not isinstance(data[first_index][0], np.ndarray):
-                        raise ValueError(
-                            f'Data series [{first_index}] must be a list of numpy '
-                            'arrays, but the first list element has type '
-                            f'[{type(data[first_index][0])}].'
-                        )
-                    # check numpy array shape
-                    if data[first_index].shape[0] != len(ys) or data[first_index].shape[1] != len(xs):
-                        raise ValueError(
-                            f'Data series does not match the x and y axes '
-                            f'shapes: {data[first_index].shape}, {ys.shape}, {xs.shape}'
-                        )
-
+            
 
                 # set the new title/labels in the main thread
                 self.heatmap_settings.run_main(
@@ -578,11 +572,11 @@ class _HeatMapPlotWidget(HeatMapWidget):
                 )
 
                 with QtCore.QMutexLocker(self.heatmap_settings.mutex):
-                    if not isinstance(data[first_index], np.ndarray):
-                        raise ValueError("Not an nd array. The type is {}".format(type(data[first_index])))
-
-                    self.set_data(xs, ys, data[first_index])
-                    self.heatmap_settings.series_settings[first_index].shown = True
+                    for plot_name in self.heatmap_settings.series_settings:
+                        settings = self.heatmap_settings.series_settings[plot_name]
+                        if settings.show:
+                            self.set_data(xs, ys, data[settings.series])
+                            self._process_data()
 
 
 
@@ -623,13 +617,7 @@ class _HeatMapPlotWidget(HeatMapWidget):
             # Check if we need to force update even without a sink
             
             if self.heatmap_settings.sink is None:
-                if self.heatmap_settings.force_update:
-                    # Handle force update even without sink (e.g., when showing/hiding heatmaps)
-                    self.heatmap_settings.force_update = False
-                    self._update_display()
-                else:
-                    # rate limit how often update() runs if there is no sink connected
-                    time.sleep(0.1)
+                time.sleep(0.1)
                 return
 
             if self.heatmap_settings.force_update:
@@ -680,7 +668,7 @@ class _HeatMapPlotWidget(HeatMapWidget):
 
                         if series in data:
                             # check for numpy array
-                            if isinstance(data[series], list) and len(data[series]) > 0:
+                            if isinstance(data[series], np.ndarray) and len(data[series]) > 0:
                                 if not isinstance(data[series][0], np.ndarray):
                                     raise ValueError(
                                         f'Data series [{series}] must be a list of numpy '
@@ -688,7 +676,7 @@ class _HeatMapPlotWidget(HeatMapWidget):
                                         f'[{type(data[series][0])}].'
                                     )
                                 # Use the first array in the list
-                                plot_data = data[series][0] if isinstance(data[series], list) else data[series]
+                                plot_data = data[series]
                             else:
                                 plot_data = data[series]
                             

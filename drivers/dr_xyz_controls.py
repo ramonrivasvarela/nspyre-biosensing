@@ -214,6 +214,9 @@ class NIDAQMotionController():
                         # [0.2, 0.4, ..., 2]]
         return np.outer(np.ones(steps), start_volts) + np.outer(linear_steps, stop_volts-start_volts)
     
+    
+    
+    
   
 
 # ---------- high-level XYZ driver ----------
@@ -259,6 +262,7 @@ class XYZSetup(NIDAQMotionController):
     def reset_and_finalize(self):
         self.move_to(0, 0, 0)  # Move to home position
         super().finalize()
+
 
 
     

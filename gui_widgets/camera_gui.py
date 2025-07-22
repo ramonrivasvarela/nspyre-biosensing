@@ -36,8 +36,8 @@ class CameraWidget(QWidget):
         self.trigger_label.setFixedHeight(20)
         self.trigger_label.setStyleSheet("font-weight: bold")
         self.trigger_combo = QComboBox()
-        self.trigger_combo.addItems(["Internal", "External", "External Exposure Bulb"])
-        self.trigger_combo.setCurrentText("Internal")
+        self.trigger_combo.addItems(["internal", "external", "external exposure bulb"])
+        self.trigger_combo.setCurrentText("internal")
         self.trigger_combo.setStyleSheet("QComboBox { background-color: #2b2b2b; color: white; }")
         self.trigger_combo.setFixedHeight(30)
         self.trigger_combo.setFont(QFont(self.font, 12))
@@ -55,12 +55,24 @@ class CameraWidget(QWidget):
         self.shutter_label.setFixedHeight(20)
         self.shutter_label.setStyleSheet("font-weight: bold")
         self.shutter_combo = QComboBox()
-        self.shutter_combo.addItems(["Closed", "Open", "Auto"])
-        self.shutter_combo.setCurrentText("Auto")
+        self.shutter_combo.addItems(["closed", "open", "auto"])
+        self.shutter_combo.setCurrentText("auto")
         self.shutter_combo.setStyleSheet("QComboBox { background-color: #2b2b2b; color: white; }")
         self.shutter_combo.setFixedHeight(30)
         self.shutter_combo.setFont(QFont(self.font, 12))
         self.shutter_combo.currentTextChanged.connect(lambda s: self.camera.set_shutter(s))
+
+        # Frame Transfer Mode
+        self.frame_transfer_label = QLabel("Frame Transfer Mode:")
+        self.frame_transfer_label.setFixedHeight(20)
+        self.frame_transfer_label.setStyleSheet("font-weight: bold")
+        self.frame_transfer_combo = QComboBox()
+        self.frame_transfer_combo.addItems(["frame transfer", "conventional"])
+        self.frame_transfer_combo.setCurrentText(self.camera.frame_transfer_mode)
+        self.frame_transfer_combo.setStyleSheet("QComboBox { background-color: #2b2b2b; color: white; }")
+        self.frame_transfer_combo.setFixedHeight(30)
+        self.frame_transfer_combo.setFont(QFont(self.font, 12))
+        self.frame_transfer_combo.currentTextChanged.connect(lambda mode: self.camera.set_frame_transfer_mode(mode))
 
         #Gain
         self.gain_label = QLabel("Gain:")
@@ -69,8 +81,7 @@ class CameraWidget(QWidget):
         self.gain_sb=QSpinBox()
         self.gain_sb.setRange(0, 255)  # Example range, adjust as needed
         self.gain_sb.editingFinished.connect(lambda: self.camera.set_emccdgain(self.gain_sb.value()))
-        self.optimize_gain_button = QPushButton("Optimize Gain")
-        self.optimize_gain_button.clicked.connect(lambda: self.optimize_gain(self.gain_sb.value()))
+        
 
         # Temperature
         self.temp_label = QLabel("Temperature:")
@@ -81,8 +92,8 @@ class CameraWidget(QWidget):
 
         # Cooling
         self.cool_input = TemperatureLineEdit(18, max=20, min=-100, asinteger=True)
-        self.cool_button = QPushButton("Cool")
-        self.cool_button.clicked.connect(self.cool_button_clicked)
+        self.cool_button = QPushButton("Cool To:")
+        self.cool_button.clicked.connect(lambda:self.cool_button_clicked())
 
         # Read mode
         self.read_mode_label = QLabel("Read Mode:")
@@ -90,11 +101,11 @@ class CameraWidget(QWidget):
         self.read_mode_label.setStyleSheet("font-weight: bold")
         self.read_mode_combo = QComboBox()
         self.read_mode_combo.addItems([
-            "Full Vertical Binning",
-            "Multi-Track",
-            "Random-Track",
-            "Single-Track",
-            "Image"
+            "full vertical binning",
+            "multi track",
+            "random track",
+            "single track",
+            "image"
         ])
         self.read_mode_combo.setCurrentText(self.camera.read_mode)
         self.read_mode_combo.currentTextChanged.connect(lambda m: self.camera.set_read_mode(m))
@@ -105,11 +116,11 @@ class CameraWidget(QWidget):
         self.acq_mode_label.setStyleSheet("font-weight: bold")
         self.acq_mode_combo = QComboBox()
         self.acq_mode_combo.addItems([
-            "Single Scan",
-            "Accumulate",
-            "Kinetics",
-            "Fast Kinetics",
-            "Run Till Abort"
+            "single scan",
+            "accumulate",
+            "kinetics",
+            "fast kinetics",
+            "run till abort"
         ])
         self.acq_mode_combo.setCurrentText(self.camera.acquisition_mode)
         self.acq_mode_combo.currentTextChanged.connect(lambda m: self.camera.set_acquisition_mode(m))
@@ -139,7 +150,6 @@ class CameraWidget(QWidget):
         self.set_button.clicked.connect(lambda: self.set_button_clicked())
         self.cooler_status_button = QPushButton("Cooler OFF")
         self.cooler_status_button.clicked.connect(lambda: self.cooler_status_button_clicked())
-
     def create_layout(self):
         frame = QFrame(self)
         frame.setStyleSheet("background-color: #454545")
@@ -155,7 +165,7 @@ class CameraWidget(QWidget):
         layout.addWidget(self.shutter_combo, 4, 2, 1, 1)
         layout.addWidget(self.gain_label, 5, 1, 1, 1)
         layout.addWidget(self.gain_sb, 5, 2, 1, 1)
-        layout.addWidget(self.optimize_gain_button, 5, 3, 1, 1)
+        #layout.addWidget(self.optimize_gain_button, 5, 3, 1, 1)
         # Read and acquisition modes
         layout.addWidget(self.read_mode_label, 6, 1, 1, 1)
         layout.addWidget(self.read_mode_combo, 6, 2, 1, 1)
@@ -166,15 +176,18 @@ class CameraWidget(QWidget):
         layout.addWidget(self.acc_sb, 8, 2, 1, 1)
         layout.addWidget(self.kinetics_label, 9, 1, 1, 1)
         layout.addWidget(self.kinetics_sb, 9, 2, 1, 1)
+
+        layout.addWidget(self.frame_transfer_label, 10, 1, 1, 1)
+        layout.addWidget(self.frame_transfer_combo, 10, 2, 1, 1)
         # Temperature and cooling
-        layout.addWidget(self.temp_label, 10, 1, 1, 1)
-        layout.addWidget(self.temp_input, 10, 2, 1, 1)
-        layout.addWidget(self.cool_input, 10, 3, 1, 1)
-        layout.addWidget(self.cool_button, 10, 4, 1, 1)
+        # layout.addWidget(self.temp_label, 10, 1, 1, 1)
+        layout.addWidget(self.temp_input, 11, 1, 1, 1)
+        layout.addWidget(self.cool_input, 11, 3, 1, 1)
+        layout.addWidget(self.cool_button, 11, 2, 1, 1)
         # Actions
-        layout.addWidget(self.refresh_button, 11, 1, 1, 1)
-        layout.addWidget(self.set_button, 11, 2, 1, 1)
-        layout.addWidget(self.cooler_status_button, 11, 3, 1, 1)
+        layout.addWidget(self.refresh_button, 12, 1, 1, 1)
+        layout.addWidget(self.set_button, 12, 2, 1, 1)
+        layout.addWidget(self.cooler_status_button, 12, 3, 1, 1)
 
         main_layout = QGridLayout(self)
         main_layout.addWidget(frame, 0, 0, 1, 1)
@@ -192,29 +205,36 @@ class CameraWidget(QWidget):
         """)
 
     def power_button_clicked(self):
-        status = self.camera.get_status()
+        status, _ = self.camera.get_status()
         # 20002 indicates success
         if status == 20002:
-            self.check_temperature_status()
-            ret = self.camera.shutdown() if self.camera_on else self.camera.initialize()
-            color = 'black' if self.camera_on else ('green' if ret else 'red')
-            self.set_button_color(self.power_button, color)
-            self.camera_on = not self.camera_on and bool(ret)
-            print("Camera off." if not self.camera_on else "Connection successful.")
+            if self.camera_on:
+                # If camera is on, turn it off
+                print("Turning camera off...")
+                ret = self.camera.shutdown()
+                color = 'black' if ret == 20002 else 'red'
+                self.camera_on= False if ret == 20002 else True
+            else:
+                color= 'green'
+                self.camera_on = True
         else:
             # attempt initialization if not connected
-            ret = self.camera.initialize()
-            color = 'green' if ret else 'red'
-            self.set_button_color(self.power_button, color)
-            self.camera_on = bool(ret)
-            print("Connection unsuccessful." if not ret else "Camera on.")
+            if self.camera_on:
+                color= 'black'
+                self.camera_on = False
+            else:
+                ret = self.camera.initialize()
+                color = 'green' if ret==20002 else 'red'
+                self.camera_on = True if ret==20002 else False
+            
+        self.set_button_color(self.power_button, color)
         if self.camera_on:
             self.set_camera_settings()
         else: 
             self.refresh_camera_settings()
 
     def check_power_status(self):
-        status = self.camera.get_status()
+        status, _ = self.camera.get_status()
         # 20002 indicates camera connected
         color = 'green' if status == 20002 else 'black'
         self.set_button_color(self.power_button, color)
@@ -270,6 +290,7 @@ class CameraWidget(QWidget):
         self.acq_mode_combo.setCurrentText(self.camera.acquisition_mode)
         self.acc_sb.setValue(self.camera.number_accumulations)
         self.kinetics_sb.setValue(self.camera.number_kinetics)
+        self.frame_transfer_combo.setCurrentText(self.camera.frame_transfer_mode)
 
     
     def set_button_clicked(self):
@@ -278,20 +299,26 @@ class CameraWidget(QWidget):
             self.set_camera_settings()
 
     def set_camera_settings(self):
-        goal = self.cool_input.value
-        print(f"Setting camera settings: {goal} °C")
-        self.camera.set_temperature(int(goal))
-        self.camera.set_exposure_time(self.exp_input.secvalue)
-        self.camera.set_trigger_mode(self.trigger_combo.currentText())
-        self.camera.set_shutter(self.shutter_combo.currentText())
-        self.camera.set_emccdgain(self.gain_sb.value())
-        # Apply read mode, acquisition mode, accumulations, and kinetics
         self.camera.set_read_mode(self.read_mode_combo.currentText())
+        self.camera.set_frame_transfer_mode(self.frame_transfer_combo.currentText())
+        self.camera.get_detector()
+        self.camera.set_image()
+        self.camera.set_trigger_mode(self.trigger_combo.currentText())
+        
         self.camera.set_acquisition_mode(self.acq_mode_combo.currentText())
         self.camera.set_number_accumulations(self.acc_sb.value())
         self.camera.set_number_kinetics(self.kinetics_sb.value())
+        self.camera.set_exposure_time(self.exp_input.secvalue)
+        self.camera.set_emccdgain(self.gain_sb.value())
+        self.camera.set_shutter(self.shutter_combo.currentText())
+        # Apply read mode, acquisition mode, accumulations, and kinetics
+        time.sleep(0.1)  # Allow time for settings to apply
+        exp, accum_t, kinetic_t = self.camera.get_acquisition_timings()
+        print(f"Actual exposure={exp:.6f}s, accum_t={accum_t:.6f}s, kinetic_t={kinetic_t:.6f}s")
+
         self.check_temperature_status()
         self.check_cooler_status()
+
 
     def cooler_status_button_clicked(self):
         current_text = self.cooler_status_button.text()
@@ -310,6 +337,7 @@ class CameraWidget(QWidget):
             # if achieved == 20002:
             #     self.cooler_status_button.setText("Cooler ON")
         self.check_cooler_status()  
+        self.check_temperature_status()
     
     def check_cooler_status(self):
         """
@@ -330,11 +358,14 @@ class CameraWidget(QWidget):
             err= self.camera.set_emccdgain(gain)  # setting Electron Multiplier Gain
             if err != 20002:
                 raise RuntimeError(f"SetEMCCDGain({gain}) failed (code {err})")
-            while(mx<=2.0e4 or mx>=2.9e4) and safety_counter<50 and err==20002:
+            while(mx<=2.0e4 or mx>=2.9e4) and safety_counter<5 and err==20002:
                 safety_counter += 1
                 print(f"Safety counter: {safety_counter}")
+                # mgr.sg.set_frequency(2.87e9)  # Set the frequency
+                mgr.Pulser.stream(1000000000, [3])
+                time.sleep(0.1)  # Give time to start acquisition
                 self.camera.start_acquisition()
-                ret = self.camera.get_status()
+                ret, _ = self.camera.get_status()
                 print(f"Start Acquisition returned {ret}")
                 if not ret == 20002:
                     print('Starting Acquisition Failed, ending process...')
@@ -342,12 +373,14 @@ class CameraWidget(QWidget):
                 #print('Starting Acquisition', ret)
                 time.sleep(0.1) #Give time to start acquisition
                 #mgr.Pulser.stream_umOFF([3], 1) 
-                #mgr.sg.set_frequency(2.87e9) ## make sure the sg frequency is set! (overhead of <1ms)
+                if self.camera.trigger_mode != "Internal":
+
+                    mgr.Pulser.stream(100000000, [1])
                 timeout_counter = 0
-                while(self.camera.get_total_number_images_acquired()[1]<1 and timeout_counter<=2000): #20 second hard-coded limit!
+                while(self.camera.get_total_number_images_acquired()[1]<self.camera.number_kinetics and timeout_counter<=100): #20 second hard-coded limit!
                     time.sleep(0.05)#Might want to base wait time on pulse streamer signal
                     timeout_counter+=1
-                ret, data, _, _ = self.camera.sdk.GetImages16(1,1,1024**2) #cut out first image here
+                ret, data, _, _ = self.camera.get_images_16(1,1,1024**2) #cut out first image here
                 #print("Number of images collected in current acquisition: ", mgr.sdk.GetTotalNumberImagesAcquired()[1])
                 # temp_image = self.img_1D_to_2D(all_data[:1024**2],1024,1024) 
                 temp_image = self.img_1D_to_2D(data, 1024, 1024)
@@ -382,8 +415,10 @@ class CameraWidget(QWidget):
         '''
         turns a singular 1D list of integers x_len*y_len long into a 2D array. Cuts and stacks, does not snake.
         '''
-        img = np.zeros((x_len,y_len), dtype='int')
-        for j in range(y_len):
-            img[j,:] = img_1D[x_len*j:x_len*(j+1)] #np arrays count down first, then horizontally. That is, my image is saved as an array of rows, not an array of columns
-        return img
+        arr = np.asarray(img_1D, dtype=int)
+        # if arr.size != x_len * y_len:
+        #     raise ValueError(f"Expected {x_len*y_len} elements, got {arr.size}")
+
+        # Reshape into (rows=y_len, cols=x_len)
+        return arr.reshape((y_len, x_len))
 

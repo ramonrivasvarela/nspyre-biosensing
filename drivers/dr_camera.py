@@ -10,6 +10,8 @@ class Camera():
         self.sdk=atmcd("")
         self.errors=atmcd_errors
         self.exposure_time=0.075
+        self.accumulation_time=None
+        self.kinetic_time=None
         self.trigger_mode="Internal"
         
         self.temperature=20
@@ -23,19 +25,15 @@ class Camera():
         self.acquisition_mode="Kinetics"
         self.number_accumulations=1
         self.number_kinetics=1
+        self.width=None
+        self.height=None
+        
 
         
 
     def initialize(self):
         ret=self.sdk.Initialize("")
-        if ret==self.errors.Error_Codes.DRV_SUCCESS:
-            print("Camera is initalized.")
-            return True
-
-        else:
-            print("Camera is not initialized.")
-            print(f"Error code: {ret}")
-            return False
+        return ret
         
         
 
@@ -51,27 +49,28 @@ class Camera():
         else:
             raise RuntimeError(f"{function_name} failed due to other error. Error code: {code}. Consult function in https://andor.oxinst.com/downloads/uploads/Software%20Development%20Kit.pdf .")
 
-    def set_trigger_mode(self, trigger_mode:str):
-        if trigger_mode=="Internal":
-            ret=self.sdk.SetTriggerMode(0)
-            if ret==20002:
-                self.trigger_mode="Internal"
-                print("Trigger mode set to Internal.")
+    def set_trigger_mode(self, trigger_mode: str):
+        mode_processed = trigger_mode.lower().replace("-", " ")
+        if mode_processed == "internal":
+            ret = self.sdk.SetTriggerMode(0)
+            if ret == 20002:
+                self.trigger_mode = "Internal"
+                print("Trigger mode set to internal.")
             return ret
-        elif trigger_mode=="External":
-            ret=self.sdk.SetTriggerMode(1)
-            if ret==20002:
-                self.trigger_mode="External"
-                print("Trigger mode set to External.")
+        elif mode_processed == "external":
+            ret = self.sdk.SetTriggerMode(1)
+            if ret == 20002:
+                self.trigger_mode = "External"
+                print("Trigger mode set to external.")
             return ret
-        elif trigger_mode=="External Exposure Bulb":
-            ret=self.sdk.SetTriggerMode(6)
-            if ret==20002:
-                self.trigger_mode="External Exposure Bulb"
-                print("Trigger mode set to External Exposure Bulb.")
+        elif mode_processed == "external exposure bulb":
+            ret = self.sdk.SetTriggerMode(6)
+            if ret == 20002:
+                self.trigger_mode = "External Exposure Bulb"
+                print("Trigger mode set to external exposure bulb.")
             return ret
         else:
-            raise ValueError("Trigger mode must be set to 'Internal', 'External', or 'External Exposure Bulb'.")
+            raise ValueError("Trigger mode must be 'internal', 'external', or 'external exposure bulb'.")
 
     def set_temperature(self, temp_value:int):
         ret=self.sdk.SetTemperature(temp_value)
@@ -99,6 +98,10 @@ class Camera():
         
     def prepare_acquisition(self):
         ret=self.sdk.PrepareAcquisition()
+        return ret
+    
+    def abort_acquisition(self):
+        ret=self.sdk.AbortAcquisition()
         return ret
     
     def get_total_number_images_acquired(self):
@@ -130,12 +133,13 @@ class Camera():
         # Call GetStatus; this will return DRV_NOT_INITIALIZED if Initialize() was never called
         ret, state = self.sdk.GetStatus()
 
-        return ret
+        return ret, state
 
     def cool_old(self, temp_value):
         ret = self.set_temperature(temp_value)
         if ret != self.errors.Error_Codes.DRV_SUCCESS:
-            raise RuntimeError(f"SetTemperature({temp_value}) failed (code {ret})")
+            print(f"SetTemperature({temp_value}) failed (code {ret})")
+            return
         else:
             self.temperature_goal = temp_value
         print(f"SetTemperature returned {ret}, target = {temp_value}°C")
@@ -143,7 +147,8 @@ class Camera():
 
         ret = self.sdk.CoolerON()
         if ret != self.errors.Error_Codes.DRV_SUCCESS:
-            raise RuntimeError(f"CoolerON() failed (code {ret})")
+            print(f"CoolerON() failed (code {ret})")
+            return
         print("CoolerON returned DRV_SUCCESS; waiting for stabilization…")
 
 
@@ -166,22 +171,30 @@ class Camera():
 
     def get_images_16(self, first, last, size):
         ret, all_data, validfirst, validlast=self.sdk.GetImages16(first, last, size)
-        self.check_Error_Codes
         return ret, all_data, validfirst, validlast
-
+    
+    def get_images(self, first, last, size):
+        ret, all_data, validfirst, validlast=self.sdk.GetImages(first, last, size)
+        return ret, all_data, validfirst, validlast
+    
     def shutdown(self):
         ret=self.sdk.ShutDown()
+        return ret
 
-    def set_shutter(self, mode:str):
-        if mode=="Auto":
-            ret=self.sdk.SetShutter(0, 0, 27, 27)
-            self.shutter="Auto"
-        elif mode=="Open":
-            ret=self.sdk.SetShutter(0, 1, 27, 27)
-            self.shutter="Open"
-        elif mode=="Closed":
-            ret=self.sdk.SetShutter(0, 2, 27, 27)
-            self.shutter="Closed"
+    def set_shutter(self, mode: str):
+        mode_processed = mode.lower().replace("-", " ")
+        if mode_processed == "auto":
+            ret = self.sdk.SetShutter(0, 0, 27, 27)
+        elif mode_processed == "open":
+            ret = self.sdk.SetShutter(0, 1, 27, 27)
+        elif mode_processed == "closed":
+            ret = self.sdk.SetShutter(0, 2, 27, 27)
+        else:
+            raise ValueError("Shutter mode must be 'auto', 'open', or 'closed'.")
+        if ret == 20002:
+            self.shutter = mode_processed
+            print(f"Shutter set to {self.shutter}.")
+            return ret
         return ret
     
     def is_cooler_on(self):
@@ -212,84 +225,82 @@ class Camera():
         ret, total = self.sdk.GetTotalNumberImagesAcquired()
         return ret, total
 
-    def set_read_mode(self, mode:str):
-        """
-        Set the read mode of the camera.
-        """
-        if mode=="Full Vertical Binning":
-            ret=self.sdk.SetReadMode(0)
-        elif mode=="Multi-Track":
-            ret=self.sdk.SetReadMode(1)
-        elif mode=="Random-Track":
-            ret=self.sdk.SetReadMode(2)
-        elif mode=="Single-Track":
-            ret=self.sdk.SetReadMode(3)
-        elif mode=="Image":
-            ret=self.sdk.SetReadMode(4)
-        try:
-            if ret==20002:
-                self.read_mode = mode
-                print(f"Read mode set to {mode}.")
-                return ret
-        except Exception as e:
-            print(f"Error setting read mode: {e}")
-    
-    def set_frame_transfer_mode(self, mode:str):
-        """
-        Set the frame transfer mode of the camera.
-        """
-        if mode=="Frame Transfer":
-            ret=self.sdk.SetFrameTransferMode(0)
-        elif mode=="Conventional":
-            ret=self.sdk.SetFrameTransferMode(1)
-        try:
-            if ret==20002:
-                self.frame_transfer_mode = mode
-                print(f"Frame transfer mode set to {mode}.")
-                return ret
-        except Exception as e:
-            print(f"Error setting frame transfer mode: {e}")
+    def set_read_mode(self, mode: str):
+        mode_processed = mode.lower().replace("-", " ")
+        if mode_processed == "full vertical binning":
+            ret = self.sdk.SetReadMode(0)  
+        elif mode_processed == "multi track":
+            ret = self.sdk.SetReadMode(1)
+        elif mode_processed == "random track":
+            ret = self.sdk.SetReadMode(2)
+        elif mode_processed == "single track":
+            ret = self.sdk.SetReadMode(3)
+        elif mode_processed == "image":
+            ret = self.sdk.SetReadMode(4)
+        else:
+            raise ValueError("Read mode must be one of: full vertical binning, multi track, random track, single track, image.")
+        if ret == 20002:
+            self.read_mode= mode_processed
+            print(f"Read mode set to {self.read_mode}.")
+            return ret
 
-    def set_acquisition_mode(self, mode:str):
-        """
-        Set the acquisition mode of the camera.
-        """
-        if mode=="Single Scan":
-            ret=self.sdk.SetAcquisitionMode(1)
-        elif mode=="Accumulate":
-            ret=self.sdk.SetAcquisitionMode(2)
-        elif mode=="Kinetics":
-            ret=self.sdk.SetAcquisitionMode(3)
-        elif mode=="Fast Kinetics":
-            ret=self.sdk.SetAcquisitionMode(4)
-        elif mode=="Run Till Abort":
-            ret=self.sdk.SetAcquisitionMode(5)
-        try:
-            if ret==20002:
-                print(f"Acquisition mode set to {mode}.")
-                self.acquisition_mode=mode
-                return ret
-        except Exception as e:
-            print(f"Error setting acquisition mode: {e}")
+    def set_frame_transfer_mode(self, mode: str):
+        mode_processed = mode.lower().replace("-", " ")
+        if mode_processed == "frame transfer":
+            ret = self.sdk.SetFrameTransferMode(0)
+        elif mode_processed == "conventional":
+            ret = self.sdk.SetFrameTransferMode(1)
+        else:
+            raise ValueError("Frame transfer mode must be 'frame transfer' or 'conventional'.")
+        if ret == 20002:
+            self.frame_transfer_mode = mode_processed
+            print(f"Frame transfer mode set to {mode_processed}.")
+            return ret
 
-    def set_number_accumulations(self, number:int):
+    def set_acquisition_mode(self, mode: str):
+        mode_processed = mode.lower().replace("-", " ")
+        if mode_processed == "single scan":
+            ret = self.sdk.SetAcquisitionMode(1)
+        elif mode_processed == "accumulate":
+            ret = self.sdk.SetAcquisitionMode(2)
+        elif mode_processed == "kinetics":
+            ret = self.sdk.SetAcquisitionMode(3)
+        elif mode_processed == "fast kinetics":
+            ret = self.sdk.SetAcquisitionMode(4)
+        elif mode_processed == "run till abort":
+            ret = self.sdk.SetAcquisitionMode(5)
+        else:
+            raise ValueError("Acquisition mode must be one of: single scan, accumulate, kinetics, fast kinetics, run till abort.")
+        if ret == 20002:
+            self.acquisition_mode = mode_processed
+            print(f"Acquisition mode set to {mode_processed}.")
+            return ret
+
+    def get_detector(self):
         """
-        Set the number of accumulations for the camera.
+        Get the detector size.
         """
-        ret=self.sdk.SetNumberAccumulations(number)
-        if ret==20002:
-            self.number_accumulations=number
-            print(f"Number of accumulations set to {number}.")
-        return ret
-    
-    def set_number_kinetics(self, number:int):
-        """
-        Set the number of kinetics for the camera.
-        """
-        ret=self.sdk.SetNumberKinetics(number)
-        if ret==20002:
-            self.number_kinetics=number
-            print(f"Number of kinetics set to {number}.")
-        return ret
+        ret, width, height = self.sdk.GetDetector()
+        if ret == 20002:
+            self.width = width
+            self.height = height
+            return ret, width, height
+        else:
+            raise RuntimeError(f"GetDetector failed with error code {ret}.")
         
-    
+    def set_image(self, width=None, height=None):
+        """
+        Set the image.
+        """
+        if width is not None:
+            self.width = width
+        if height is not None:
+            self.height = height
+        if self.width is None or self.height is None:
+            raise ValueError("Width and height must be set before calling set_image.")
+        ret = self.sdk.SetImage(1, 1, self.width, self.height)
+        if ret == 20002:
+            print("Image set successfully.")
+            return ret
+        else:
+            raise RuntimeError(f"SetImage failed with error code {ret}.")
