@@ -65,12 +65,16 @@ class Pictures:
             
         """
         with InstrumentManager() as mgr, DataSource(picture) as picture_data:  # +1 to account for signal being a difference of counts
-            ret, _=mgr.Camera.get_status()
+            ret, state=mgr.Camera.get_status()
             if ret != 20002:
                 raise RuntimeError(f"Camera not ready, status code: {ret}")
+
+
+            elif state==20072:
+                mgr.Camera.abort_acquisition()
             _, width, height=mgr.Camera.get_detector()  # Get the detector size
             mgr.Camera.set_image()
-            mgr.Pulser.stream(1000000000, [3])
+            mgr.Pulser.stream([(1000000000, [3])])
             time.sleep(0.1)  # Give time to start acquisition
             mgr.Camera.start_acquisition()
             ret, _ = mgr.Camera.get_status()
@@ -81,13 +85,14 @@ class Pictures:
             #print('Starting Acquisition', ret)
             time.sleep(0.1) #Give time to start acquisition
             #mgr.Pulser.stream_umOFF([3], 1) 
-            if mgr.Camera.trigger_mode != "Internal":
-                mgr.Pulser.stream(1000000000, [3])  # Start the pulser to trigger the camera
-                mgr.Pulser.stream(1000000000, [1,3])
+            if mgr.Camera.trigger_mode != "internal":
+                mgr.Pulser.stream([(1000000000, [3])])  # Start the pulser to trigger the camera
+                mgr.Pulser.stream([(100000000, [1]), (1000000000, [3])])
             timeout_counter = 0
             while(mgr.Camera.get_total_number_images_acquired()[1]<mgr.Camera.number_kinetics and timeout_counter<=100): #20 second hard-coded limit!
                 time.sleep(0.05)#Might want to base wait time on pulse streamer signal
                 timeout_counter+=1
+            mgr.Camera.abort_acquisition()
             ret, data, _, _ = mgr.Camera.get_images_16(1,1,1024**2) #cut out first image here
             #print("Number of images collected in current acquisition: ", mgr.sdk.GetTotalNumberImagesAcquired()[1])
             # temp_image = self.img_1D_to_2D(all_data[:1024**2],1024,1024) 
@@ -102,7 +107,7 @@ class Pictures:
             print(type(temp_image[0]))
 
             picture_data.push({
-                            'title': 'Counts vs Time (Confocal)',
+                            'title': 'Picture',
                             'xlabel': 'Pixels',
                             'ylabel': 'Pixels',
                             'xs': np.asarray(range(width)),
@@ -126,10 +131,9 @@ class Pictures:
         '''
         turns a singular 1D list of integers x_len*y_len long into a 2D array. Cuts and stacks, does not snake.
         '''
-        img = np.zeros((x_len,y_len), dtype='int')
-        for j in range(y_len):
-            img[j,:] = img_1D[x_len*j:x_len*(j+1)] #np arrays count down first, then horizontally. That is, my image is saved as an array of rows, not an array of columns
-        return img
+        arr = np.asarray(img_1D, dtype=int)
+
+        return arr.reshape((y_len, x_len))
 
     #### FINALIZATION METHODS
 

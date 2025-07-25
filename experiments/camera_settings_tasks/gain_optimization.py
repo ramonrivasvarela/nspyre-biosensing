@@ -4,10 +4,10 @@ import time
 import pickle
 
 
-def get_gain(mgr, optimize_gain, gain, frequency, runs, mode, ns_exp_time, ns_readout_time):
-    ret=mgr.Camera.get_status()
+def get_gain(mgr, optimize_gain, gain, runs, mode, ns_exp_time, ns_readout_time):
+    ret, status=mgr.Camera.get_status()
     if not ret==20002:
-        print('Camera not initialized, ending process...')
+        print('Camera not initialized, ending process... status code:', ret)
         return
     if mgr.Camera.number_kinetics<=1:
         mgr.Camera.set_number_kinetics(2) #set to 2 to get a dark and bright image
@@ -17,18 +17,20 @@ def get_gain(mgr, optimize_gain, gain, frequency, runs, mode, ns_exp_time, ns_re
         print('optimizing gain...')
         
         mx = 0
-        while(mx<=2.0e4 or mx>=2.9e4):
+        safety_counter = 0
+        while(mx<=2.0e4 or mx>=2.9e4) and safety_counter < 15:
+            safety_counter += 1
             mgr.Camera.start_acquisition()
-            ret = mgr.Camera.get_status()
-            if not ret == 1:
-                print('Starting Acquisition Failed, ending process...')
+            ret, status = mgr.Camera.get_status()
+            if not ret == 20002:
+                print('Starting Acquisition Failed, ending process... status code:', ret)
                 return
             #print('Starting Acquisition', ret)
             time.sleep(0.1) #Give time to start acquisition
-            mgr.sg.set_frequency(frequency[0]) ## make sure the sg frequency is set! (overhead of <1ms)
+             ## make sure the sg frequency is set! (overhead of <1ms)
             mgr.Pulser.pulse_for_widefield(runs, mode, mgr.Camera.trigger_mode, ns_exp_time, ns_readout_time, AM_mode = True, switch_mode = True)
             timeout_counter = 0
-            while(mgr.Camera.get_total_number_images_aquired()[1]<2 and timeout_counter<=2000): #20 second hard-coded limit!
+            while(mgr.Camera.get_total_number_images_acquired()[1]<2 and timeout_counter<=2000): #20 second hard-coded limit!
                 time.sleep(0.05)#Might want to base wait time on pulse streamer signal
                 timeout_counter+=1 
             ret, all_data, _, _ = mgr.Camera.get_images_16(2,2,1024**2) #cut out first image here
@@ -63,15 +65,15 @@ def get_gain(mgr, optimize_gain, gain, frequency, runs, mode, ns_exp_time, ns_re
         print('Initial capture to counteract camera dynamics...')
         mx = 0
         mgr.Camera.start_acquisition()
-        ret = mgr.Camera.get_status()
-        if not ret == 1:
-            print('Starting Acquisition Failed, ending process...')
+        ret, status = mgr.Camera.get_status()
+        if not ret == 20002:
+            print('Starting Acquisition Failed, ending process... status code:', ret)
             return
         time.sleep(0.1) #Give time to start acquisition
-        mgr.sg.set_frequency(frequency[0]) ## make sure the sg frequency is set! (overhead of <1ms)
+        ## make sure the sg frequency is set! (overhead of <1ms)
         mgr.Pulser.pulse_for_widefield(runs, mode, mgr.Camera.trigger_mode, ns_exp_time, ns_readout_time, AM_mode = True, switch_mode = True) 
         timeout_counter = 0
-        while(mgr.Camera.get_total_number_images_aquired()[1]<2 and timeout_counter<=400): #20 second hard-coded limit!
+        while(mgr.Camera.get_total_number_images_acquired()[1]<2 and timeout_counter<=400): #20 second hard-coded limit!
             time.sleep(0.05)#Might want to base wait time on pulse streamer signal
             timeout_counter+=1 
         ret, all_data, _, _ = mgr.Camera.get_images_16(2,2,1024**2) #cut out first image here
@@ -89,7 +91,7 @@ def get_gain(mgr, optimize_gain, gain, frequency, runs, mode, ns_exp_time, ns_re
         print(gain_string)
     return gain 
 
-def img_1D_to_2D(self, img_1D,x_len,y_len):
+def img_1D_to_2D(img_1D,x_len,y_len):
     '''
     turns a singular 1D list of integers x_len*y_len long into a 2D array. Cuts and stacks, does not snake.
     '''

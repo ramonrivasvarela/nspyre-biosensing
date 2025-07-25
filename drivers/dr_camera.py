@@ -12,17 +12,17 @@ class Camera():
         self.exposure_time=0.075
         self.accumulation_time=None
         self.kinetic_time=None
-        self.trigger_mode="Internal"
+        self.trigger_mode="internal"
         
         self.temperature=20
         self.emccdgain=1
-        self.shutter="Auto"
+        self.shutter="auto"
         self.cooler_on=False
         self.temperature_goal=18
 
-        self.read_mode="Image"
-        self.frame_transfer_mode="Conventional"
-        self.acquisition_mode="Kinetics"
+        self.read_mode="image"
+        self.frame_transfer_mode="conventional"
+        self.acquisition_mode="kinetics"
         self.number_accumulations=1
         self.number_kinetics=1
         self.width=None
@@ -181,6 +181,24 @@ class Camera():
         ret=self.sdk.ShutDown()
         return ret
 
+    def set_number_kinetics(self, number_kinetics:int): 
+        ret = self.sdk.SetNumberKinetics(number_kinetics)
+        if ret == 20002:
+            self.number_kinetics = number_kinetics
+            print(f"Number of kinetics set to {number_kinetics}.")
+            return ret
+        else:
+            raise RuntimeError(f"SetNumberKinetics failed with error code {ret}.")
+    
+    def set_number_accumulations(self, number_accumulations:int):
+        ret = self.sdk.SetNumberAccumulations(number_accumulations) 
+        if ret == 20002:
+            self.number_accumulations = number_accumulations
+            print(f"Number of accumulations set to {number_accumulations}.")
+            return ret
+        else:
+            raise RuntimeError(f"SetNumberAccumulations failed with error code {ret}.")
+
     def set_shutter(self, mode: str):
         mode_processed = mode.lower().replace("-", " ")
         if mode_processed == "auto":
@@ -298,9 +316,23 @@ class Camera():
             self.height = height
         if self.width is None or self.height is None:
             raise ValueError("Width and height must be set before calling set_image.")
-        ret = self.sdk.SetImage(1, 1, self.width, self.height)
+        ret = self.sdk.SetImage(1, 1, 1, self.width, 1, self.height)
         if ret == 20002:
             print("Image set successfully.")
             return ret
         else:
             raise RuntimeError(f"SetImage failed with error code {ret}.")
+        
+
+    def get_acquisition_timings(self):
+        """
+        Get the acquisition timings.
+        """
+        ret, exp_time, acc_time, kin_time = self.sdk.GetAcquisitionTimings()
+        if ret == 20002:
+            self.exposure_time = exp_time
+            self.accumulation_time = acc_time
+            self.kinetic_time = kin_time
+            return ret, exp_time, acc_time, kin_time
+        else:
+            raise RuntimeError(f"GetAcquisitionTimings failed with error code {ret}.")

@@ -575,8 +575,11 @@ class _HeatMapPlotWidget(HeatMapWidget):
                     for plot_name in self.heatmap_settings.series_settings:
                         settings = self.heatmap_settings.series_settings[plot_name]
                         if settings.show:
-                            self.set_data(xs, ys, data[settings.series])
-                            self._process_data()
+                            if settings.series in data:
+                                self.set_data(xs, ys, data[settings.series])
+                                self._process_data()
+                            else:
+                                print("Heatmap series not found in data source:", settings.series)
 
 
 

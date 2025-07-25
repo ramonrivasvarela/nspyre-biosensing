@@ -21,7 +21,7 @@ from experiments.camera_settings_tasks.gain_optimization import get_gain
 
 
 
-from nspyre import InstrumentManager, DataSource
+from nspyre import InstrumentManager, DataSource, StreamingList
 
 ## Cam SDK
 
@@ -271,7 +271,7 @@ class WFODMRTrack():
                     ls_fullZFS_PID = []
                     for ND in self.ND_iter:
                         ls_fullZFS.append(ls_dZFS[ND] + ZFS_setpt)
-                        ls_fullZFS_averaged.append(ls_dZFS_averaged[ND] + ZFS_setpt.m)
+                        ls_fullZFS_averaged.append(ls_dZFS_averaged[ND] + ZFS_setpt)
                         ls_fullZFS_PID.append(ls_dZFS_PID[ND] + ZFS_setpt)
                     
 
@@ -450,7 +450,6 @@ class WFODMRTrack():
 
         ## Data formatting, pickle prep ##########
         self.dt_freq = freq #frequency of ODMR spectra
-
         self.dt_ODMR_raw = [[] for i in range(len(self.ND_List))] #dt_ODMR_raw[ND][rep][sweep][freq][count] > yields the raw data to build an ODMR for each sweep
         self.dt_ODMR_ref = [[] for i in range(len(self.ND_List))] #dt_ODMR_ref[ND][rep][sweep][freq] > yields the combined ODMR from all of the sweeps for a rep
         self.dt_I1I2_raw = [[] for i in range(len(self.ND_List))] #dt_I1I2_raw[ND][rep][set][count] > yields the raw data for I1I2 measurements
@@ -459,6 +458,9 @@ class WFODMRTrack():
         self.dt_dZFS =  [[] for i in range(len(self.ND_List))] #dt_dZFS[ND][rep][set] > yields the ZFS estimate
         self.dt_dZFS_PID = [[] for i in range(len(self.ND_List))]
         self.dt_fluorescence = [[] for i in range(len(self.ND_List))]
+
+            
+        
 
         self.dt_ls_ZFS = []
 

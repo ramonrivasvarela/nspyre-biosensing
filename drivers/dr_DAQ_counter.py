@@ -27,10 +27,10 @@ class DAQCounter:
                     'ctr2': 'PFI0',
                     'ctr3': 'PFI5',
         }
-        self.n_ctrs = 1
         self.sampling_rate = 0 # TEMPORARY
         self.clk_channel = '/' + dev + '/' + clk_pfi
         self.ctr_channel ='/' + dev + '/' + apd_ctr
+        self.pfi_channel = '/' + dev + '/' + self.ctrs_pfis[apd_ctr] 
 
 
 
@@ -63,6 +63,10 @@ class DAQCounter:
 
         ## Set up the counter, connect it to the clock.
         print(f'Initializing DAQCounter with clock channel {self.clk_channel} and counter channel {self.ctr_channel}')
+        if self.read_task is not None:
+            self.read_task.stop()
+            self.read_task.close()
+            self.read_task=None
         self.read_task = nidaqmx.Task()
         self.read_task.ci_channels.add_ci_count_edges_chan(
             self.ctr_channel,
@@ -70,20 +74,21 @@ class DAQCounter:
             initial_count=0,
             count_direction=CountDirection.COUNT_UP
         )
-        self.read_task.ci_channels.all.ci_count_edges_term = self.clk_channel
+        self.read_task.ci_channels.all.ci_count_edges_term = self.pfi_channel
 
         ## Set up the clock channel.
         if bounded_sample:
             sample_mode = AcquisitionType.FINITE
         else:
             sample_mode = AcquisitionType.CONTINUOUS
-
+                                                                                                                                                                                                                  
         self.read_task.timing.cfg_samp_clk_timing(
             self.sampling_rate, # must be equal or larger than max rate expected by PS
             source= self.clk_channel,
             sample_mode=sample_mode, 
-            samps_per_chan= self.n_ctrs
+            samps_per_chan= self.n_samples
         )
+
 
         ## Set up the reader.
         self.reader = CounterReader(self.read_task.in_stream)
@@ -127,32 +132,34 @@ class DAQCounter:
         return 
     
     
-    def start_stream_read(self, pulses, sequence, n_runs = 1, timeout = 10):
-        """
-        start, stream, and read from a single method by passing in the pulse streamer and all of its arguments.
-        pulses: PulseStreamer instance
-        sequence: Sequence object to stream
-        n_runs: number of runs to stream, to pass to the PulseStreamer
-        timeout: timeout for reading samples
-        """
-        if self.buffer is None:
-            raise RuntimeError("Buffer not created. Call create_buffer() before starting the stream read.")
+    # def start_stream_read(self, pulses, sequence, n_runs = 1, timeout = 10):
+    #     """
+    #     start, stream, and read from a single method by passing in the pulse streamer and all of its arguments.
+    #     pulses: PulseStreamer instance
+    #     sequence: Sequence object to stream
+    #     n_runs: number of runs to stream, to pass to the PulseStreamer
+    #     timeout: timeout for reading samples
+    #     """
+    #     if self.buffer is None:
+    #         raise RuntimeError("Buffer not created. Call create_buffer() before starting the stream read.")
 
-        if self.read_task is not None:
-            self.read_task.start()
+    #     if self.read_task is not None:
+    #         self.read_task.start()
+            
 
-        pulses.stream_sequence(sequence, n_runs)
+    #     pulses.stream_sequence(sequence, n_runs)
 
-        num_samps = self.reader.read_many_sample_uint32(
-            self.buffer,
-            number_of_samples_per_channel= self.n_samples,
-            timeout= timeout
-        )
+
+    #     num_samps = self.reader.read_many_sample_uint32(
+    #         self.buffer,
+    #         number_of_samples_per_channel= self.n_samples,
+    #         timeout= timeout
+    #     )
         
-        if num_samps < self.n_samples:
-            raise RuntimeError('Something went wrong: buffer issue, not enough samples read.')
-        self.read_task.stop() 
-        return 
+    #     if num_samps < self.n_samples:
+    #         raise RuntimeError('Something went wrong: buffer issue, not enough samples read.')
+    #     self.read_task.stop() 
+    #     return 
 
 
     

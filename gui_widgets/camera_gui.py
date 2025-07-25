@@ -313,7 +313,7 @@ class CameraWidget(QWidget):
         self.camera.set_shutter(self.shutter_combo.currentText())
         # Apply read mode, acquisition mode, accumulations, and kinetics
         time.sleep(0.1)  # Allow time for settings to apply
-        exp, accum_t, kinetic_t = self.camera.get_acquisition_timings()
+        ret, exp, accum_t, kinetic_t = self.camera.get_acquisition_timings()
         print(f"Actual exposure={exp:.6f}s, accum_t={accum_t:.6f}s, kinetic_t={kinetic_t:.6f}s")
 
         self.check_temperature_status()

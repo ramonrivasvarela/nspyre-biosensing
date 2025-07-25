@@ -79,9 +79,10 @@ class CountsTime:
             seq = self.create_sequence(mgr)
             start_t = time.time()
             while True:
-                ## Start, Stream, Read. Data will be in the buffer.
+                ## Start, Stream, Read. Data will be in the buffer
                 self.start_stream_read(mgr, seq)
-                data = self.buffer_to_data()
+
+                data = self.buffer_to_data(mgr)
 
 
                 APD_counts.append(np.array([np.array([time.time()-start_t]),np.array([data])]))
@@ -109,7 +110,8 @@ class CountsTime:
         mgr.Pulser.set_state([7],0.0,0.0)
         
         mgr.DAQCounter.set_sampling_rate(2/self.probe_time)  # Automatically determined by 2/probe_time
-        self.buffer = mgr.DAQCounter.create_buffer(self.n_points+1) # +1 to account for signal being a difference of counts
+        mgr.DAQCounter.create_buffer(self.n_points+1) # +1 to account for signal being a difference of counts
+        print(mgr.DAQCounter.buffer)
         mgr.DAQCounter.initialize()
 
 
@@ -118,17 +120,18 @@ class CountsTime:
         seq = mgr.Pulser.create_sequence()
         clock_pulse = [(self.clock_time,1),(self.probe_time-self.clock_time,0)] ##ensure clock_time in nanoseconds
         clock = clock_pulse * (self.n_points+1)
+        print("Clock sequence:", clock)
         seq.setDigital(mgr.Pulser.channel_dict['clock'], clock)
         return seq
 
     #### EXPERIMENTAL LOOP METHODS
 
-    def buffer_to_data(self):
+    def buffer_to_data(self, mgr):
         """ Convert the buffer to data. Not particularly interesting here, but more relevant for more complex experiments."""
-        if self.buffer is None:
+        if mgr.DAQCounter.buffer is None:
             raise ValueError("Buffer is not initialized.")
         # Convert the buffer to a numpy array
-        all_data = self.buffer[1:] - self.buffer[0:-1]
+        all_data = mgr.DAQCounter.buffer[1:] - mgr.DAQCounter.buffer[0:-1]
         data = np.sum(all_data)/ (self.probe_time * self.n_points)  #counts per second
         return data
 
@@ -153,24 +156,25 @@ class CountsTime:
         if mgr.DAQCounter.read_task is not None:
             mgr.DAQCounter.read_task.start()
 
+        time.sleep(1)  # Give time to start acquisition
+        # print(mgr.DAQCounter.sampling_rate)
         mgr.Pulser.stream_sequence(sequence, n_runs)
 
-        num_samps = mgr.DAQCounter.read_many_sample_uint32(
-            self.buffer,
-            number_of_samples_per_channel= mgr.DAQCounter.n_samples,
+        
+
+        num_samps = mgr.DAQCounter.reader.read_many_sample_uint32(
+            mgr.DAQCounter.buffer,
+            number_of_samples_per_channel= self.n_points+1,
             timeout= timeout
         )
 
         if num_samps < mgr.DAQCounter.n_samples:
             raise RuntimeError('Something went wrong: buffer issue, not enough samples read.')
         mgr.DAQCounter.read_task.stop() 
-        return
+        return 
 
 
 
 
 
 
-
-if __name__ == '__main__':
-    print('Hello World')

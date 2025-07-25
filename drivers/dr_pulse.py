@@ -18,7 +18,11 @@ class PulserClass():
 ## Should change aom to laser
     def __init__(self, ip="10.135.70.127"):
 
-
+        self.ns_laser_lag= 80 #hard coded for now
+        self.ns_read_time=40
+        self.ns_clock_duration= 40
+        self.runs=1
+        self.ns_total_time = 0
         
         # create pulse streamer instance
         self.Pulser = PulseStreamer(ip)
@@ -79,35 +83,71 @@ class PulserClass():
 
     def set_state(self, dig_chan, q=0.0, i=0.0):
         self.change_state(dig_chan, q, i)
-        return self.Pulser.constant((dig_chan, q, i))
+        self.Pulser.constant((dig_chan, q, i))
     
     def set_state_off(self):
         self.change_state([], 0, 0)
-        return self.Pulser.constant(([], 0, 0))
+        self.Pulser.constant(([], 0, 0))
 
-    def stream(self, duration:int, dig_chans:list, i:float=0, q:float=0, n_runs:int=1):
-        # Build sequence
+    def stream(
+        self,
+        couples: list[tuple[float, list[int]]],
+        i: float = 0.0,
+        q: float = 0.0,
+        n_runs: int = 1,
+    ) -> None:
+        """
+        Build and stream a pulse sequence.
+
+        Args
+        ----
+        couples : list of (duration, digital_channels).
+            Each tuple sets all `digital_channels` high for `duration` microseconds.
+        i, q : float
+            Analogue amplitudes (I and Q) applied for the *total* sequence length.
+        n_runs : int
+            How many times to replay the sequence (≥1).
+
+        Raises
+        ------
+        ValueError
+            If an unknown digital channel is requested or inputs are malformed.
+        """
+        if not couples:
+            raise ValueError("`couples` must contain at least one (duration, chans) tuple.")
+
+        if n_runs < 1:
+            raise ValueError("`n_runs` must be ≥ 1.")
+
         seq = self.Pulser.createSequence()
-        for dig_chan in dig_chans:
-            try:
-                seq.setDigital(dig_chan, [(duration, 1)])
-            except KeyError:
-                raise ValueError(f"Digital channel {dig_chan} not found in channel dictionary.")
-        seq.setAnalog(0, [(duration, i)])
-        seq.setAnalog(1, [(duration, q)])
+        total_duration = 0.0  # accumulate to size analogue section correctly
 
-        # Update state
-        #self.change_state(dig_chan, q, i)
+        for duration, dig_chans in couples:
+            if not isinstance(duration, (int, float)) or duration <= 0:
+                raise ValueError(f"Invalid duration {duration}. Must be > 0 µs.")
+
+            for dig_chan in dig_chans:
+                try:
+                    seq.setDigital(dig_chan, [(duration, 1)])
+                except KeyError as exc:
+                    raise ValueError(
+                        f"Digital channel {dig_chan} not found in channel dictionary."
+                    ) from exc
+
+            total_duration += duration
+            # (Optional) self.change_state(dig_chans, q=i, i=q)  # if tracking needed
+
+        # Apply constant analogue levels for the full combined duration
+        seq.setAnalog(0, [(total_duration, i)])
+        seq.setAnalog(1, [(total_duration, q)])
 
         # Stream sequence
-        self.Pulser.stream(
-            seq,
-            n_runs
-            
-        )
+        self.Pulser.stream(seq, n_runs)
 
-        # Final update
-        #self.change_state(dig_chan, q, i)
+        # Reset internal state after streaming
+        self.change_state([], 0.0, 0.0)
+
+
 
 
     def stream_sequence(self, sequence:Sequence, n_runs:int=1):
@@ -129,10 +169,9 @@ class PulserClass():
         digital_set = []
         if SWITCH:
             digital_set.append(self.channel_dict['switch'])
-        analog_set = 0
-        if AM:
-            analog_set = -1
+        analog_set = -1 if AM else 0
         self.Pulser.stream(seq,n_runs, final = OutputState(digital_set, analog_set,0))
+        self.change_state(digital_set, analog_set, 0)
 
     def reset(self):
         self.Pulser.reset()
@@ -207,7 +246,7 @@ class PulserClass():
     def pulse_setup(self, runs, mode,cam_trigger, ns_exp_time, ns_readout_time):#, mw_duty, mw_rep):
         #print('\n using sequence without wait time')
         seqs=[]
-        if cam_trigger == 'EXTERNAL_EXPOSURE':
+        if cam_trigger == 'external':
             seqs.append(self.WFODMR(runs, ns_exp_time, ns_readout_time,  mode = mode, FT = False))#, mw_duty = mw_duty, mw_rep = mw_rep))
         else:
             seqs.append(self.WFODMR(runs, ns_exp_time, ns_readout_time,10000000,5000000,mode))#, mw_duty = mw_duty, mw_rep = mw_rep))
@@ -217,7 +256,7 @@ class PulserClass():
         """
         Pulse sequence for widefield imaging.
         """
-        if cam_trigger == 'External':
+        if cam_trigger == 'external':
             pulse=self.WFODMR(runs, ns_exp_time, ns_readout_time,  mode = mode, FT = False)#, mw_duty = mw_duty, mw_rep = mw_rep))
         else:
             pulse=self.WFODMR(runs, ns_exp_time, ns_readout_time,10000000,5000000,mode)#, mw_duty = mw_duty, mw_rep = mw_rep))
@@ -228,5 +267,147 @@ class PulserClass():
         if AM_mode:
             analog_set = -1
         self.Pulser.stream(pulse,runs, final = OutputState(digital_set, analog_set,0))
+        self.change_state(digital_set, analog_set, 0)
 
+
+
+
+    def ODMRHeatDissipation(self, laser_recharge, wait_time):  
+        #Developed by Tian-Xing at 20230720, for trainsent ODMR on WSP, for avoiding the Singlet Fission
+        # laser_recharge is not used here, since we want to 'wait' after both sg and bg
+        print('now setting up pulse sequence')
+        print('self.read_time:', self.read_time)
+        print('self.clock_time:',  self.clock_time)        
+        #self.laser_lag
+        #self.laserLag_time = 80 #hard coded for now
+        
+        # First block of the full seuqence, which is turnning on the laser
+        laser = []
+        clock = []
+        mwI = []
+        mwQ = []
+        
+        # Laser_lag repeating sequence
+        Laser_lag_laser = [(self.ns_laser_lag, 1)]
+        Laser_lag_clock = [(self.ns_laser_lag, 0)]
+        Laser_lag_mwI = [(self.ns_laser_lag, self.IQ0[0])]
+        Laser_lag_mwQ = [(self.ns_laser_lag, self.IQ0[1])]
+
+        # mwOn repeating sequence
+        # TX Note: not sure setting the readout clock like this will work, becaues the odmr_math in the dr_psNew spyrelet seems incompatible with this
+        mwOn_laser = [(self.ns_read_time, 1)]
+        mwOn_clock = [(self.ns_clock_duration,1),(self.ns_read_time-2*self.ns_clock_duration,0),(self.ns_clock_duration,1)]
+        mwOn_mwI = [(self.ns_read_time, self.IQpx[0])]
+        mwOn_mwQ = [(self.ns_read_time, self.IQpx[1])]
+
+
+        # mwOff repeating sequence
+        mwOff_laser = [(self.ns_read_time, 1)]
+        mwOff_clock = [(self.ns_clock_duration,1),(self.ns_read_time-2*self.ns_clock_duration,0),(self.ns_clock_duration,1)]
+        mwOff_mwI = [(self.ns_read_time, self.IQ0[0])]
+        mwOff_mwQ = [(self.ns_read_time, self.IQ0[1])]
+        
+        
+        # wait repeating sequence
+        wait_laser = [(wait_time, 0)]
+        wait_clock = [(wait_time, 0)]
+        wait_mwI = [(wait_time, self.IQ0[0])]
+        wait_mwQ = [(wait_time, self.IQ0[1])]
+        
+
+        # adding initial sequence to repeating sequence
+        for i in range(self.runs):        
+            laser += Laser_lag_laser + mwOn_laser + wait_laser + Laser_lag_laser + mwOff_laser + wait_laser
+            clock += Laser_lag_clock + mwOn_clock + wait_clock + Laser_lag_clock + mwOff_clock + wait_clock
+            mwI += Laser_lag_mwI + mwOn_mwI + wait_mwI + Laser_lag_mwI + mwOff_mwI + wait_mwI
+            mwQ += Laser_lag_mwQ + mwOn_mwQ + wait_mwQ + Laser_lag_mwQ + mwOff_mwQ + wait_mwQ
+        
+        # Last clock to collect for the last point in the run
+        # TX Note: Need to set this last clock to readout the current fluorescence value because in math_odmr, delta_buffer = array[1:] - array[0:-1]. We need to recored the fluorescence value for the last waiting window of each run        
+        laser += [(self.ns_clock_duration, 0)]
+        clock += [(self.ns_clock_duration, 1)]
+        mwI += [(self.ns_clock_duration, self.IQ0[0])]
+        mwQ += [(self.ns_clock_duration, self.IQ0[1])]
+
+        self.ns_total_time = (2*self.ns_laser_lag + 2 * self.ns_read_time + 2*wait_time)*self.runs + self.ns_clock_duration
+        dchans = [self.channel_dict['laser'],self.channel_dict['clock']]
+        achans = [0,1]
+        dpatterns = [laser,clock]
+        apatterns = [mwI,mwQ]
+        
+        self.sequence.setDigital(self.channel_dict['laser'], laser)
+        self.sequence.setDigital(self.channel_dict['clock'], clock)
+        self.sequence.setAnalog(0, mwI)
+        self.sequence.setAnalog(1, mwQ)    
+        
+        print('Finished setting up pulse sequence')
+        print('self.sequence data:',  self.sequence.getData())
+        #self.plotSeq(self.sequence.getData(),'CWUriMRnew')
+        #self.plotSeq(dchans,achans,dpatterns,apatterns,'CWUriMRnew') #works
+        
+        return self.sequence
+    
+    def CWUriMRnew(self, mode = 'QAM'):
+        print('now setting up pulse sequence')
+        print('self.read_time:', self.ns_read_time)
+        print('self.clock_time:',  self.ns_clock_duration)        
+        #self.laser_lag
+        #self.laserLag_time = 80 #hard coded for now
+        
+        # First laser lag for first MWon signal
+        laser = [(self.ns_laser_lag, 1)]
+        clock = [(self.ns_laser_lag, 0)]
+        if mode == 'QAM':
+            mwI = [(self.ns_laser_lag, self.IQ0[0])]
+            mwQ = [(self.ns_laser_lag, self.IQ0[1])]
+        else:
+            mwI = [(self.ns_laser_lag, -1)]
+
+        # mwOnOff repeating sequence
+        mwOnOff_laser = [(self.ns_read_time, 1), (self.ns_read_time, 1)]
+        if mode == 'QAM':
+            mwOnOff_mwI = [(self.ns_read_time, self.IQpx[0]), (self.ns_read_time, self.IQ0[0])]
+            mwOnOff_mwQ = [(self.ns_read_time, self.IQpx[1]), (self.ns_read_time, self.IQ0[1])]
+        else:
+            mwOnOff_mwI = [(self.ns_read_time, 0), (self.ns_read_time, -1)]
+        mwOnOff_clock = [(self.ns_clock_duration,1),(self.ns_read_time-self.ns_clock_duration,0),(self.ns_clock_duration,1),(self.ns_read_time-self.ns_clock_duration,0)]
+
+        # adding initial sequence to repeating sequence
+        for i in range(self.runs):        
+            laser += mwOnOff_laser
+            clock += mwOnOff_clock
+            mwI += mwOnOff_mwI
+            if mode == 'QAM':
+                mwQ += mwOnOff_mwQ
+        
+        # Last clock to collect for the last point in the run        
+        laser += [(self.ns_clock_duration, 0)]
+        clock += [(self.ns_clock_duration, 1)]
+        if mode == 'QAM':
+            mwI += [(self.ns_clock_duration, self.IQ0[0])]
+            mwQ += [(self.ns_clock_duration, self.IQ0[1])]
+        else:
+            mwI += [(self.ns_clock_duration, -1)]
+
+        self.ns_total_time += self.ns_laser_lag + 2 * self.ns_read_time*self.runs + self.ns_clock_duration
+        dchans = [self.channel_dict['laser'],self.channel_dict['clock']]
+        dpatterns = [laser,clock]
+        if mode == 'QAM':
+            achans = [0,1]
+            apatterns = [mwI,mwQ]
+        else:
+            achans = [0]
+            apatterns = [mwI]
+        
+        self.sequence.setDigital(self.channel_dict['laser'], laser)
+        self.sequence.setDigital(self.channel_dict['clock'], clock)
+        self.sequence.setAnalog(0, mwI)
+        if mode == 'QAM':
+            self.sequence.setAnalog(1, mwQ)    
+        
+        print('Finished setting up pulse sequence')
+        print('self.sequence data:',  self.sequence.getData())
+        #self.plotSeq(self.sequence.getData(),'CWUriMRnew')
+        #self.plotSeq(dchans,achans,dpatterns,apatterns,'CWUriMRnew') #works
+        return self.sequence
     

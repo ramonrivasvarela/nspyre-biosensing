@@ -124,97 +124,7 @@ class WideFieldODMR():
             # if(cooler):
             #     mgr.Camera.
             #     self.t_cool = time.time()
-            get_gain(mgr, optimize_gain, gain, frequency, self.runs, mode, self.ns_exp_time, self.ns_readout_time)
-            # if(optimize_gain):
-            #     print('optimizing gain...')
-            #     mx = 0
-            #     safety_counter = 0
-            #     err= mgr.Camera.set_emccdgain(gain)  # setting Electron Multiplier Gain
-            #     if err != 20002:
-            #         raise RuntimeError(f"SetEMCCDGain({gain}) failed (code {err})")
-            #     while(mx<=2.0e4 or mx>=2.9e4) and safety_counter<5 and err==20002:
-            #         safety_counter += 1
-            #         print(f"Safety counter: {safety_counter}")
-                    
-                    
-            #         mgr.Camera.start_acquisition()
-            #         ret, _ = mgr.Camera.get_status()
-            #         print(f"Start Acquisition returned {ret}")
-            #         if not ret == 20002:
-            #             print('Starting Acquisition Failed, ending process...')
-            #             return
-            #         #print('Starting Acquisition', ret)
-            #         time.sleep(0.1) #Give time to start acquisition
-            #         mgr.Pulser.stream_umOFF(self.seqs[0], 1, AM = self.AM_mode, SWITCH = self.switch_mode) #0 since only one seq in my seq array.
-
-            #         timeout_counter = 0
-            #         while(mgr.Camera.get_total_number_images_acquired()[1]<2 and timeout_counter<=400): #20 second hard-coded limit!
-            #             time.sleep(0.5)#Might want to base wait time on pulse streamer signal
-            #             timeout_counter+=1
-            #             if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
-            #                 self.finalize(mgr, exp_time, readout_time, frequency, sleep_time)
-            #                 return
-            #         ret, data, _, _ = mgr.Camera.get_images_16(1,1,1024**2) #cut out first image here
-            #         #print("Number of images collected in current acquisition: ", mgr.sdk.GetTotalNumberImagesAcquired()[1])
-            #         # temp_image = self.img_1D_to_2D(all_data[:1024**2],1024,1024) 
-            #         temp_image = self.img_1D_to_2D(data, 1024, 1024)
-            #         mx = np.max(temp_image)
-            #         print(f'gain of {gain}, mx is {mx}')
-            #         if(mx<=1.0e4):
-            #             print('signal really low, raising gain +3')
-            #             gain+=3
-            #         elif mx<=2.0e4:
-            #             print('raising gain +1')
-            #             gain+=1
-            #         elif mx>=3.2e4:
-            #             print(f'Warning, risk of saturation! Max pixel value {mx} detected')
-            #             gain-=5
-            #         elif mx>=2.9e4: 
-            #             print(f'Warning, risk of saturation! Max pixel value {mx} detected')  
-            #             gain-=2
-            #         if gain <= 0:
-            #             gain = 1
-            #         err=mgr.Camera.set_emccdgain(gain)#setting Electron Multiplier Gain
-            #         mgr.Camera.prepare_acquisition()
-            #         if gain>=150:
-            #             print('Warning! Gain too high! Re-adjust experiment parameters, or turn off optimize_gain, or edit the limit in the spyrelet code. Aborting...')
-            #             return
-            #         time.sleep(0.6)
-            #     gain_string = f'optimum gain determined to be {gain}, giving max pixel value of roughly {mx}'
-            #     print(gain_string)
-            #     self.gain=gain
-                
-            # else:
-            #     self.gain = gain
-            #     print('Initial capture to counteract camera dynamics...')
-            #     mx = 0
-            #     mgr.Camera.start_acquisition()
-            #     ret, _ = mgr.Camera.get_status()
-            #     if not ret == 20002:
-            #         print('Starting Acquisition Failed, ending process...')
-            #         return
-            #     time.sleep(0.1) #Give time to start acquisition
-            #     mgr.Pulser.stream_umOFF(self.seqs[0], 1,AM = self.AM_mode, SWITCH = self.switch_mode) 
-            #     timeout_counter = 0
-            #     while(mgr.Camera.get_total_number_images_acquired()[1]<2 and timeout_counter<=400): #20 second hard-coded limit!
-            #         time.sleep(0.05)#Might want to base wait time on pulse streamer signal
-            #         timeout_counter+=1 
-            #     (ret, all_data, validfirst, validlast) = mgr.Camera.get_images_16(2,2,1024**2) #cut out first image here
-            #     #print("Number of images collected in current acquisition: ", mgr.Camera.get_total_number_images_acquired()[1])
-            #     temp_image = self.img_1D_to_2D(all_data[:1024**2],1024,1024) 
-            #     mx = np.max(temp_image)
-            #     if(mx<=1.0e4):
-            #         print(mx, 'signal really low')
-            #     elif mx<=2.0e4:
-            #         print(mx, 'signal low')
-            #     elif mx>=2.7e4: 
-            #         print(f'Warning, risk of saturation! Max pixel value {mx} detected')  
-            #     print(f'gain of {self.gain}, mx is {mx}')
-            #     self.gain_string = f'gain was set to {self.gain}, giving max pixel value of roughly {mx}'
-            #     print(self.gain_string)
-
-
-
+            self.gain=get_gain(mgr, optimize_gain, gain, self.runs, mode, self.ns_exp_time, self.ns_readout_time)
             self.t_gain = time.time()
 
             plots={}
@@ -260,8 +170,10 @@ class WideFieldODMR():
                             #tp_params = eval(trackpy_params)
                             #temp_frame = [Frame(temp_image.astype('int32'), frame_no = 0)]
                             temp_frame = [Frame(temp_image, frame_no = 0)]
-                            loc0 = self.ROI_xyr[0] #trackpy param? loc0[2] needs to be odd.
-
+                            try:
+                                loc0 = self.ROI_xyr[0] #trackpy param? loc0[2] needs to be odd.
+                            except:
+                                raise ValueError(f'ROI_xyr is {self.ROI_xyr}')
                             if(self.save_image):
                                 with open(self.data_path+f'\\temp_image.pkl', 'wb') as file:
                                     pickle.dump(temp_image, file)
@@ -296,14 +208,25 @@ class WideFieldODMR():
                             self.sig_data[ND][count] +=(sig)
                             self.bg_data[ND][count] += (bg)
                             self.ODMR_data[ND][count] += (sig/bg)
-                            plots[f"signal_{ND+1}"].append(np.array([np.array([f]), np.array([sigs[ND]])]))
-                            plots[f"background_{ND+1}"].append(np.array([np.array([f]), np.array([bgs[ND]])]))
+                            signal=plots[f"signal_{ND+1}"]
+                            
+                            background=plots[f"background_{ND+1}"]
+                            #print("Signal before", signal)
+                            #print("Background before", background)
+            
+                            #print("Signal after", signal)
+                            #print("Background after", background)
+                            plots[f"signal_{ND+1}"].append(np.array([np.array([f]), np.array([sig])]))
+                            plots[f"signal_{ND+1}"].updated_item(-1)
+                            print(plots[f"signal_{ND+1}"][0].shape)
+                            plots[f"background_{ND+1}"].append(np.array([np.array([f]), np.array([bg])]))
+
                         while len(sigs)<5:
                             sigs.append(0)
                             bgs.append(0)
 
                     
-
+                        print(plots)
                         ## acquire the following
                         data_source.push({
                             'params':{
@@ -609,3 +532,9 @@ class WideFieldODMR():
             self.seqs.append(self.pulses.WFODMR(runs, exp_time, probe_time,mode = mode, FT = False, mw_duty = self.mw_duty, mw_rep = self.mw_rep))
         else:
             self.seqs.append(self.pulses.WFODMR(runs, exp_time, probe_time,10000000,5000000,mode, mw_duty = self.mw_duty, mw_rep = self.mw_rep))
+
+    def closest_odd(self, num):
+        if num%2 == 0:
+            return num + 1
+        else:
+            return num

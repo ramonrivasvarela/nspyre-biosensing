@@ -22,6 +22,7 @@ from gui_widgets import laser_gui
 from gui_widgets import instrument_gui
 from gui_widgets import experiment_gui
 from gui_widgets import camera_gui
+from gui_widgets import counts_exp_gui, picture_exp_gui, planescan_exp_gui, widefield_odmr_exp_gui, confocal_odmr_exp_gui, spatial_feedback_exp_gui
 
 from drivers.insmgr import MyInstrumentManager
 from nspyre import InstrumentManager
@@ -76,16 +77,19 @@ def main():
                 'Save': MainWidgetItem(nspyre.gui.widgets.save, 'SaveWidget', stretch=(1, 1)),
                 'Load': MainWidgetItem(nspyre.gui.widgets.load, 'LoadWidget', stretch=(1, 1)),
                 'Experiments': {
-                    'Counts vs Time' : MainWidgetItem(experiment_gui, 'CountsWidget', stretch=(1, 1)),
-                    'Planescan' : MainWidgetItem(experiment_gui, 'PlaneScanWidget', stretch=(1, 1)),
-                    'Wide Field ODMR': MainWidgetItem(experiment_gui, 'WideFieldWidget', stretch=(1, 1)),
-                    'Spatial Feedback': MainWidgetItem(experiment_gui, 'SpatialFeedbackWidget', stretch=(1, 1)),
-                    'Pictures': MainWidgetItem(experiment_gui, 'PicturesWidget', stretch=(1, 1)),
+                    'Counts vs Time' : MainWidgetItem(counts_exp_gui, 'CountsWidget', stretch=(1, 1)),
+                    'Planescan' : MainWidgetItem(planescan_exp_gui, 'PlaneScanWidget', stretch=(1, 1)),
+                    'Wide Field ODMR': MainWidgetItem(widefield_odmr_exp_gui, 'WideFieldWidget', stretch=(1, 1)),
+                    'Spatial Feedback': MainWidgetItem(spatial_feedback_exp_gui, 'SpatialFeedbackWidget', stretch=(1, 1)),
+                    'Pictures': MainWidgetItem(picture_exp_gui, 'PicturesWidget', stretch=(1, 1)),
+                    'Confocal ODMR': MainWidgetItem(confocal_odmr_exp_gui, 'ConfocalODMRWidget', stretch=(1, 1)),
                     },
                 
                 'Plotting' : {
-                    'Flex Line Plot': MainWidgetItem(experiment_gui, 'CountsPlotWidget', stretch=(1, 1)),
-                    'Heat Map': MainWidgetItem(experiment_gui, 'PlaneScanHeatMapWidget', stretch=(1, 1)),
+                    'Counts Flex Line Plot': MainWidgetItem(counts_exp_gui, 'CountsPlotWidget', stretch=(1, 1)),
+                    'Plane Scan Heat Map': MainWidgetItem(planescan_exp_gui, 'PlaneScanHeatMapWidget', stretch=(1, 1)),
+                    'Pictures Heat Map': MainWidgetItem(picture_exp_gui, 'PicturesHeatMapWidget', stretch=(1, 1)),
+                    'Wide Field ODMR Flex Line Plot': MainWidgetItem(widefield_odmr_exp_gui, 'CountsPlotWidget', stretch=(1, 1)),
                 }
             }
         )
