@@ -97,4 +97,4 @@ class CountsPlotWidget(FlexLinePlotWidget):
         # set the legend location
         legend.setOffset((-10, -50))
 
-        self.datasource_lineedit.setText('counts v time')
+        self.datasource_lineedit.setText('counts')

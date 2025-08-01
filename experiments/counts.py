@@ -66,6 +66,8 @@ class CountsTime:
         """
         ## Set up experiment parameters
         self.n_points = n_points
+        self.ns_probe_time = int(probe_time * 1e9)
+        self.ns_clock_time = int(clock_time * 1e9)
         self.probe_time = probe_time
         self.clock_time = clock_time
 
@@ -118,7 +120,7 @@ class CountsTime:
 
     def create_sequence(self, mgr):
         seq = mgr.Pulser.create_sequence()
-        clock_pulse = [(self.clock_time,1),(self.probe_time-self.clock_time,0)] ##ensure clock_time in nanoseconds
+        clock_pulse = [(self.ns_clock_time,1),(self.ns_probe_time-self.ns_clock_time,0)] ##ensure clock_time in nanoseconds
         clock = clock_pulse * (self.n_points+1)
         print("Clock sequence:", clock)
         seq.setDigital(mgr.Pulser.channel_dict['clock'], clock)
@@ -131,7 +133,7 @@ class CountsTime:
         if mgr.DAQCounter.buffer is None:
             raise ValueError("Buffer is not initialized.")
         # Convert the buffer to a numpy array
-        all_data = mgr.DAQCounter.buffer[1:] - mgr.DAQCounter.buffer[0:-1]
+        all_data = np.array(mgr.DAQCounter.buffer[1:] - mgr.DAQCounter.buffer[0:-1])
         data = np.sum(all_data)/ (self.probe_time * self.n_points)  #counts per second
         return data
 
@@ -141,6 +143,7 @@ class CountsTime:
         """Finalize the experiment."""
         mgr.Pulser.set_state_off()
         mgr.DAQCounter.finalize()
+        print("FINALIZE")
 
     def start_stream_read(self, mgr, sequence, n_runs = 1, timeout = 10):
         """

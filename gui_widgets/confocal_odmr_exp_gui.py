@@ -3,23 +3,14 @@ import numpy as np
 from nspyre import FlexLinePlotWidget
 from nspyre import ExperimentWidget
 from nspyre import DataSink
-from pyqtgraph import SpinBox
 from pyqtgraph.Qt import QtWidgets
 from PyQt6.QtWidgets import QSpinBox, QLineEdit, QCheckBox
 import experiments.counts_new
 from special_widgets import unit_widgets
-from nspyre import InstrumentManager
-#from special_widgets.experiment_widget import ExperimentWidget
-from nspyre import DataSource
-import experiments.counts
-import experiments.planescan
-import experiments.WFODMR
-import experiments.spatialfb
-import experiments.counts_new
-import experiments.picture
-import experiments.WFTracking
+from pyqtgraph import SpinBox
 
 import experiments.confocalODMR
+import sys
 
 import pyqtgraph as pg
 
@@ -39,6 +30,7 @@ get_param_value_funs={
             unit_widgets.FlexiblePointWidget: lambda w: w.get_points(),
         }
 
+MAXIMUM=2147483647
 class ConfocalODMRWidget(ExperimentWidget):
     def __init__(self):
         from PyQt6.QtWidgets import QLineEdit, QSpinBox, QCheckBox, QComboBox
@@ -51,7 +43,7 @@ class ConfocalODMRWidget(ExperimentWidget):
         runs_sb = QSpinBox()
         runs_sb.setMinimum(1)
         
-        runs_sb.setMaximum(None)
+        runs_sb.setMaximum(MAXIMUM)
         runs_sb.setValue(1000)
         
         timeout_sb = QSpinBox()
@@ -60,7 +52,7 @@ class ConfocalODMRWidget(ExperimentWidget):
         
         sweeps_sb = QSpinBox()
         sweeps_sb.setMinimum(1)
-        sweeps_sb.setMaximum(None)
+        sweeps_sb.setMaximum(MAXIMUM)
         sweeps_sb.setValue(10)
 
 
@@ -75,7 +67,7 @@ class ConfocalODMRWidget(ExperimentWidget):
         
         sweeps_til_fb_sb = QSpinBox()
         sweeps_til_fb_sb.setMinimum(1)
-        sweeps_til_fb_sb.setMaximum(None)
+        sweeps_til_fb_sb.setMaximum(MAXIMUM)
         sweeps_til_fb_sb.setValue(6)
         
         starting_point_cb = QComboBox()
@@ -94,10 +86,19 @@ class ConfocalODMRWidget(ExperimentWidget):
         repeat_minutes_sb.setMaximum(None)
         repeat_minutes_sb.setDecimals(3)
 
-        rf_amplitude_sb = SpinBox()
+        rf_amplitude_sb = QSpinBox()
         rf_amplitude_sb.setMinimum(-100)
         rf_amplitude_sb.setMaximum(7)
         rf_amplitude_sb.setValue(-20)
+
+        feedback_cb=QCheckBox()
+        feedback_cb.setChecked(True)
+
+        dozfb_cb=QCheckBox()
+        dozfb_cb.setChecked(True)
+
+        count_step_shrink_sb=QSpinBox()
+        count_step_shrink_sb.setMinimum(1)
 
         
         # Build the parameter configuration dictionary using only display_text and widget.
@@ -159,13 +160,9 @@ class ConfocalODMRWidget(ExperimentWidget):
                 'display_text': 'Laser Lag',
                 'widget': unit_widgets.SecLineEdit(80e-9)
             },
-            'laser_pause': {
-                'display_text': 'Laser Pause',
-                'widget': unit_widgets.SecLineEdit(3e-7)
-            },
             'cooldown_time': {
                 'display_text': 'Cooldown Time',
-                'widget': unit_widgets.SecLineEdit(50e-6)
+                'widget': unit_widgets.SecLineEdit(5e-6)
             },
             'sequence': {
                 'display_text': 'Sequence',
@@ -173,11 +170,11 @@ class ConfocalODMRWidget(ExperimentWidget):
             },
             'feedback': {
                 'display_text': 'Feedback',
-                'widget': QCheckBox()
+                'widget': feedback_cb
             },
             'dozfb': {
-                'display_text': 'Do ZFB',
-                'widget': QCheckBox()
+                'display_text': 'Z Feedback',
+                'widget': dozfb_cb
             },
             'sweeps_til_fb': {
                 'display_text': 'Sweeps Till Feedback',
@@ -190,11 +187,11 @@ class ConfocalODMRWidget(ExperimentWidget):
             
             'xyz_step': {
                 'display_text': 'XYZ Step',
-                'widget': unit_widgets.MLineEdit(60e-9)
+                'widget': unit_widgets.MLineEdit(45e-9)
             },
             'count_step_shrink': {
                 'display_text': 'Count Step Shrink',
-                'widget': QSpinBox()
+                'widget': count_step_shrink_sb
             },
             'starting_point': {
                 'display_text': 'Starting Point',

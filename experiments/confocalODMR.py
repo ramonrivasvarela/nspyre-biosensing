@@ -261,7 +261,6 @@ class ConfocalODMR():
         frequency: str ="( 2.82e9, 2.92e9, 30)",
         rf_amplitude: float = -20,
         laser_lag: float = 80e-9,
-        laser_pause: float = 3e-7,
         cooldown_time: float = 5e-6,
         probe_time: float = 50e-6,
         clock_duration: float = 10e-9,
@@ -282,7 +281,7 @@ class ConfocalODMR():
             # Initialize the experiment parameters
             self.initialize(
                 mgr, device, channel1, sampling_rate, PS_clk_channel, runs, repetitions,
-                sweeps, mode, frequency, rf_amplitude, laser_lag, laser_pause,
+                sweeps, mode, frequency, rf_amplitude, laser_lag,
                 cooldown_time, probe_time, clock_duration, timeout,
                 sequence, data_download
             )
@@ -316,7 +315,6 @@ class ConfocalODMR():
                                 'frequency': frequency,
                                 'rf_amplitude': rf_amplitude,
                                 'laser_lag': laser_lag,
-                                'laser_pause': laser_pause,
                                 'cooldown_time': cooldown_time,
                                 'probe_time': probe_time,
                                 'clock_duration': clock_duration,
@@ -372,7 +370,7 @@ class ConfocalODMR():
             return [sum1, sum2]
             
     def initialize(self, mgr, device, channel1, sampling_rate, PS_clk_channel, runs, repetitions,
-                    sweeps, mode, frequency, rf_amplitude, laser_lag, laser_pause, cooldown_time,
+                    sweeps, mode, frequency, rf_amplitude, laser_lag, cooldown_time,
                     probe_time, clock_duration, timeout,
                     sequence, data_download, 
                     ):
@@ -390,7 +388,6 @@ class ConfocalODMR():
         self.point_num = len(self.frequency)
         self.ns_laser_lag = int(round(laser_lag*1e9))
         self.ns_clock_duration = int(round(clock_duration*1e9)) #width of our clock pulse.
-        self.ns_laser_pause = int(round(laser_pause*1e9)) #time
         self.ns_cooldown_time = int(round(cooldown_time*1e9)) #time to wait after laser pulse
         
         ## create parameters
@@ -584,11 +581,7 @@ class ConfocalODMR():
         # stream n_runs amount of repetitions (spyrelet specific)
         t1 = time.time()
         print('t0, time between setting frequency and streaming:', t1 - t0)
-        import pickle 
-        import os
-        print(os.getcwd())
-        with open('_Uri_Examples\\seq.pkl', 'wb') as file:
-            pickle.dump(self.seqs, file)
+        
 
         mgr.Pulser.stream_sequence(self.seqs[self.index], int(n_runs)) #1  #int(n_runs)    -1
         ## read into buffer
