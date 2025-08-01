@@ -204,6 +204,10 @@ class ConfocalODMRWidget(ExperimentWidget):
             'mode': {
                 'display_text': 'Mode',
                 'widget': mode_cb
+            },
+            'dataset':{
+                'display_text':'Data Set',
+                'widget':QLineEdit('odmr')
             }
         }
         
@@ -215,3 +219,19 @@ class ConfocalODMRWidget(ExperimentWidget):
             title='Confocal ODMR',
             get_param_value_funs=get_param_value_funs
         )
+
+class ConfocalODMRPlotWidget(FlexLinePlotWidget):
+    """Add some default settings to the FlexSinkLinePlotWidget."""
+    def __init__(self):
+        super().__init__()
+        # create some default signal plots
+        self.add_plot('Series',        series='series',   scan_i='',     scan_j='',  processing='Append')
+        self.add_plot('Background',        series='background',   scan_i='',     scan_j='',  processing='Append')
+
+
+        # retrieve legend object
+        legend = self.line_plot.plot_widget.addLegend()
+        # set the legend location
+        legend.setOffset((-10, -50))
+
+        self.datasource_lineedit.setText('odmr')
