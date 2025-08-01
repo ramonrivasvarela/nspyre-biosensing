@@ -54,6 +54,7 @@ def main():
 
 
                 mgr.XYZcontrol.reset_and_finalize()
+                mgr.DAQCounter.finalize()
 
             if pulser_activation_boolean:
                 mgr.Pulser.set_state_off()
@@ -90,6 +91,7 @@ def main():
                     'Plane Scan Heat Map': MainWidgetItem(planescan_exp_gui, 'PlaneScanHeatMapWidget', stretch=(1, 1)),
                     'Pictures Heat Map': MainWidgetItem(picture_exp_gui, 'PicturesHeatMapWidget', stretch=(1, 1)),
                     'Wide Field ODMR Flex Line Plot': MainWidgetItem(widefield_odmr_exp_gui, 'WFODMRPlotWidget', stretch=(1, 1)),
+                    'Confocal ODMR Flex Line Plot': MainWidgetItem(confocal_odmr_exp_gui, 'ConfocalODMRPlotWidget', stretch=(1, 1))
                 }
             }
         )

@@ -275,9 +275,9 @@ class ConfocalODMR():
         xyz_step: float = 60e-9,
         count_step_shrink: int = 2,
         starting_point: str = "current_position (ignore input)",
-        data_source: str = "confocal_odmr"
+        dataset: str = "odmr"
     ):
-        with InstrumentManager() as mgr, DataSource(data_source) as datasource:
+        with InstrumentManager() as mgr, DataSource(dataset) as datasource:
             # Initialize the experiment parameters
             self.initialize(
                 mgr, device, channel1, sampling_rate, PS_clk_channel, runs, repetitions,
@@ -285,12 +285,15 @@ class ConfocalODMR():
                 cooldown_time, probe_time, clock_duration, timeout,
                 sequence, data_download
             )
+            plots_data={}
             signal=StreamingList(np.array([np.array([f]), np.array([0])]) for f in self.frequency)
             background=StreamingList(np.array([np.array([f]), np.array([0])]) for f in self.frequency)
             n_freq=len(self.frequency)
 
             for rep in range(repetitions):        
                 for sweep in range(sweeps):
+                    plots_data[f"signal_{rep+1}_{sweep+1}"]=StreamingList()
+                    plots_data[f"background_{rep+1}_{sweep+1}"]=StreamingList()
                     if feedback and (sweep % sweeps_til_fb == 0) and (sweep > 0):
                         self.run_feedback(starting_point, dozfb, xyz_step, count_step_shrink) 
                     for i in range(n_freq):
@@ -299,8 +302,10 @@ class ConfocalODMR():
                         self.t0 = time.time()                   
                         sg, bg = self.read_odmr(mgr, self.runs, self.buffers, self.index, self.t0)
 
-
+                        plots_data[f"signal_{rep+1}_{sweep+1}"].append(np.array([np.array([self.frequency[i]]), np.array([sg])]))
+                        plots_data[f"background_{rep+1}_{sweep+1}"].append(np.array([np.array([self.frequency[i]]), np.array([bg])]))
                         signal[i][1][0]=(sg+signal[i][1][0]*accumulations)/(accumulations+1) # accumulate the signal
+                        signal
                         background[i][1][0]=(bg+background[i][1][0]*accumulations)/(accumulations+1) # accumulate the background    
                         datasource.push({
                             'params':{
@@ -328,7 +333,7 @@ class ConfocalODMR():
                                 'xyz_step': xyz_step,
                                 'count_step_shrink': count_step_shrink,
                                 'starting_point': starting_point,
-                                'data_source': data_source
+                                'dataset': dataset
 
                             },
                             'x_label': 'Frequency (Hz)',
