@@ -140,6 +140,14 @@ class DAQCounter:
         data = np.sum(all_data)/ ((self.n_samples+1)*probe_time )
         return data
     
+    def read_to_data(self,probe_time, timeout=10.0):
+        """
+        Read samples from the counter channel into the buffer and convert to data.
+        Returns the data as a float.
+        """
+        self.read(timeout)
+        return self.buffer_to_data(probe_time)
+    
     
     # def start_stream_read(self, pulses, sequence, n_runs = 1, timeout = 10):
     #     """
