@@ -113,6 +113,8 @@ class DAQCounter:
         """
         Start the counter task.
         """
+        if self.buffer is None:
+            raise RuntimeError("Buffer not created. Call create_buffer() before starting the stream read.")
         if self.read_task is not None:
             self.read_task.start()
 
@@ -130,6 +132,13 @@ class DAQCounter:
             print('something wrong: buffer issue')
         self.read_task.stop() 
         return 
+    
+    def buffer_to_data(self, probe_time):
+        if self.buffer is None:
+            raise ValueError("Buffer is not initialized.")
+        all_data = np.array(self.buffer[1:] - self.buffer[0:-1])
+        data = np.sum(all_data)/ ((self.n_samples+1)*probe_time )
+        return data
     
     
     # def start_stream_read(self, pulses, sequence, n_runs = 1, timeout = 10):

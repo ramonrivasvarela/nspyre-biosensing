@@ -82,9 +82,14 @@ class CountsTime:
             start_t = time.time()
             while True:
                 ## Start, Stream, Read. Data will be in the buffer
-                self.start_stream_read(mgr, seq)
+                mgr.DAQCounter.start()
+                time.sleep(1)
+                mgr.Pulser.stream_sequence(seq, 1)
+                
+                mgr.DAQCounter.read()
 
-                data = self.buffer_to_data(mgr)
+
+                data = mgr.DAQCounter.buffer_to_data(self.probe_time)
 
 
                 APD_counts.append(np.array([np.array([time.time()-start_t]),np.array([data])]))
@@ -126,16 +131,6 @@ class CountsTime:
         seq.setDigital(mgr.Pulser.channel_dict['clock'], clock)
         return seq
 
-    #### EXPERIMENTAL LOOP METHODS
-
-    def buffer_to_data(self, mgr):
-        """ Convert the buffer to data. Not particularly interesting here, but more relevant for more complex experiments."""
-        if mgr.DAQCounter.buffer is None:
-            raise ValueError("Buffer is not initialized.")
-        # Convert the buffer to a numpy array
-        all_data = np.array(mgr.DAQCounter.buffer[1:] - mgr.DAQCounter.buffer[0:-1])
-        data = np.sum(all_data)/ (self.probe_time * self.n_points)  #counts per second
-        return data
 
     #### FINALIZATION METHODS
 
@@ -144,40 +139,3 @@ class CountsTime:
         mgr.Pulser.set_state_off()
         mgr.DAQCounter.finalize()
         print("FINALIZE")
-
-    def start_stream_read(self, mgr, sequence, n_runs = 1, timeout = 10):
-        """
-        start, stream, and read from a single method by passing in the pulse streamer and all of its arguments.
-        pulses: PulseStreamer instance
-        sequence: Sequence object to stream
-        n_runs: number of runs to stream, to pass to the PulseStreamer
-        timeout: timeout for reading samples
-        """
-        if mgr.DAQCounter.buffer is None:
-            raise RuntimeError("Buffer not created. Call create_buffer() before starting the stream read.")
-
-        if mgr.DAQCounter.read_task is not None:
-            mgr.DAQCounter.read_task.start()
-
-        time.sleep(1)  # Give time to start acquisition
-        # print(mgr.DAQCounter.sampling_rate)
-        mgr.Pulser.stream_sequence(sequence, n_runs)
-
-        
-
-        num_samps = mgr.DAQCounter.reader.read_many_sample_uint32(
-            mgr.DAQCounter.buffer,
-            number_of_samples_per_channel= self.n_points+1,
-            timeout= timeout
-        )
-
-        if num_samps < mgr.DAQCounter.n_samples:
-            raise RuntimeError('Something went wrong: buffer issue, not enough samples read.')
-        mgr.DAQCounter.read_task.stop() 
-        return 
-
-
-
-
-
-
