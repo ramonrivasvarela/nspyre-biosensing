@@ -50,7 +50,9 @@ class ConfocalODMRWidget(ExperimentWidget):
         
         runs_sb = QSpinBox()
         runs_sb.setMinimum(1)
-        runs_sb.setValue(1)
+        
+        runs_sb.setMaximum(None)
+        runs_sb.setValue(1000)
         
         timeout_sb = QSpinBox()
         timeout_sb.setMinimum(0)
@@ -58,7 +60,10 @@ class ConfocalODMRWidget(ExperimentWidget):
         
         sweeps_sb = QSpinBox()
         sweeps_sb.setMinimum(1)
-        sweeps_sb.setValue(1)
+        sweeps_sb.setMaximum(None)
+        sweeps_sb.setValue(10)
+
+
         
         repetitions_sb = QSpinBox()
         repetitions_sb.setMinimum(1)
@@ -70,7 +75,8 @@ class ConfocalODMRWidget(ExperimentWidget):
         
         sweeps_til_fb_sb = QSpinBox()
         sweeps_til_fb_sb.setMinimum(1)
-        sweeps_til_fb_sb.setValue(10)
+        sweeps_til_fb_sb.setMaximum(None)
+        sweeps_til_fb_sb.setValue(6)
         
         starting_point_cb = QComboBox()
         starting_point_cb.addItems(['user_input', 'current_position (ignore input)'])
@@ -80,19 +86,17 @@ class ConfocalODMRWidget(ExperimentWidget):
         mode_cb.addItems(['QAM', 'AM'])
         mode_cb.setCurrentText('QAM')
 
-        sampling_rate_sb=QSpinBox()
-        sampling_rate_sb.setMinimum(1)
-        sampling_rate_sb.setMaximum(1000000)  # Set a reasonable maximum
-        sampling_rate_sb.setValue(50000)
+        sampling_rate_sb=unit_widgets.HzLineEdit(50000)
 
         repeat_minutes_sb = SpinBox()
         repeat_minutes_sb.setValue(0)
         repeat_minutes_sb.setMinimum(0)
+        repeat_minutes_sb.setMaximum(None)
         repeat_minutes_sb.setDecimals(3)
 
         rf_amplitude_sb = SpinBox()
         rf_amplitude_sb.setMinimum(-100)
-        rf_amplitude_sb.setMaximum(0)
+        rf_amplitude_sb.setMaximum(7)
         rf_amplitude_sb.setValue(-20)
 
         
@@ -137,7 +141,7 @@ class ConfocalODMRWidget(ExperimentWidget):
             },
             'frequency': {
                 'display_text': 'Frequency',
-                'widget': QLineEdit("(2.82e9, 2.92e9, 30)")
+                'widget': QLineEdit("(2.84e9, 2.90e9, 30)")
             },
             'rf_amplitude': {
                 'display_text': 'RF Amplitude',
@@ -145,7 +149,7 @@ class ConfocalODMRWidget(ExperimentWidget):
             },
             'probe_time': {
                 'display_text': 'Probe Time',
-                'widget': unit_widgets.SecLineEdit(0.1)
+                'widget': unit_widgets.SecLineEdit(100e-6)
             },
             'clock_duration': {
                 'display_text': 'Clock Duration',
@@ -161,7 +165,7 @@ class ConfocalODMRWidget(ExperimentWidget):
             },
             'cooldown_time': {
                 'display_text': 'Cooldown Time',
-                'widget': unit_widgets.SecLineEdit(5e-6)
+                'widget': unit_widgets.SecLineEdit(50e-6)
             },
             'sequence': {
                 'display_text': 'Sequence',
@@ -179,18 +183,11 @@ class ConfocalODMRWidget(ExperimentWidget):
                 'display_text': 'Sweeps Till Feedback',
                 'widget': sweeps_til_fb_sb
             },
-            'x_initial': {
-                'display_text': 'X Initial',
-                'widget': unit_widgets.MLineEdit(0.0)
-            },
-            'y_initial': {
-                'display_text': 'Y Initial',
-                'widget': unit_widgets.MLineEdit(0.0)
-            },
-            'z_initial': {
-                'display_text': 'Z Initial',
-                'widget': unit_widgets.MLineEdit(0.0)
-            },
+            # 'initial_position': {
+            #     'display_text': 'Initial Position',
+            #     'widget': unit_widgets.PointWidget(0.0, 0.0, 0.0)
+            # },
+            
             'xyz_step': {
                 'display_text': 'XYZ Step',
                 'widget': unit_widgets.MLineEdit(60e-9)

@@ -127,12 +127,12 @@ class PlaneScan:
             # we reassign the origin vector, so that it starts at the bottom of the z-stack range
             
             #print(z_stack)
-            heatmap = np.zeros((extent_steps + 1, line_scan_steps))
-            if snake_scan:
-                heatmap= np.zeros((extent_steps + 1, line_scan_steps))
-            _logger.info(f"heatmap shape: {heatmap.shape}")
-            heatmap_dataset = StreamingList()
-            heatmap_dataset.append(heatmap.copy())
+            # heatmap = np.zeros((extent_steps + 1, line_scan_steps))
+            # if snake_scan:
+            #     heatmap= np.zeros((extent_steps + 1, line_scan_steps))
+            # _logger.info(f"heatmap shape: {heatmap.shape}")
+            # heatmap_dataset = StreamingList()
+            # heatmap_dataset.append(heatmap.copy())
             scan_vals = np.linspace(
                             adjust_line,
                             np.linalg.norm(scan_vector) + adjust_line,
@@ -161,7 +161,9 @@ class PlaneScan:
                 scan_vals=scan_vals
             self.initialize(mgr, ctr_ch, acq_rate)
             origin = origin - stack_vector * z_stack
+            datasets={}
             for z in range(stack_count):
+                datasets[f"stack_{z+1}"]= np.zeros((extent_steps + 1, line_scan_steps)) 
                 origin = origin + stack_vector
                 for rep in range(repetitions):
                     print(origin)
@@ -195,9 +197,7 @@ class PlaneScan:
                             
                             
                         counts = rpyc.utils.classic.obtain(line_data)
-                        heatmap[s, :] = heatmap[s, :] + counts
-                        heatmap_dataset[0]=heatmap.copy()
-                        heatmap_dataset.updated_item(-1)
+                        datasets[f"stack_{z+1}"][s, :] = datasets[f"stack_{z+1}"][s, :] + counts
                         ## scan_vals contains the x values corresponding to the line scan data
                         
                         #stack_pos= (z - z_stack + 1) * np.linalg.norm(stack_vector) + adjust_step
@@ -225,10 +225,7 @@ class PlaneScan:
                             'name': 'Heatmap',
                             'xs': scan_vals,
                             'ys': step_vals,
-                            'datasets': {
-                                # streaming list holds updated heatmap frames
-                                'heatmap': heatmap,
-                            }
+                            'datasets': datasets
                         })
 
 

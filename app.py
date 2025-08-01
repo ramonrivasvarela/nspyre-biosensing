@@ -24,8 +24,7 @@ from gui_widgets import experiment_gui
 from gui_widgets import camera_gui
 from gui_widgets import counts_exp_gui, picture_exp_gui, planescan_exp_gui, widefield_odmr_exp_gui, confocal_odmr_exp_gui, spatial_feedback_exp_gui
 
-from drivers.insmgr import MyInstrumentManager
-from nspyre import InstrumentManager
+from nspyre import InstrumentManager, InstrumentGatewayError
 
 
 from instrument_activation import xyz_activation_boolean, pulser_activation_boolean, sg_activation_boolean, dlnsec_activation_boolean, camera_activation_boolean
@@ -46,15 +45,16 @@ def main():
     with InstrumentManager() as mgr:
         app = nspyreApp()
         if xyz_activation_boolean:
-            mgr.XYZcontrol.initialize()
-            print("Initialized XYZ control.")
+
+            mgr.XYZcontrol.initialize()               # long hardware init
+
         def app_close_event():
             print("Application is closing...")
             if xyz_activation_boolean:
-                try:
-                    mgr.XYZcontrol.reset_and_finalize()
-                except Exception as e:
-                    print(f"Error finalizing XYZ control: {e}")
+
+
+                mgr.XYZcontrol.reset_and_finalize()
+
             if pulser_activation_boolean:
                 mgr.Pulser.set_state_off()
             if sg_activation_boolean:
@@ -89,7 +89,7 @@ def main():
                     'Counts Flex Line Plot': MainWidgetItem(counts_exp_gui, 'CountsPlotWidget', stretch=(1, 1)),
                     'Plane Scan Heat Map': MainWidgetItem(planescan_exp_gui, 'PlaneScanHeatMapWidget', stretch=(1, 1)),
                     'Pictures Heat Map': MainWidgetItem(picture_exp_gui, 'PicturesHeatMapWidget', stretch=(1, 1)),
-                    'Wide Field ODMR Flex Line Plot': MainWidgetItem(widefield_odmr_exp_gui, 'CountsPlotWidget', stretch=(1, 1)),
+                    'Wide Field ODMR Flex Line Plot': MainWidgetItem(widefield_odmr_exp_gui, 'WFODMRPlotWidget', stretch=(1, 1)),
                 }
             }
         )

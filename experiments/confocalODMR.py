@@ -143,7 +143,7 @@ class BaseFeedbackSpyrelet():
         ## turns off instruments
         mgr.sg.set_rf_toggle(False)
         mgr.sg.set_mod_toggle(False)
-        self.Pulser.set_state_off()
+        mgr.Pulser.set_state_off()
         
         ## saves the data to an excel sheet.
         # if data_download:
@@ -194,7 +194,7 @@ class BaseFeedbackSpyrelet():
         ## stop the task and the pulse streaming
         print('t2, time between starting to read and closing the task:', time.time() - t2)
         self.read_tasks[buffer_idx].stop() 
-        self.Pulser.set_state_off()
+        mgr.Pulser.set_state_off()
         ## perform the math of the specific spyrelet.
         math_output = self.math_odmr(buffers[buffer_idx])
         signal = math_output
@@ -204,7 +204,7 @@ class BaseFeedbackSpyrelet():
         
     
 
-class ConfocalODMR(BaseFeedbackSpyrelet):
+class ConfocalODMR():
 
     """
     We run two windows: one with our MW on and the other with the MW off.
@@ -272,7 +272,7 @@ class ConfocalODMR(BaseFeedbackSpyrelet):
         feedback: bool = False,
         dozfb: bool = True,
         sweeps_til_fb: int = 10,
-        initial_position: dict = {'x': 0.0, 'y': 0.0, 'z': 0.0},
+        # initial_position: dict = {'x': 0.0, 'y': 0.0, 'z': 0.0},
         xyz_step: float = 60e-9,
         count_step_shrink: int = 2,
         starting_point: str = "current_position (ignore input)",
@@ -287,18 +287,20 @@ class ConfocalODMR(BaseFeedbackSpyrelet):
                 sequence, data_download
             )
             signal=StreamingList(np.array([np.array([f]), np.array([0])]) for f in self.frequency)
-            background=StreamingList()
+            background=StreamingList(np.array([np.array([f]), np.array([0])]) for f in self.frequency)
             n_freq=len(self.frequency)
 
             for rep in range(repetitions):        
                 for sweep in range(sweeps):
                     if feedback and (sweep % sweeps_til_fb == 0) and (sweep > 0):
-                        self.run_feedback(initial_position, starting_point, dozfb, xyz_step, count_step_shrink) 
+                        self.run_feedback(starting_point, dozfb, xyz_step, count_step_shrink) 
                     for i in range(n_freq):
                         accumulations=rep*sweeps+ sweep
                         mgr.sg.set_frequency(self.frequency[i])
                         self.t0 = time.time()                   
                         sg, bg = self.read_odmr(mgr, self.runs, self.buffers, self.index, self.t0)
+
+
                         signal[i][1][0]=(sg+signal[i][1][0]*accumulations)/(accumulations+1) # accumulate the signal
                         background[i][1][0]=(bg+background[i][1][0]*accumulations)/(accumulations+1) # accumulate the background    
                         datasource.push({
@@ -324,7 +326,7 @@ class ConfocalODMR(BaseFeedbackSpyrelet):
                                 'feedback': feedback,
                                 'dozfb': dozfb,
                                 'sweeps_til_fb': sweeps_til_fb,
-                                'initial_position': initial_position,
+                                # 'initial_position': initial_position,
                                 'xyz_step': xyz_step,
                                 'count_step_shrink': count_step_shrink,
                                 'starting_point': starting_point,
@@ -372,7 +374,7 @@ class ConfocalODMR(BaseFeedbackSpyrelet):
     def initialize(self, mgr, device, channel1, sampling_rate, PS_clk_channel, runs, repetitions,
                     sweeps, mode, frequency, rf_amplitude, laser_lag, laser_pause, cooldown_time,
                     probe_time, clock_duration, timeout,
-                    sequence, data_download
+                    sequence, data_download, 
                     ):
         
         ## create self parameters
@@ -411,9 +413,64 @@ class ConfocalODMR(BaseFeedbackSpyrelet):
             print('sampling rate must be equal or larger than 1/probe_time')
             return
 
-        ## initialize base spyrelet
-        super().initialize(mgr, device, self.buffers, PS_clk_channel,
-                           sampling_rate,data_download) #time_per_point,
+        ## define class parameters
+        self.sampling_rate = sampling_rate
+        self.read_tasks = []
+        self.readers = []
+        self.n_chan = 0
+        
+        ## PFI channels corresponding to selected ctr (can be reprogrammed)
+        ctrs_pfis = {
+                    'ctr0': 'PFI8',
+                    'ctr1': 'PFI3',
+                    'ctr2': 'PFI0',
+                    'ctr3': 'PFI5',
+        }
+        
+        ## set up external clock channel. When this clock ticks, data is read from the counter channel
+        self.clk_channel = '/' + device + '/' + PS_clk_channel
+        
+        ## set up read channels and stream readers by looping through the collection channels (currently only 1)
+        for i,buffer in enumerate(self.buffers): # currently only one collection channel  
+            print('buffer size from super class which determines # of samples in clock aquisition:', len(buffer)) 
+            ## defines the ctr channel
+            dev_channel = device + '/' + self.channel
+            
+            ## create the read task for each counter channel
+            self.read_tasks.append(nidaqmx.Task())
+            self.read_tasks[i].ci_channels.add_ci_count_edges_chan(
+                                    dev_channel,
+                                    edge=Edge.RISING,
+                                    initial_count=0,
+                                    count_direction=CountDirection.COUNT_UP
+            )
+            
+            ## this is superfluous if the PFI channels are the default options
+            PFI = ctrs_pfis[self.channel]
+            pfi_channel = '/' + device + '/' + PFI
+            self.read_tasks[i].ci_channels.all.ci_count_edges_term = pfi_channel
+            
+            ## set up read_task timing by external PS clock (triggers automatically when tasks starts)
+            self.read_tasks[i].timing.cfg_samp_clk_timing(
+                                    self.sampling_rate, # must be equal or larger than max rate expected by PS
+                                    source= self.clk_channel,
+                                    sample_mode=AcquisitionType.FINITE, #CONTINUOUS, # can also limit the number of points
+                                    samps_per_chan= len(buffer)
+            )
+            
+            #print('sampling rate:', self.sampling_rate)
+            
+            ## create counter stream object 
+            self.readers.append(CounterReader(self.read_tasks[i].in_stream))
+            
+                
+        ##the last thing we do is initialize our signal generator.
+        ## arbitrarily, I set the sg frequency before turning it on to ensure
+        ## there's no dummy value damage.
+        mgr.sg.mod_type = 'QAM'
+        mgr.sg.rf_toggle = True
+        mgr.sg.mod_toggle = True
+        mgr.sg.mod_function = 'external'
         
         if mode == 'QAM':
             mgr.sg.set_mod_type('QAM')
@@ -431,24 +488,135 @@ class ConfocalODMR(BaseFeedbackSpyrelet):
                     data_download):
         
         ## finalizing base spyrelet
-        super().finalize(mgr, device, self.buffers, PS_clk_channel,
-                         sampling_rate,data_download) #time_per_point,             
+        ## stop and close all tasks
+        for i,read_task in enumerate(self.read_tasks):
+            #time.sleep(0.5)
+            #self.read_tasks[i].stop()
+            self.read_tasks[i].close()
+            #time.sleep(0.5)
+        
+        ## turns off instruments
+        mgr.sg.set_rf_toggle(False)
+        mgr.sg.set_mod_toggle(False)
+        mgr.Pulser.set_state_off()
+        
+        ## saves the data to an excel sheet.
+        # if data_download:
+        #     time_string = Dt.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+        #     print("name of spyrelet is", self.name+time_string)
+        #     save_excel(self.name)
+        #     print('data downloaded B)')
+        ## experiment finishes
+        print("FINALIZE")           
         return
 
 
     def setup_no_wait(self, mgr,mode):
         print('\n using sequence without wait time')
-        mgr.Pulser.ns_laser_lag = self.ns_laser_lag
-        mgr.Pulser.ns_read_time = self.ns_probe_time #laser time per window
-        mgr.Pulser.ns_clock_duration = self.ns_clock_duration #width of our clock pulse.
-        mgr.Pulser.runs = self.runs #number of runs per point
-        self.seqs = [mgr.Pulser.CWUriMRnew(mode)] #list of sequences to be compatible with read_odmr() and PulsedODMR class
+        # mgr.Pulser.ns_laser_lag = self.ns_laser_lag
+        # mgr.Pulser.ns_read_time = self.ns_probe_time #laser time per window
+        # mgr.Pulser.ns_clock_duration = self.ns_clock_duration #width of our clock pulse.
+        # mgr.Pulser.runs = self.runs #number of runs per point
+        self.seqs = [mgr.Pulser.ODMRNoWait(self.ns_probe_time, self.ns_clock_duration, self.ns_laser_lag, self.runs ,mode)] #list of sequences to be compatible with read_odmr() and PulsedODMR class
         
     ## still need to change this to new method
     def setup_ODMR_wait(self, mgr):
         print('\n using sequence with wait time')
-        mgr.Pulser.ns_laser_lag = self.ns_laser_lag
-        mgr.Pulser.ns_read_time = self.ns_probe_time
-        mgr.Pulser.ns_clock_duration = self.ns_clock_duration
-        mgr.Pulser.runs = self.runs #number of runs per point
-        self.seqs = [mgr.Pulser.ODMRHeatDissipation(self.ns_laser_pause, self.ns_cooldown_time)] #list of sequences to be compatible with read_odmr() and PulsedODMR class
+        # mgr.Pulser.ns_laser_lag = self.ns_laser_lag
+        # mgr.Pulser.ns_read_time = self.ns_probe_time
+        # mgr.Pulser.ns_clock_duration = self.ns_clock_duration
+        # mgr.Pulser.runs = self.runs #number of runs per point
+        self.seqs = [mgr.Pulser.ODMRHeatDissipation(self.ns_probe_time, self.ns_clock_duration, self.ns_laser_lag, self.runs , self.ns_cooldown_time)] #list of sequences to be compatible with read_odmr() and PulsedODMR class
+
+    def run_feedback(self,mgr, 
+                    starting_point:str='current_position (ignore input)',
+                    dozfb:bool=False, 
+                    xyz_step:float=60e-9, 
+                    count_step_shrink:int=2,
+                    #current_position=...
+                    ):
+                
+        feed_params = {
+            'starting_point': str(starting_point),
+            # 'position': position,
+            'do_z': dozfb,
+            'xyz_step': xyz_step,
+            'shrink_every_x_iter': count_step_shrink,
+        }
+        ## we make sure the laser is turned on.
+        mgr.Pulser.set_state([7],0.0,0.0)
+        
+        #Call feedback spyrelet
+        self.SpatialFB = SpatialFeedback(self.queue_to_exp, self.queue_from_exp)
+        self.SpatialFB.spatial_feedback(**feed_params)
+
+
+        ##space_data is the last line of data from spatialfeedbackxyz
+        
+        self.x_initial = mgr.XYZcontrol.get_x()
+        self.y_initial = mgr.XYZcontrol.get_y()
+        print('x:', self.x_initial)
+        print('y:', self.y_initial)
+        if dozfb:
+            self.z_initial = mgr.XYZcontrol.get_z()
+            print('z:', self.z_initial)
+            return self.x_initial, self.y_initial, self.z_initial
+        print(self.x_initial)
+        
+        return self.x_initial, self.y_initial
+
+
+        
+    ## ODMR spyrelets reads point by point, so for each read point: start task, start pulse streaming, 
+    ## and read samples to buffer, then stop the task and reset the pulse streaming 
+    def read_odmr(self, mgr, n_runs, buffers, buffer_idx, t0):
+                
+        self.read_tasks[buffer_idx].start()                
+        
+        ##printing quality control parameters
+        #####################################################
+        print('now in read function index:', self.index)
+        print('number of runs per point:', n_runs)
+        print('buffer length:', len(buffers[buffer_idx]))
+        # print('index:', self.index)
+        # print('sequence:', self.seqs[self.index])
+        #####################################################
+        # stream n_runs amount of repetitions (spyrelet specific)
+        t1 = time.time()
+        print('t0, time between setting frequency and streaming:', t1 - t0)
+        import pickle 
+        import os
+        print(os.getcwd())
+        with open('_Uri_Examples\\seq.pkl', 'wb') as file:
+            pickle.dump(self.seqs, file)
+
+        mgr.Pulser.stream_sequence(self.seqs[self.index], int(n_runs)) #1  #int(n_runs)    -1
+        ## read into buffer
+        t2 = time.time()
+        print('t1, time between streaming and reading:', t2 - t1)
+        ## time.sleep(100)
+        num_samps = self.readers[buffer_idx].read_many_sample_uint32(
+                buffers[buffer_idx],
+                number_of_samples_per_channel= len(buffers[buffer_idx]),
+                timeout= self.timeout
+        )
+        
+        ########################################################
+        #print('buffer length:', len(self.ni_ctr_sample_buffer))
+        #print('num_samps:', num_samps)
+        if num_samps < len(buffers[buffer_idx]):
+            print('something wrong: buffer issue')
+            return
+        ########################################################
+        
+        
+        ## stop the task and the pulse streaming
+        print('t2, time between starting to read and closing the task:', time.time() - t2)
+        self.read_tasks[buffer_idx].stop() 
+        mgr.Pulser.set_state_off()
+        ## perform the math of the specific spyrelet.
+        math_output = self.math_odmr(buffers[buffer_idx])
+        signal = math_output
+                
+        #print('signal:', signal)
+        return signal        

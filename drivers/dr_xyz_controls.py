@@ -43,16 +43,20 @@ class NIDAQMotionController():
     def initialize(self):
         if self.ao_motion_task is not None:
             self.finalize()
+        print("Creating motion task.")
         self.ao_motion_task = nidaqmx.Task('AO_Task')
+        print("Created motion task.")
         for name, ax in self.axes.items():
             kw = {}
             if ax.limits[0] is not None:
                 kw['min_val'] = ax.units_to_volts(ax.limits[0])
             if ax.limits[1] is not None:
                 kw['max_val'] = ax.units_to_volts(ax.limits[1])
+            print(f"Adding voltage chan for {name}")
             self.ao_motion_task.ao_channels.add_ao_voltage_chan(
                 ax.ch, name_to_assign_to_channel=name, **kw
             )
+            print(f"Added voltage chan for {name}")
 
     def finalize(self):
         # if self.ao_motion_task:

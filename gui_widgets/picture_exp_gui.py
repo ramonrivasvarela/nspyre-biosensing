@@ -11,15 +11,9 @@ from special_widgets import unit_widgets
 from nspyre import InstrumentManager
 #from special_widgets.experiment_widget import ExperimentWidget
 from nspyre import DataSource
-import experiments.counts
-import experiments.planescan
-import experiments.WFODMR
-import experiments.spatialfb
-import experiments.counts_new
-import experiments.picture
-import experiments.WFTracking
 
-import experiments.confocalODMR
+import experiments.picture
+
 
 import pyqtgraph as pg
 
@@ -59,7 +53,10 @@ class PicturesWidget(ExperimentWidget):
 class PicturesHeatMapWidget(HeatMapPlotWidget):
     """Add some default settings to the FlexSinkLinePlotWidget."""
     def __init__(self):
+        
+
         super().__init__()
                 # open in read-only mode; adjust dataset name if needed
 
         self.datasource_lineedit.setText('picture')
+        super().add_heatmap("Picture", "picture")

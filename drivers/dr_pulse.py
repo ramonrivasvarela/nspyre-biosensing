@@ -18,11 +18,7 @@ class PulserClass():
 ## Should change aom to laser
     def __init__(self, ip="10.135.70.127"):
 
-        self.ns_laser_lag= 80 #hard coded for now
-        self.ns_read_time=40
-        self.ns_clock_duration= 40
-        self.runs=1
-        self.ns_total_time = 0
+
         
         # create pulse streamer instance
         self.Pulser = PulseStreamer(ip)
@@ -272,12 +268,12 @@ class PulserClass():
 
 
 
-    def ODMRHeatDissipation(self, laser_recharge, wait_time):  
+    def ODMRHeatDissipation(self, ns_read_time, ns_clock_duration, ns_laser_lag, runs ,  wait_time):  
         #Developed by Tian-Xing at 20230720, for trainsent ODMR on WSP, for avoiding the Singlet Fission
         # laser_recharge is not used here, since we want to 'wait' after both sg and bg
         print('now setting up pulse sequence')
-        print('self.read_time:', self.read_time)
-        print('self.clock_time:',  self.clock_time)        
+        print('self.read_time:', ns_read_time)
+        print('self.clock_time:',  ns_clock_duration)        
         #self.laser_lag
         #self.laserLag_time = 80 #hard coded for now
         
@@ -288,24 +284,24 @@ class PulserClass():
         mwQ = []
         
         # Laser_lag repeating sequence
-        Laser_lag_laser = [(self.ns_laser_lag, 1)]
-        Laser_lag_clock = [(self.ns_laser_lag, 0)]
-        Laser_lag_mwI = [(self.ns_laser_lag, self.IQ0[0])]
-        Laser_lag_mwQ = [(self.ns_laser_lag, self.IQ0[1])]
+        Laser_lag_laser = [(ns_laser_lag, 1)]
+        Laser_lag_clock = [(ns_laser_lag, 0)]
+        Laser_lag_mwI = [(ns_laser_lag, self.IQ0[0])]
+        Laser_lag_mwQ = [(ns_laser_lag, self.IQ0[1])]
 
         # mwOn repeating sequence
         # TX Note: not sure setting the readout clock like this will work, becaues the odmr_math in the dr_psNew spyrelet seems incompatible with this
-        mwOn_laser = [(self.ns_read_time, 1)]
-        mwOn_clock = [(self.ns_clock_duration,1),(self.ns_read_time-2*self.ns_clock_duration,0),(self.ns_clock_duration,1)]
-        mwOn_mwI = [(self.ns_read_time, self.IQpx[0])]
-        mwOn_mwQ = [(self.ns_read_time, self.IQpx[1])]
+        mwOn_laser = [(ns_read_time, 1)]
+        mwOn_clock = [(ns_clock_duration,1),(ns_read_time-2*ns_clock_duration,0),(ns_clock_duration,1)]
+        mwOn_mwI = [(ns_read_time, self.IQpx[0])]
+        mwOn_mwQ = [(ns_read_time, self.IQpx[1])]
 
 
         # mwOff repeating sequence
-        mwOff_laser = [(self.ns_read_time, 1)]
-        mwOff_clock = [(self.ns_clock_duration,1),(self.ns_read_time-2*self.ns_clock_duration,0),(self.ns_clock_duration,1)]
-        mwOff_mwI = [(self.ns_read_time, self.IQ0[0])]
-        mwOff_mwQ = [(self.ns_read_time, self.IQ0[1])]
+        mwOff_laser = [(ns_read_time, 1)]
+        mwOff_clock = [(ns_clock_duration,1),(ns_read_time-2*ns_clock_duration,0),(ns_clock_duration,1)]
+        mwOff_mwI = [(ns_read_time, self.IQ0[0])]
+        mwOff_mwQ = [(ns_read_time, self.IQ0[1])]
         
         
         # wait repeating sequence
@@ -316,7 +312,7 @@ class PulserClass():
         
 
         # adding initial sequence to repeating sequence
-        for i in range(self.runs):        
+        for i in range(runs):        
             laser += Laser_lag_laser + mwOn_laser + wait_laser + Laser_lag_laser + mwOff_laser + wait_laser
             clock += Laser_lag_clock + mwOn_clock + wait_clock + Laser_lag_clock + mwOff_clock + wait_clock
             mwI += Laser_lag_mwI + mwOn_mwI + wait_mwI + Laser_lag_mwI + mwOff_mwI + wait_mwI
@@ -324,12 +320,12 @@ class PulserClass():
         
         # Last clock to collect for the last point in the run
         # TX Note: Need to set this last clock to readout the current fluorescence value because in math_odmr, delta_buffer = array[1:] - array[0:-1]. We need to recored the fluorescence value for the last waiting window of each run        
-        laser += [(self.ns_clock_duration, 0)]
-        clock += [(self.ns_clock_duration, 1)]
-        mwI += [(self.ns_clock_duration, self.IQ0[0])]
-        mwQ += [(self.ns_clock_duration, self.IQ0[1])]
+        laser += [(ns_clock_duration, 0)]
+        clock += [(ns_clock_duration, 1)]
+        mwI += [(ns_clock_duration, self.IQ0[0])]
+        mwQ += [(ns_clock_duration, self.IQ0[1])]
 
-        self.ns_total_time = (2*self.ns_laser_lag + 2 * self.ns_read_time + 2*wait_time)*self.runs + self.ns_clock_duration
+        ns_total_time = (2*ns_laser_lag + 2 * ns_read_time + 2*wait_time)*runs + ns_clock_duration
         dchans = [self.channel_dict['laser'],self.channel_dict['clock']]
         achans = [0,1]
         dpatterns = [laser,clock]
@@ -347,33 +343,33 @@ class PulserClass():
         
         return self.sequence
     
-    def CWUriMRnew(self, mode = 'QAM'):
+    def ODMRNoWait(self,  ns_read_time, ns_clock_duration, ns_laser_lag, runs , mode = 'QAM',):
         print('now setting up pulse sequence')
-        print('self.read_time:', self.ns_read_time)
-        print('self.clock_time:',  self.ns_clock_duration)        
+        print('self.read_time:', ns_read_time)
+        print('self.clock_time:',  ns_clock_duration)        
         #self.laser_lag
         #self.laserLag_time = 80 #hard coded for now
         
         # First laser lag for first MWon signal
-        laser = [(self.ns_laser_lag, 1)]
-        clock = [(self.ns_laser_lag, 0)]
+        laser = [(ns_laser_lag, 1)]
+        clock = [(ns_laser_lag, 0)]
         if mode == 'QAM':
-            mwI = [(self.ns_laser_lag, self.IQ0[0])]
-            mwQ = [(self.ns_laser_lag, self.IQ0[1])]
+            mwI = [(ns_laser_lag, self.IQ0[0])]
+            mwQ = [(ns_laser_lag, self.IQ0[1])]
         else:
-            mwI = [(self.ns_laser_lag, -1)]
+            mwI = [(ns_laser_lag, -1)]
 
         # mwOnOff repeating sequence
-        mwOnOff_laser = [(self.ns_read_time, 1), (self.ns_read_time, 1)]
+        mwOnOff_laser = [(ns_read_time, 1), (ns_read_time, 1)]
         if mode == 'QAM':
-            mwOnOff_mwI = [(self.ns_read_time, self.IQpx[0]), (self.ns_read_time, self.IQ0[0])]
-            mwOnOff_mwQ = [(self.ns_read_time, self.IQpx[1]), (self.ns_read_time, self.IQ0[1])]
+            mwOnOff_mwI = [(ns_read_time, self.IQpx[0]), (ns_read_time, self.IQ0[0])]
+            mwOnOff_mwQ = [(ns_read_time, self.IQpx[1]), (ns_read_time, self.IQ0[1])]
         else:
-            mwOnOff_mwI = [(self.ns_read_time, 0), (self.ns_read_time, -1)]
-        mwOnOff_clock = [(self.ns_clock_duration,1),(self.ns_read_time-self.ns_clock_duration,0),(self.ns_clock_duration,1),(self.ns_read_time-self.ns_clock_duration,0)]
+            mwOnOff_mwI = [(ns_read_time, 0), (ns_read_time, -1)]
+        mwOnOff_clock = [(ns_clock_duration,1),(ns_read_time-ns_clock_duration,0),(ns_clock_duration,1),(ns_read_time-ns_clock_duration,0)]
 
         # adding initial sequence to repeating sequence
-        for i in range(self.runs):        
+        for i in range(runs):        
             laser += mwOnOff_laser
             clock += mwOnOff_clock
             mwI += mwOnOff_mwI
@@ -381,15 +377,15 @@ class PulserClass():
                 mwQ += mwOnOff_mwQ
         
         # Last clock to collect for the last point in the run        
-        laser += [(self.ns_clock_duration, 0)]
-        clock += [(self.ns_clock_duration, 1)]
+        laser += [(ns_clock_duration, 0)]
+        clock += [(ns_clock_duration, 1)]
         if mode == 'QAM':
-            mwI += [(self.ns_clock_duration, self.IQ0[0])]
-            mwQ += [(self.ns_clock_duration, self.IQ0[1])]
+            mwI += [(ns_clock_duration, self.IQ0[0])]
+            mwQ += [(ns_clock_duration, self.IQ0[1])]
         else:
-            mwI += [(self.ns_clock_duration, -1)]
+            mwI += [(ns_clock_duration, -1)]
 
-        self.ns_total_time += self.ns_laser_lag + 2 * self.ns_read_time*self.runs + self.ns_clock_duration
+        # ns_total_time = ns_laser_lag + 2 * ns_read_time*runs + ns_clock_duration
         dchans = [self.channel_dict['laser'],self.channel_dict['clock']]
         dpatterns = [laser,clock]
         if mode == 'QAM':

@@ -101,8 +101,19 @@ class PlaneScanWidget(ExperimentWidget):
 class PlaneScanHeatMapWidget(HeatMapPlotWidget):
     """Add some default settings to the FlexSinkLinePlotWidget."""
     def __init__(self):
-        super().__init__()
+        def data_processing_func(sink):
+            stacks = [
+                getattr(sink.datasets, f"stack_{i+1}")
+                for i in range(len(sink.datasets))
+            ]
+
+            # Vertically stack them (rows from later stacks follow earlier ones)
+            merged = np.vstack(tuple(stacks))   # tuple(...) satisfies vstack
+
+            sink.datasets.avg = merged 
+        super().__init__(data_processing_func=data_processing_func)
                 # open in read-only mode; adjust dataset name if needed
 
         self.datasource_lineedit.setText('planescan')
+        super().add_heatmap("Stack 1", "stack_1")
         

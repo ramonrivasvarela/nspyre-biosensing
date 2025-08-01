@@ -201,8 +201,8 @@ np.array([[4, 5, 6], [3.4, 3.6, 3.5]])])
         heatmap_settings_label= QtWidgets.QLabel('Heat Map Settings')
         heatmap_settings_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignHCenter)
 
-        self.heatmap_name_lineedit = QtWidgets.QLineEdit("heatmap")
-        self.heatmap_series_lineedit = QtWidgets.QLineEdit("heatmap")
+        self.heatmap_name_lineedit = QtWidgets.QLineEdit("")
+        self.heatmap_series_lineedit = QtWidgets.QLineEdit("")
 
         show_button= QtWidgets.QPushButton('Show')
         show_button.clicked.connect(self._show_button_clicked)
