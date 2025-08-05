@@ -82,6 +82,9 @@ class CountsTime:
             self.initialize(mgr)
             seq = self.create_sequence(mgr)
             start_t = time.time()
+            ###########################
+            #### EXPERIMENTAL LOOP ####
+            ###########################
             while True:
                 ## Start, Stream, Read. Data will be in the buffer
                 mgr.DAQCounter.start()
@@ -108,6 +111,11 @@ class CountsTime:
                     # the GUI has asked us nicely to exit
                     self.finalize(mgr)
                     return
+            ###############################
+            #### END EXPERIMENTAL LOOP ####
+            ###############################
+
+
 
     #### INITIALIZATION METHODS
 
