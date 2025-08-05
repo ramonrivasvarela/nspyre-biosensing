@@ -21,14 +21,6 @@ from experiments.spatialfb import SpatialFeedback
 
 _HERE = Path(__file__).parent
 _logger = logging.getLogger(__name__)
-VERBOSE = False
-
-def print_verbose(*args, **kwargs):
-    """
-    Print function that only prints if VERBOSE is set to True.
-    """
-    if VERBOSE:
-        print(*args, **kwargs)
 
 
 class ConfocalODMR():
@@ -77,21 +69,18 @@ class ConfocalODMR():
 
     def confocal_odmr(
         self,
-        device: str = "Dev1",
-        channel1: str = "ctr1",
         sampling_rate: float = 50000,
-        PS_clk_channel: str = "PFI0",
         runs: int = 1000,
         sweeps: int = 100,
         mode: str = "QAM",
         frequency: str ="( 2.82e9, 2.92e9, 30)",
-        rf_amplitude: float = -20,
+        rf_amplitude: float = -20, 
         laser_lag: float = 80e-9,
         cooldown_time: float = 5e-6,
         probe_time: float = 50e-6,
         clock_duration: float = 10e-9,
         timeout: int = 300,
-        sequence: str = "odmr_no_wait",
+        use_switch: bool = False,
         data_download: bool = False,
         feedback: bool = False,
         dozfb: bool = True,
@@ -104,7 +93,7 @@ class ConfocalODMR():
     ):
         
         ## Set up experiment parameters
-        INSTRUMENT_PARAMS = [device, channel1, sampling_rate, PS_clk_channel, runs,
+        INSTRUMENT_PARAMS = [ sampling_rate, runs,
                              sweeps, mode, frequency, rf_amplitude, laser_lag,
                              cooldown_time, probe_time, clock_duration, timeout,
                              sequence, data_download]
@@ -117,7 +106,7 @@ class ConfocalODMR():
             # Initialize the experiment parameters
             self.initialize(mgr, *INSTRUMENT_PARAMS)
 
-            
+
             plots_data={}
             signal=StreamingList(np.array([np.array([f]), np.array([0])]) for f in self.frequency)
             background=StreamingList(np.array([np.array([f]), np.array([0])]) for f in self.frequency)
@@ -125,27 +114,17 @@ class ConfocalODMR():
 
        
             for sweep in range(sweeps):
-                plots_data[f"signal_{rep+1}_{sweep+1}"]=StreamingList()
-                plots_data[f"background_{rep+1}_{sweep+1}"]=StreamingList()
                 if feedback and (sweep % sweeps_til_fb == 0) and (sweep > 0):
                     self.run_feedback(starting_point, dozfb, xyz_step, count_step_shrink) 
                 for i in range(n_freq):
-                    accumulations=rep*sweeps+ sweep
                     mgr.sg.set_frequency(self.frequency[i])
                     self.t0 = time.time()                   
                     sg, bg = self.read_odmr(mgr, self.runs, self.buffers, self.index, self.t0)
 
-                    plots_data[f"signal_{rep+1}_{sweep+1}"].append(np.array([np.array([self.frequency[i]]), np.array([sg])]))
-                    plots_data[f"background_{rep+1}_{sweep+1}"].append(np.array([np.array([self.frequency[i]]), np.array([bg])]))
-                    signal[i][1][0]=(sg+signal[i][1][0]*accumulations)/(accumulations+1) # accumulate the signal
-                    signal
-                    background[i][1][0]=(bg+background[i][1][0]*accumulations)/(accumulations+1) # accumulate the background    
+   
                     datasource.push({
                         'params':{
-                            'device': device,
-                            'channel1': channel1,
                             'sampling_rate': sampling_rate,
-                            'PS_clk_channel': PS_clk_channel,
                             'runs': runs,
                             'sweeps': sweeps,
                             'mode': mode,
@@ -156,7 +135,7 @@ class ConfocalODMR():
                             'probe_time': probe_time,
                             'clock_duration': clock_duration,
                             'timeout': timeout,
-                            'sequence': sequence,
+                            'use_switch': use_switch,
                             'feedback': feedback,
                             'dozfb': dozfb,
                             'sweeps_til_fb': sweeps_til_fb,
@@ -168,7 +147,7 @@ class ConfocalODMR():
 
                         },
                         'x_label': 'Frequency (Hz)',
-                        'y_label': 'Counts',
+                        'y_label': 'Fluorescence',
                         'datasets': {
                             'signal': signal,       
                             'background': background,
@@ -205,26 +184,55 @@ class ConfocalODMR():
             #print('Full experiment time:', self.pulses.total_time/1e9 * self.point_num)
             return [sum1, sum2]
 
-    def initialize(self, mgr, device, channel1, sampling_rate, PS_clk_channel, runs,
-                   sweeps, mode, frequency, rf_amplitude, laser_lag, cooldown_time,
-                   probe_time, clock_duration, timeout,
-                   sequence, data_download,
-                   ):
 
-        ## create self parameters
-        self.sequence = sequence #type of ODMR sequence from the list
-        self.index = 0 
-        eval_frequency=eval(frequency)
-        self.frequency = np.linspace(eval_frequency[0], eval_frequency[1], eval_frequency[2])
-        self.timeout=timeout #time to wait for clock before raising an error
-        self.runs = runs #number of reading windows to average for each point
-        self.channel = channel1 #reading channel
-        mgr.sg.set_rf_amplitude(rf_amplitude) ## set SG paramaters: running this spyrelet with IQ inputs
+    #### INITIALIZATION METHODS
+
+    def initialize(self, mgr, sampling_rate, runs,
+                   sweeps, mode, frequency, rf_amplitude, laser_lag, cooldown_time,
+                   probe_time, clock_duration, use_switch, timeout, data_download,
+                   ):
+        
+        ## Prepare spyrelet parameters
+        self.VERBOSE = True # Add as param, make default False once done debugging
+
+        ## Prepare routine parameters
+
+        ## Prepare timing variables
         self.ns_probe_time = int(round(probe_time*1e9)) #laser time per window
-        self.point_num = len(self.frequency)
         self.ns_laser_lag = int(round(laser_lag*1e9))
         self.ns_clock_duration = int(round(clock_duration*1e9)) #width of our clock pulse.
         self.ns_cooldown_time = int(round(cooldown_time*1e9)) #time to wait after laser pulse
+        
+        self.ns_pulsewait_time = 0 #time to wait after each run. Not yet implemented as a parameter.
+        
+        ## Prepare sequence
+        if self.ns_cooldown_time == 0 and self.ns_pulsewait_time == 0:
+            # self.ODMR_wait = False # Don't need?
+            if self.VERBOSE: print('ODMR, no wait time')
+            seq_dict = self.setup_no_wait(self.ns_laser_lag, self.ns_probe_time, self.ns_clock_duration, runs, mode, use_switch)
+            seq = mgr.Pulse.make_seq(**seq_dict)
+        else:
+            # self.ODMR_wait = True # Don't need?
+            if self.VERBOSE: print('ODMR, with wait time')
+
+        ## Prepare Sig Gen
+
+        ## Prepare DAQ counter
+
+
+
+
+
+
+
+        # self.sequence = sequence #type of ODMR sequence from the list
+        # eval_frequency=eval(frequency)
+        # self.frequency = np.linspace(eval_frequency[0], eval_frequency[1], eval_frequency[2])
+        # self.timeout=timeout #time to wait for clock before raising an error
+        # self.runs = runs #number of reading windows to average for each point
+        # self.channel = channel1 #reading channel
+        # mgr.sg.set_rf_amplitude(rf_amplitude) ## set SG paramaters: running this spyrelet with IQ inputs
+        # self.point_num = len(self.frequency)
         
         ## create parameters
         if self.sequence in ('odmr_heat_wait'):
@@ -317,49 +325,178 @@ class ConfocalODMR():
             self.setup_no_wait(mgr, mode)
         return
     
-    def finalize(self, mgr, device,  sampling_rate, PS_clk_channel, 
-                    data_download):
+    def setup_no_wait(self, ns_laser_lag, ns_probe_time, ns_clock_duration, runs, mode, switch):
+        '''
+        Sets up the pulse sequence for ODMR without wait time. Returns the relevant instrument sequences as a dictionary
+        '''
         
-        ## finalizing base spyrelet
-        ## stop and close all tasks
-        for i,read_task in enumerate(self.read_tasks):
-            #time.sleep(0.5)
-            #self.read_tasks[i].stop()
-            self.read_tasks[i].close()
-            #time.sleep(0.5)
         
-        ## turns off instruments
-        mgr.sg.set_rf_toggle(False)
-        mgr.sg.set_mod_toggle(False)
-        mgr.Pulser.set_state_off()
-        
-        ## saves the data to an excel sheet.
-        # if data_download:
-        #     time_string = Dt.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-        #     print("name of spyrelet is", self.name+time_string)
-        #     save_excel(self.name)
-        #     print('data downloaded B)')
-        ## experiment finishes
-        print("FINALIZE")           
-        return
+        if self.VERBOSE: 
+            print('\n using sequence without wait time')
+            print('self.read_time:', ns_probe_time)
+            print('self.clock_time:',  ns_clock_duration)       
+            print('self.laser_lag:', ns_laser_lag) 
+
+        #### LASER LAG
+        laser = [(ns_laser_lag, 1)]
+        clock = [(ns_laser_lag, 0)]
+        if mode == 'QAM': 
+            mwQ = [(ns_laser_lag, self.IQ0[0])]
+            mwI = [(ns_laser_lag, self.IQ0[1])]
+        elif mode == 'AM':
+            mwQ = [(ns_laser_lag, -1)]
+        elif mode == 'NoMod':
+            if not switch:
+                raise ValueError('NoMod mode requires switch to be True')
+
+        if switch:
+            if self.VERBOSE: print('using switch')
+            switch = [(ns_laser_lag, 1)]
 
 
-    def setup_no_wait(self, mgr,mode):
-        print('\n using sequence without wait time')
-        # mgr.Pulser.ns_laser_lag = self.ns_laser_lag
-        # mgr.Pulser.ns_read_time = self.ns_probe_time #laser time per window
-        # mgr.Pulser.ns_clock_duration = self.ns_clock_duration #width of our clock pulse.
-        # mgr.Pulser.runs = self.runs #number of runs per point
-        self.seqs = [mgr.Pulser.ODMRNoWait(self.ns_probe_time, self.ns_clock_duration, self.ns_laser_lag, self.runs ,mode)] #list of sequences to be compatible with read_odmr() and PulsedODMR class
+        #### (mwOnOff repeating sequence defn)
+        mwOnOff_laser = [(ns_probe_time, 1), (ns_probe_time, 1)]
+        if mode == 'QAM':
+            mwOnOff_mwQ = [(ns_probe_time, self.IQpx[0]), (ns_probe_time, self.IQ0[0])]
+            mwOnOff_mwI = [(ns_probe_time, self.IQpx[1]), (ns_probe_time, self.IQ0[1])]
+        elif mode == 'AM':
+            mwOnOff_mwQ = [(ns_probe_time, 0), (ns_probe_time, -1)]
+        elif mode == 'NoMod':
+            pass
+        mwOnOff_clock = [(ns_clock_duration,1),(ns_probe_time-ns_clock_duration,0),(ns_clock_duration,1),(ns_probe_time-ns_clock_duration,0)]
+        if switch:
+            mwOnOff_switch = [(ns_probe_time, 0), (ns_probe_time, 1)]
+
+        #### REPEATING MICROWAVE ON/OFF SEQUENCE
+        for i in range(runs):        
+            laser += mwOnOff_laser
+            clock += mwOnOff_clock
+            mwQ += mwOnOff_mwQ
+            if mode == 'QAM':
+                mwI += mwOnOff_mwI
+            if switch:
+                switch += mwOnOff_switch
+        
+        #### Last clock to collect for the last point in the run        
+        laser += [(ns_clock_duration, 0)]
+        clock += [(ns_clock_duration, 1)]
+        if mode == 'QAM':
+            mwQ += [(ns_clock_duration, self.IQ0[0])]
+            mwI += [(ns_clock_duration, self.IQ0[1])]
+        elif mode == 'AM':
+            mwQ += [(ns_clock_duration, -1)] 
+        elif mode == 'NoMod':
+            pass
+        if switch:
+            switch += [(ns_clock_duration, 1)]
+        
+        #### FINALIZE
+        if self.VERBOSE:
+            print('Finished setting up pulse sequence')
+            print('self.sequence data: ',  self.sequence.getData())
+
+        seq_dict = {'clock': clock,'laser': laser}
+        if mode == 'QAM':
+            seq_dict['Q'] = mwQ
+            seq_dict['I'] = mwI
+        elif mode == 'AM':
+            seq_dict['Q'] = mwQ
+        elif mode == 'NoMod':
+            pass
+
+        if switch:
+            seq_dict['switch'] = switch
+
+        return seq_dict
         
     ## still need to change this to new method
-    def setup_ODMR_wait(self, mgr):
-        print('\n using sequence with wait time')
-        # mgr.Pulser.ns_laser_lag = self.ns_laser_lag
-        # mgr.Pulser.ns_read_time = self.ns_probe_time
-        # mgr.Pulser.ns_clock_duration = self.ns_clock_duration
-        # mgr.Pulser.runs = self.runs #number of runs per point
-        self.seqs = [mgr.Pulser.ODMRHeatDissipation(self.ns_probe_time, self.ns_clock_duration, self.ns_laser_lag, self.runs , self.ns_cooldown_time)] #list of sequences to be compatible with read_odmr() and PulsedODMR class
+    def setup_ODMR_wait(self, ns_laser_lag, ns_probe_time, ns_clock_duration, ns_cooldown_time ,runs, mode, switch):
+        '''
+        Sets up the pulse sequence for ODMR without wait time. Returns the relevant instrument sequences as a dictionary
+        '''
+        
+        
+        if self.VERBOSE: 
+            print('\n using sequence with wait time')
+            print('self.read_time:', ns_probe_time)
+            print('self.clock_time:',  ns_clock_duration)     
+            print('self.cooldown_time:', ns_cooldown_time)  
+            print('self.laser_lag:', ns_laser_lag) 
+
+        #### LASER LAG
+        laser = [(ns_laser_lag, 1)]
+        clock = [(ns_laser_lag, 0)]
+        if mode == 'QAM': 
+            mwQ = [(ns_laser_lag, self.IQ0[0])]
+            mwI = [(ns_laser_lag, self.IQ0[1])]
+        elif mode == 'AM':
+            mwQ = [(ns_laser_lag, -1)]
+        elif mode == 'NoMod':
+            if not switch:
+                raise ValueError('NoMod mode requires switch to be True')
+
+        if switch:
+            if self.VERBOSE: print('using switch')
+            switch = [(ns_laser_lag, 1)]
+
+
+        #### (mwOnOff repeating sequence defn)
+        mwOnOff_laser = [(ns_probe_time, 1), (ns_probe_time, 1)]
+        if mode == 'QAM':
+            mwOnOff_mwQ = [(ns_probe_time, self.IQpx[0]), (ns_probe_time, self.IQ0[0])]
+            mwOnOff_mwI = [(ns_probe_time, self.IQpx[1]), (ns_probe_time, self.IQ0[1])]
+        elif mode == 'AM':
+            mwOnOff_mwQ = [(ns_probe_time, 0), (ns_probe_time, -1)]
+        elif mode == 'NoMod':
+            pass
+        mwOnOff_clock = [(ns_clock_duration,1),(ns_probe_time-2*ns_clock_duration,0),(ns_clock_duration,1),
+                         (ns_clock_duration,1),(ns_probe_time-2*ns_clock_duration,0),(ns_clock_duration,1)]
+        if switch:
+            mwOnOff_switch = [(ns_probe_time, 0), (ns_probe_time, 1)]
+
+        #### REPEATING MICROWAVE ON/OFF SEQUENCE
+        for i in range(runs):        
+            laser += mwOnOff_laser
+            clock += mwOnOff_clock
+            mwQ += mwOnOff_mwQ
+            if mode == 'QAM':
+                mwI += mwOnOff_mwI
+            if switch:
+                switch += mwOnOff_switch
+        
+        #### Last clock to collect for the last point in the run        
+        laser += [(ns_clock_duration, 0)]
+        clock += [(ns_clock_duration, 1)]
+        if mode == 'QAM':
+            mwQ += [(ns_clock_duration, self.IQ0[0])]
+            mwI += [(ns_clock_duration, self.IQ0[1])]
+        elif mode == 'AM':
+            mwQ += [(ns_clock_duration, -1)] 
+        elif mode == 'NoMod':
+            pass
+        if switch:
+            switch += [(ns_clock_duration, 1)]
+        
+        #### FINALIZE
+        if self.VERBOSE:
+            print('Finished setting up pulse sequence')
+            print('self.sequence data: ',  self.sequence.getData())
+
+        seq_dict = {'clock': clock,'laser': laser}
+        if mode == 'QAM':
+            seq_dict['Q'] = mwQ
+            seq_dict['I'] = mwI
+        elif mode == 'AM':
+            seq_dict['Q'] = mwQ
+        elif mode == 'NoMod':
+            pass
+
+        if switch:
+            seq_dict['switch'] = switch
+
+        return seq_dict
+
+    #### EXPERIMENTAL METHODS
 
     def run_feedback(self,mgr, 
                     starting_point:str='current_position (ignore input)',
@@ -449,3 +586,32 @@ class ConfocalODMR():
                 
         #print('signal:', signal)
         return signal        
+
+
+    #### FINALIZATION METHODS
+
+    def finalize(self, mgr, device,  sampling_rate, PS_clk_channel, 
+                    data_download):
+        
+        ## finalizing base spyrelet
+        ## stop and close all tasks
+        for i,read_task in enumerate(self.read_tasks):
+            #time.sleep(0.5)
+            #self.read_tasks[i].stop()
+            self.read_tasks[i].close()
+            #time.sleep(0.5)
+        
+        ## turns off instruments
+        mgr.sg.set_rf_toggle(False)
+        mgr.sg.set_mod_toggle(False)
+        mgr.Pulser.set_state_off()
+        
+        ## saves the data to an excel sheet.
+        # if data_download:
+        #     time_string = Dt.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+        #     print("name of spyrelet is", self.name+time_string)
+        #     save_excel(self.name)
+        #     print('data downloaded B)')
+        ## experiment finishes
+        print("FINALIZE")           
+        return

@@ -82,6 +82,7 @@ class CountsTime:
             self.initialize(mgr)
             seq = self.create_sequence(mgr)
             start_t = time.time()
+            
             ###########################
             #### EXPERIMENTAL LOOP ####
             ###########################
