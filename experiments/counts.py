@@ -57,12 +57,14 @@ class CountsTime:
 
     def confocal_counts_time(self, dataset: str, n_points: int, probe_time: float, clock_time: float):
         """
-        confocal counts vs time experiment that is static (does not track), under constant illumination.
+        confocal counts vs time experiment that is static (does not track).
 
         Args:
             dataset: name of the dataset to push data to
-            time_per_point: time in seconds t
-            
+            n_points: number of points to collect
+            probe_time: time in seconds to probe the APD
+            clock_time: duration of the clock pulse in seconds
+
         """
         ## Set up experiment parameters
         self.n_points = n_points
@@ -83,12 +85,9 @@ class CountsTime:
             while True:
                 ## Start, Stream, Read. Data will be in the buffer
                 mgr.DAQCounter.start()
-                time.sleep(1)
+                time.sleep(0.1)
                 mgr.Pulser.stream_sequence(seq, 1)
-                
                 mgr.DAQCounter.read()
-
-
                 data = mgr.DAQCounter.buffer_to_data(self.probe_time)
 
 
@@ -113,9 +112,7 @@ class CountsTime:
     #### INITIALIZATION METHODS
 
     def initialize(self, mgr):
-        """Initialize the experiment."""
-        mgr.Pulser.set_state([7],0.0,0.0)
-        
+        """Initialize the experiment."""      
         mgr.DAQCounter.set_sampling_rate(2/self.probe_time)  # Automatically determined by 2/probe_time
         mgr.DAQCounter.create_buffer(self.n_points+1) # +1 to account for signal being a difference of counts
         print(mgr.DAQCounter.buffer)
