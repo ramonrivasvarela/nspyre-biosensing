@@ -5,7 +5,6 @@ from nspyre import ExperimentWidget
 from nspyre import DataSink
 from pyqtgraph.Qt import QtWidgets
 from PyQt6.QtWidgets import QSpinBox, QLineEdit, QCheckBox
-import experiments.counts_new
 from special_widgets import unit_widgets
 from pyqtgraph import SpinBox
 
@@ -75,10 +74,10 @@ class ConfocalODMRWidget(ExperimentWidget):
         starting_point_cb.setCurrentText('current_position (ignore input)')
         
         mode_cb = QComboBox()
-        mode_cb.addItems(['QAM', 'AM'])
+        mode_cb.addItems(['QAM', 'AM', 'NoMod', 'FM'])
         mode_cb.setCurrentText('QAM')
 
-        sampling_rate_sb=unit_widgets.HzLineEdit(50000)
+        # sampling_rate_sb=unit_widgets.HzLineEdit(50000)
 
         # repeat_minutes_sb = SpinBox()
         # repeat_minutes_sb.setValue(0)
@@ -119,10 +118,10 @@ class ConfocalODMRWidget(ExperimentWidget):
             #     'display_text': 'PS Clock Channel',
             #     'widget': QLineEdit("PFI0")
             # },
-            'sampling_rate': {
-                'display_text': 'Sampling Rate',
-                'widget': sampling_rate_sb
-            },
+            # 'sampling_rate': {
+            #     'display_text': 'Sampling Rate',
+            #     'widget': sampling_rate_sb
+            # },
             'runs': {
                 'display_text': 'Runs',
                 'widget': runs_sb
@@ -204,10 +203,10 @@ class ConfocalODMRWidget(ExperimentWidget):
                 'display_text': 'Starting Point',
                 'widget': starting_point_cb
             },
-            'data_download': {
-                'display_text': 'Data Download',
-                'widget': QCheckBox()
-            },
+            # 'data_download': {
+            #     'display_text': 'Data Download',
+            #     'widget': QCheckBox()
+            # },
             'mode': {
                 'display_text': 'Mode',
                 'widget': mode_cb

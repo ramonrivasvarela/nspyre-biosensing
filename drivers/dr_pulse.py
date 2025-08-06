@@ -266,7 +266,8 @@ class PulserClass():
         self.change_state(digital_set, analog_set, 0)
 
 
-    def set_seq(self, seq:Sequence, clock = None, camera = None, laser_405 =  None, laser_488 = None, laser_647 = None, mirror = None, switch = None, laser = None, Q = None, I = None):
+    def make_seq(self, clock = None, camera = None, laser_405 =  None, laser_488 = None, laser_647 = None, mirror = None, switch = None, laser = None, Q = None, I = None):
+        seq = self.Pulser.createSequence()
         if clock is not None:
             seq.setDigital(self.channel_dict['clock'], clock)
         if camera is not None:
@@ -287,6 +288,7 @@ class PulserClass():
             seq.setAnalog(0, Q)
         if I is not None:
             seq.setAnalog(1, I)
+        return seq
 
 
 
@@ -355,7 +357,7 @@ class PulserClass():
         
     #     self.sequence.setDigital(self.channel_dict['laser'], laser)
     #     self.sequence.setDigital(self.channel_dict['clock'], clock)
-    #     self.sequence.setAnalog(0, mwI)
+    #     self.sequence.setAnalog(0, mwI) 
     #     self.sequence.setAnalog(1, mwQ)    
         
     #     print('Finished setting up pulse sequence')

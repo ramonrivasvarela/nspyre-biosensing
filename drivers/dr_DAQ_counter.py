@@ -39,7 +39,7 @@ class DAQCounter:
         """
         Set the sampling rate for the counter.
         """
-        self.sampling_rate = sampling_rate
+        self.sampling_rate = int(sampling_rate)
 
 
 
@@ -67,6 +67,7 @@ class DAQCounter:
             self.read_task.stop()
             self.read_task.close()
             self.read_task=None
+
         self.read_task = nidaqmx.Task()
         self.read_task.ci_channels.add_ci_count_edges_chan(
             self.ctr_channel,
@@ -88,7 +89,6 @@ class DAQCounter:
             sample_mode=sample_mode, 
             samps_per_chan= self.n_samples
         )
-
 
         ## Set up the reader.
         self.reader = CounterReader(self.read_task.in_stream)
