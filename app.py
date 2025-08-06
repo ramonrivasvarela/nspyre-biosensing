@@ -20,7 +20,6 @@ from nspyre import nspyreApp
 
 from gui_widgets import laser_gui
 from gui_widgets import instrument_gui
-from gui_widgets import experiment_gui
 from gui_widgets import camera_gui
 from gui_widgets import counts_exp_gui, picture_exp_gui, planescan_exp_gui, widefield_odmr_exp_gui, confocal_odmr_exp_gui, spatial_feedback_exp_gui
 

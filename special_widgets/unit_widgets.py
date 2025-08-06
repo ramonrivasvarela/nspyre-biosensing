@@ -36,6 +36,7 @@ class MLineEdit(QLineEdit):
 
     def update_text(self):
         """Update the displayed text based on the current value."""
+
         if abs(self.umvalue) < 1 and self.conversion:
             self.setText(f"{self.prefix}{self.umvalue * 1e3:.1f} nm")
         else:
@@ -373,6 +374,10 @@ class PointWidget(QWidget):
         self.x_edit.update_text()
         self.y_edit.update_text()
         self.z_edit.update_text()
+
+    def get_position_as_tuple(self):
+        """Return the position as a tuple (x, y, z)."""
+        return (self.x_edit.umvalue, self.y_edit.umvalue, self.z_edit.umvalue)
 
 class HzIntervalWidget(QWidget):
     def __init__(self, start, end=0, interval=0):

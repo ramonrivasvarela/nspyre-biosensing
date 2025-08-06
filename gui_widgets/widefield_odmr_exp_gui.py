@@ -178,8 +178,8 @@ class WFODMRPlotWidget(FlexLinePlotWidget):
     def __init__(self):
         super().__init__()
         # create some default signal plots
-        self.add_plot('Signal 1',        series='signal_1',   scan_i='',     scan_j='',  processing='Append')
-        self.add_plot('Background 1',        series='background_1',   scan_i='',     scan_j='',  processing='Append')
+        self.add_plot('Signal 1',        series='signal_1',   scan_i='',     scan_j='',  processing='Average')
+        self.add_plot('Background 1',        series='background_1',   scan_i='',     scan_j='',  processing='Average')
 
 
         # retrieve legend object

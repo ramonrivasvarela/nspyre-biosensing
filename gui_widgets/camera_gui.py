@@ -14,7 +14,11 @@ class CameraWidget(QWidget):
         super().__init__()
         self.font = font
         self.camera_on = False
-        self.camera = InstrumentManager().Camera
+        try:
+
+            self.camera = InstrumentManager().Camera
+        except Exception as e:
+            raise RuntimeError(f"Could not get camera. Error: {e}")
 
         self.init_widgets()
         self.create_layout()
@@ -23,7 +27,7 @@ class CameraWidget(QWidget):
         # self.check_temperature_status()
         # self.check_cooler_status()
 
-        self.refresh_camera_settings()
+        #self.refresh_camera_settings()
 
     def init_widgets(self):
         # Power button
@@ -36,8 +40,8 @@ class CameraWidget(QWidget):
         self.trigger_label.setFixedHeight(20)
         self.trigger_label.setStyleSheet("font-weight: bold")
         self.trigger_combo = QComboBox()
-        self.trigger_combo.addItems(["internal", "external", "external exposure bulb"])
-        self.trigger_combo.setCurrentText("internal")
+        self.trigger_combo.addItems(["Internal", "External", "External Exposure (Bulb)"])
+        self.trigger_combo.setCurrentText("Internal")
         self.trigger_combo.setStyleSheet("QComboBox { background-color: #2b2b2b; color: white; }")
         self.trigger_combo.setFixedHeight(30)
         self.trigger_combo.setFont(QFont(self.font, 12))
@@ -55,8 +59,8 @@ class CameraWidget(QWidget):
         self.shutter_label.setFixedHeight(20)
         self.shutter_label.setStyleSheet("font-weight: bold")
         self.shutter_combo = QComboBox()
-        self.shutter_combo.addItems(["closed", "open", "auto"])
-        self.shutter_combo.setCurrentText("auto")
+        self.shutter_combo.addItems(["Closed", "Open", "Automatic"])
+        self.shutter_combo.setCurrentText("Auto")
         self.shutter_combo.setStyleSheet("QComboBox { background-color: #2b2b2b; color: white; }")
         self.shutter_combo.setFixedHeight(30)
         self.shutter_combo.setFont(QFont(self.font, 12))
@@ -67,8 +71,8 @@ class CameraWidget(QWidget):
         self.frame_transfer_label.setFixedHeight(20)
         self.frame_transfer_label.setStyleSheet("font-weight: bold")
         self.frame_transfer_combo = QComboBox()
-        self.frame_transfer_combo.addItems(["frame transfer", "conventional"])
-        self.frame_transfer_combo.setCurrentText(self.camera.frame_transfer_mode)
+        self.frame_transfer_combo.addItems(["ON", "OFF"])
+        self.frame_transfer_combo.setCurrentText("OFF")
         self.frame_transfer_combo.setStyleSheet("QComboBox { background-color: #2b2b2b; color: white; }")
         self.frame_transfer_combo.setFixedHeight(30)
         self.frame_transfer_combo.setFont(QFont(self.font, 12))
@@ -101,13 +105,13 @@ class CameraWidget(QWidget):
         self.read_mode_label.setStyleSheet("font-weight: bold")
         self.read_mode_combo = QComboBox()
         self.read_mode_combo.addItems([
-            "full vertical binning",
-            "multi track",
-            "random track",
-            "single track",
-            "image"
+            "Full Vertical Binning",
+            "Multi-Track",
+            "Random-Track",
+            "Single-Track",
+            "Image"
         ])
-        self.read_mode_combo.setCurrentText(self.camera.read_mode)
+        self.read_mode_combo.setCurrentText('Image')
         self.read_mode_combo.currentTextChanged.connect(lambda m: self.camera.set_read_mode(m))
 
         # Acquisition mode
@@ -116,13 +120,13 @@ class CameraWidget(QWidget):
         self.acq_mode_label.setStyleSheet("font-weight: bold")
         self.acq_mode_combo = QComboBox()
         self.acq_mode_combo.addItems([
-            "single scan",
-            "accumulate",
-            "kinetics",
-            "fast kinetics",
-            "run till abort"
+            "Single Scan",
+            "Accumulate",
+            "Kinetics",
+            "Fast Kinetics",
+            "Run till Abort"
         ])
-        self.acq_mode_combo.setCurrentText(self.camera.acquisition_mode)
+        self.acq_mode_combo.setCurrentText('Kinetics')
         self.acq_mode_combo.currentTextChanged.connect(lambda m: self.camera.set_acquisition_mode(m))
 
         # Number of accumulations
@@ -131,7 +135,7 @@ class CameraWidget(QWidget):
         self.acc_label.setStyleSheet("font-weight: bold")
         self.acc_sb = QSpinBox()
         self.acc_sb.setRange(1, 1000)
-        self.acc_sb.setValue(self.camera.number_accumulations)
+        self.acc_sb.setValue(1)
         self.acc_sb.editingFinished.connect(lambda: self.camera.set_number_accumulations(self.acc_sb.value()))
 
         # Number of kinetics
@@ -140,7 +144,7 @@ class CameraWidget(QWidget):
         self.kinetics_label.setStyleSheet("font-weight: bold")
         self.kinetics_sb = QSpinBox()
         self.kinetics_sb.setRange(1, 1000)
-        self.kinetics_sb.setValue(self.camera.number_kinetics)
+        self.kinetics_sb.setValue(1)
         self.kinetics_sb.editingFinished.connect(lambda: self.camera.set_number_kinetics(self.kinetics_sb.value()))
 
         # Refresh
@@ -274,6 +278,7 @@ class CameraWidget(QWidget):
         
 
     def refresh_camera_settings(self):
+
         print("Refreshing camera settings...")
         status=self.check_power_status()
         self.check_cooler_status()
@@ -299,6 +304,7 @@ class CameraWidget(QWidget):
             self.set_camera_settings()
 
     def set_camera_settings(self):
+        
         self.camera.set_read_mode(self.read_mode_combo.currentText())
         self.camera.set_frame_transfer_mode(self.frame_transfer_combo.currentText())
         self.camera.get_detector()

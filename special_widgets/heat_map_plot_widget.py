@@ -482,6 +482,8 @@ class _HeatMapPlotWidget(HeatMapWidget):
                     self.heatmap_settings.sink.stop()
                     self.heatmap_settings.sink = None
                 self.heatmap_settings.sink = DataSink(data_set_name)
+                
+                    
                 self.heatmap_settings.sink.start()
 
                 # ② try to grab the first packet (may timeout)

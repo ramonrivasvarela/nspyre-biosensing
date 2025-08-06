@@ -89,7 +89,7 @@ class CountsTime:
             while True:
                 ## Start, Stream, Read. Data will be in the buffer
                 mgr.DAQCounter.start()
-                time.sleep(0.1)
+                time.sleep(0.01)
                 mgr.Pulser.stream_sequence(seq, 1)
                 mgr.DAQCounter.read()
                 data = mgr.DAQCounter.buffer_to_data(self.probe_time)
@@ -107,6 +107,8 @@ class CountsTime:
                                             }
                 })
 
+                
+
 
                 if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
                     # the GUI has asked us nicely to exit
@@ -121,7 +123,9 @@ class CountsTime:
     #### INITIALIZATION METHODS
 
     def initialize(self, mgr):
-        """Initialize the experiment."""      
+        """Initialize the experiment."""
+
+        
         mgr.DAQCounter.set_sampling_rate(2/self.probe_time)  # Automatically determined by 2/probe_time
         mgr.DAQCounter.create_buffer(self.n_points+1) # +1 to account for signal being a difference of counts
         mgr.DAQCounter.initialize()
@@ -131,9 +135,12 @@ class CountsTime:
     def create_sequence(self, mgr):
         seq = mgr.Pulser.create_sequence()
         clock_pulse = [(self.ns_clock_time,1),(self.ns_probe_time-self.ns_clock_time,0)] ##ensure clock_time in nanoseconds
+        laser_pulse=[(self.probe_time,1)]
         clock = clock_pulse * (self.n_points+1)
+        laser=laser_pulse*(self.n_points+1)
         print("Clock sequence:", clock)
         seq.setDigital(mgr.Pulser.channel_dict['clock'], clock)
+        seq.setDigital(mgr.Pulser.channel_dict['laser'], laser)
         return seq
 
 

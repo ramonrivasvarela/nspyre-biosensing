@@ -102,7 +102,7 @@ class WFODMRTrack():
 
 
             #### Experiment Loop ##########
-            mgr.sg.set_rf_toggle(True)
+            mgr.sg.set_rf_toggle(1)
 
             self.t_rep = [time.time()]
             rep = 0
@@ -332,10 +332,10 @@ class WFODMRTrack():
                             })
                     s+=1
                     if self.wait_interval[0] > 0 and s%self.wait_interval[0] == 0:
-                        mgr.sg.set_rf_toggle(False)
+                        mgr.sg.set_rf_toggle(0)
                         # print(f'waiting {self.wait_interval[1]} seconds...')
                         time.sleep(self.wait_interval[1])     
-                        mgr.sg.set_rf_toggle(True)
+                        mgr.sg.set_rf_toggle(1)
                     if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
                             self.finalize(self, mgr, routine, wait_interval, ROI_xy,
                             alt_label, PID,save_image,data_download)
@@ -535,7 +535,7 @@ class WFODMRTrack():
             self.run_ODMR(self.reps+1,save_image, do_acquire = False)
             print('final ODMR finished')
         
-        mgr.sg.set_rf_toggle(False) #turn off RF
+        mgr.sg.set_rf_toggle(0) #turn off RF
         mgr.sg.set_mod_toggle(False) #turn off modulation
 
         ## cam end ##########
