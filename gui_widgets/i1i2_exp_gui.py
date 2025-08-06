@@ -1,0 +1,239 @@
+import numpy as np
+from PyQt6.QtWidgets import QLineEdit, QSpinBox, QCheckBox, QComboBox
+from pyqtgraph import SpinBox
+from PyQt6.QtWidgets import QLineEdit
+import experiments.i1i2
+from nspyre import ExperimentWidget, FlexLinePlotWidget
+from special_widgets import unit_widgets
+import pyqtgraph as pg
+  
+
+get_param_value_funs={
+            unit_widgets.PointWidget: lambda w: w.get_position_as_tuple(),
+            unit_widgets.MLineEdit:   lambda w: w.umvalue,
+            unit_widgets.HzLineEdit:  lambda w: w.hzvalue,
+            unit_widgets.SecLineEdit:  lambda w: w.secvalue,
+            unit_widgets.NSLineEdit:  lambda w: w.nsvalue,
+            unit_widgets.HzIntervalWidget: lambda w: w.get_range(),
+            unit_widgets.ThreeValueWidget: lambda w: w.get_values(),
+            QSpinBox: lambda w: w.value(),
+            unit_widgets.FlexiblePointWidget: lambda w: w.get_points(),
+        }
+
+
+
+class I1I2Widget(ExperimentWidget):
+    def __init__(self):
+
+        # Pre-configured widgets for extra configuration:
+        apd_channel_cb = QComboBox()
+        apd_channel_cb.addItems(['ctr0', 'ctr1', 'ctr2', 'ctr3', 'none'])
+        apd_channel_cb.setCurrentText('ctr1')
+
+        sweeps_sb = QSpinBox()
+        sweeps_sb.setMinimum(1)
+        sweeps_sb.setValue(10)
+
+        read_timeout_sb = QSpinBox()
+        read_timeout_sb.setMinimum(0)
+        read_timeout_sb.setValue(12)
+
+        sweeps_until_feedback_sb = QSpinBox()
+        sweeps_until_feedback_sb.setMinimum(1)
+        sweeps_until_feedback_sb.setValue(6)
+
+        z_feedback_every_sb = QSpinBox()
+        z_feedback_every_sb.setMinimum(1)
+        z_feedback_every_sb.setValue(1)
+
+        shrink_every_x_iter_sb = QSpinBox()
+        shrink_every_x_iter_sb.setMinimum(1)
+        shrink_every_x_iter_sb.setValue(1)
+
+        starting_point_cb = QComboBox()
+        starting_point_cb.addItems(['user_input', 'current_position (ignore input)'])
+        starting_point_cb.setCurrentText('current_position (ignore input)')
+
+        search_integral_history_sb = QSpinBox()
+        search_integral_history_sb.setMinimum(1)
+        search_integral_history_sb.setValue(5)
+
+        sideband_frequency_cb = QComboBox()
+        sideband_items = ['62.5', '55.55555555', '50', '41.666666666', '37.0370370', '33.33333333', '31.25',
+                        '27.77777777', '25', '20.833333', '18.51851851', '17.857142857', '16.66666667', '15.8730158730',
+                        '15.625', '14.2857142857', '13.88888889', '12.5', '12.345679', '11.36363636', '11.1111111',
+                        '10.41666667', '10.1010101', '10', '9.615384615', '9.25925926', '9.09090909', '8.92857142',
+                        '8.547008547', '8.33333333', '7.936507936507', '7.8125', '7.6923077', '7.407407407', '7.3529412',
+                        '7.14285714', '6.94444444', '6.6666667', '6.5789474', '6.5359477', '6.25', '6.1728395',
+                        '5.952380952', '5.8823529', '5.84795322', '5.68181818', '5.55555556', '5.4347826', '5.291005291',
+                        '5.2631579', '5.2083333', '5.05050505', '5', '4.4642857', '4.0322581', '3.78787879', '3.4722222',
+                        '2.84090909', '2.5']
+        sideband_frequency_cb.addItems(sideband_items)
+        sideband_frequency_cb.setCurrentText("10.1010101")
+        # New params_config dictionary using only display_text and widget:
+        
+        params_config = {
+            'device': {
+                'display_text': 'Device',
+                'widget': QLineEdit("Dev1")
+            },
+            'PS_clock_channel': {
+                'display_text': 'PS Clock Channel',
+                'widget': QLineEdit("PFI0")
+            },
+            'APD_channel': {
+                'display_text': 'APD Channel',
+                'widget': apd_channel_cb
+            },
+            'sampling_rate': {
+                'display_text': 'Sampling Rate',
+                'widget': unit_widgets.HzLineEdit(50000)
+            },
+            'clockPulseTime': {
+                'display_text': 'Clock Pulse Time',
+                'widget': unit_widgets.SecLineEdit(10e-9)
+            },
+            'mwPulseTime': {
+                'display_text': 'MW Pulse Time',
+                'widget': unit_widgets.SecLineEdit(50e-6)
+            },
+            'time_per_sgpoint': {
+                'display_text': 'Time per SG Point',
+                'widget': unit_widgets.SecLineEdit(1)
+            },
+            'sweeps': {
+                'display_text': 'Sweeps',
+                'widget': sweeps_sb
+            },
+            'frequencies': {
+                'display_text': 'Frequencies',
+                'widget': QLineEdit("(2.85e9, 2.89e9, 20)")
+            },
+            'slope_range': {
+                'display_text': 'Slope Range',
+                'widget': QLineEdit("(2.868e9, 2.871e9)")
+            },
+            'sideband_frequency': {
+                'display_text': 'Sideband Frequency',
+                'widget': sideband_frequency_cb
+            },
+            'rf_amplitude': {
+                'display_text': 'RF Amplitude',
+                'widget': QLineEdit("-20")
+            },
+            'read_timeout': {
+                'display_text': 'Read Timeout',
+                'widget': read_timeout_sb
+            },
+            'sweeps_until_feedback': {
+                'display_text': 'Sweeps Until Feedback',
+                'widget': sweeps_until_feedback_sb
+            },
+            'z_feedback_every': {
+                'display_text': 'Z Feedback Every',
+                'widget': z_feedback_every_sb
+            },
+            'xyz_step_nm': {
+                'display_text': 'XYZ Step (nm)',
+                'widget': QLineEdit("0.5e-7")
+            },
+            'shrink_every_x_iter': {
+                'display_text': 'Shrink Every X Iter',
+                'widget': shrink_every_x_iter_sb
+            },
+            'starting_point': {
+                'display_text': 'Starting Point',
+                'widget': starting_point_cb
+            },
+            'continuous_tracking': {
+                'display_text': 'Continuous Tracking',
+                'widget': QCheckBox()
+            },
+            'searchXYZ': {
+                'display_text': 'Search XYZ',
+                'widget': unit_widgets.PointWidget(0.5, 0.5, 0.5)
+            },
+            'max_search': {
+                'display_text': 'Max Search',
+                'widget': unit_widgets.PointWidget(1.0, 1.0, 1.0)
+            },
+            'min_search': {
+                'display_text': 'Min Search',
+                'widget': unit_widgets.PointWidget(0.1, 0.1, 0.1)
+            },
+            'scan_distance': {
+                'display_text': 'Scan Distance',
+                'widget': unit_widgets.PointWidget(0.03, 0.03, 0.05)
+            },
+            'changing_search': {
+                'display_text': 'Changing Search',
+                'widget': QCheckBox()
+            },
+            'search_PID': {
+                'display_text': 'Search PID',
+                'widget': QLineEdit("[0.5,0.01,0]")
+            },
+            'search_integral_history': {
+                'display_text': 'Search Integral History',
+                'widget': search_integral_history_sb
+            },
+            'spot_size': {
+                'display_text': 'Spot Size',
+                'widget': unit_widgets.MLineEdit(400e-9)
+            },
+            'advanced_tracking': {
+                'display_text': 'Advanced Tracking',
+                'widget': QCheckBox()
+            },
+            'diffusion_constant': {
+                'display_text': 'Diffusion Constant',
+                'widget': QLineEdit("200")
+            },
+            'data_download': {
+                'display_text': 'Data Download',
+                'widget': QCheckBox()
+            },
+            'dataset': {
+                'display_text': 'Data Source',
+                'widget': QLineEdit('i1i2'),
+            },
+        }
+        
+        super().__init__(
+            params_config,
+            experiments.i1i2,
+            'I1I2Experiment',
+            'i1i2_experiment',
+            title='I1I2 Experiment',
+            get_param_value_funs={
+                # Insert the appropriate mapping functions here for each widget type.
+                unit_widgets.PointWidget: lambda w: w.get_point(),
+                unit_widgets.MLineEdit: lambda w: w.umvalue,
+                unit_widgets.HzLineEdit: lambda w: w.hzvalue,
+                unit_widgets.SecLineEdit: lambda w: w.secvalue,
+                unit_widgets.NSLineEdit: lambda w: w.nsvalue,
+                unit_widgets.HzIntervalWidget: lambda w: w.get_range(),
+                unit_widgets.ThreeValueWidget: lambda w: w.get_values(),
+                QSpinBox: lambda w: w.value(),
+                unit_widgets.FlexiblePointWidget: lambda w: w.get_points(),
+                QCheckBox: lambda w: w.isChecked(),
+                QLineEdit: lambda w: w.text(),
+                QComboBox: lambda w: w.currentText(),
+                SpinBox: lambda w: w.value(),
+            }
+        )
+
+class I1I2PlotWidget(FlexLinePlotWidget):
+    """Add some default settings to the FlexSinkLinePlotWidget."""
+    def __init__(self):
+        super().__init__()
+        # create some default signal plots
+        self.add_plot('counts',        series='counts',   scan_i='',     scan_j='',  processing='Append')
+
+
+        # retrieve legend object
+        legend = self.line_plot.plot_widget.addLegend()
+        # set the legend location
+        legend.setOffset((-10, -50))
+
+        self.datasource_lineedit.setText('i1i2')

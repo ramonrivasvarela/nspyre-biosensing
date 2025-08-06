@@ -6,20 +6,12 @@ from nspyre import DataSink
 from pyqtgraph import SpinBox
 from pyqtgraph.Qt import QtWidgets
 from PyQt6.QtWidgets import QSpinBox, QLineEdit, QCheckBox
-import experiments.counts_new
-from special_widgets import unit_widgets
-from nspyre import InstrumentManager
-#from special_widgets.experiment_widget import ExperimentWidget
-from nspyre import DataSource
-import experiments.counts
-import experiments.planescan
-import experiments.WFODMR
-import experiments.spatialfb
-import experiments.counts_new
-import experiments.picture
-import experiments.WFTracking
 
-import experiments.confocalODMR
+from special_widgets import unit_widgets
+
+import experiments.spatialfb
+
+
 
 import pyqtgraph as pg
 
@@ -42,14 +34,14 @@ get_param_value_funs={
 class SpatialFeedbackWidget(ExperimentWidget):
     def __init__(self):
         ctr_ch_le = QLineEdit('Dev1/ctr1')
-        initial_position=unit_widgets.PointWidget(0, 0, 0)
+        initial_position=unit_widgets.PointWidget(1, 0, 0)
         # x_initial_le = unit_widgets.MLineEdit(0)
         # y_initial_le = unit_widgets.MLineEdit(0)
         # z_initial_le = unit_widgets.MLineEdit(0)
         do_z_cb = QCheckBox()
         do_z_cb.setChecked(True)
         sleep_time_le = unit_widgets.SecLineEdit(0.4)
-        xyz_step_le = unit_widgets.MLineEdit(0.5e-7)
+        xyz_step_le = unit_widgets.MLineEdit(0.05)
         shrink_every_x_iter_sb = QSpinBox()
         shrink_every_x_iter_sb.setMinimum(1)
         shrink_every_x_iter_sb.setValue(1)

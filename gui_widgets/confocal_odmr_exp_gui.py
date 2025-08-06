@@ -5,7 +5,6 @@ from nspyre import ExperimentWidget
 from nspyre import DataSink
 from pyqtgraph.Qt import QtWidgets
 from PyQt6.QtWidgets import QSpinBox, QLineEdit, QCheckBox
-import experiments.counts_new
 from special_widgets import unit_widgets
 from pyqtgraph import SpinBox
 

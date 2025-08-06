@@ -100,13 +100,13 @@ class SpatialFeedback():
                         dataZBefore = self.read(mgr, sleep_time)
                         print('\n DataZBefore:', dataZBefore)
                         while(keepGoing):
-                            mgr.XYZcontrol.move_to_dict({'x': x_center, 'y': y_center, 'z': z_center + e * (xyz_step + .02)})
+                            mgr.XYZcontrol.move_to(x_center, y_center, z_center + e * (xyz_step + .02))
                             #print('\n before next read')
                             dataZAfter = self.read(mgr, sleep_time)
                             print('\n DataZAfter:', dataZAfter)
                             if dataZAfter < dataZBefore:
                                 keepGoing = False
-                                mgr.XYZcontrol.move_to_dict({'x': x_center, 'y': y_center, 'z': z_center})
+                                mgr.XYZcontrol.move_to(x_center, y_center, z_center)
                             else:
                                 z_center = z_center + e * (xyz_step + .02)
                                 dataZBefore = dataZAfter
@@ -125,13 +125,13 @@ class SpatialFeedback():
                     dataXBefore = self.read(mgr, sleep_time)
                     print('\n DataXBefore:', dataXBefore)
                     while(keepGoing):
-                        mgr.XYZcontrol.move_to_dict({'x': x_center + e * xyz_step, 'y': y_center, 'z': z_center})
+                        mgr.XYZcontrol.move_to(x_center + e * xyz_step, y_center, z_center)
                         #print('\n before next read')
                         dataXAfter = self.read(mgr, sleep_time)
                         print('\n DataXAfter:', dataXAfter)
                         if dataXAfter < dataXBefore:
                             keepGoing = False
-                            mgr.XYZcontrol.move_to_dict({'x': x_center, 'y': y_center, 'z': z_center})
+                            mgr.XYZcontrol.move_to(x_center, y_center, z_center)
                         else:
                             x_center = x_center + e * xyz_step
                             dataXBefore = dataXAfter
@@ -149,13 +149,13 @@ class SpatialFeedback():
                     print('\n DataYBefore:', dataYBefore)
                     while(keepGoing):
                         # Move via XYZcontrol
-                        mgr.XYZcontrol.move_to_dict({'x': x_center, 'y': y_center + e * xyz_step, 'z': z_center})
+                        mgr.XYZcontrol.move_to(x_center, y_center + e * xyz_step, z_center)
                         dataYAfter = self.read(mgr, sleep_time)
                         print('\n DataYAfter:', dataYAfter)
                         if dataYAfter < dataYBefore:
                             keepGoing = False
                             # Move back via XYZcontrol
-                            mgr.XYZcontrol.move_to_dict({'x': x_center, 'y': y_center, 'z': z_center})
+                            mgr.XYZcontrol.move_to(x_center, y_center, z_center)
                         else:
                             y_center = y_center + e * xyz_step
                             dataYBefore = dataYAfter
@@ -198,7 +198,7 @@ class SpatialFeedback():
     def initialize(self, mgr, ctr_ch, initial_position, starting_point):
         
         if starting_point == 'user_input':            
-            mgr.XYZcontrol.move_to_dict(initial_position)
+            mgr.XYZcontrol.move(initial_position)
         self.init_x = mgr.XYZcontrol.get_x()
         self.init_y = mgr.XYZcontrol.get_y()
         self.init_z = mgr.XYZcontrol.get_z()

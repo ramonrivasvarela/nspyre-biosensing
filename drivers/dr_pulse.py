@@ -242,7 +242,7 @@ class PulserClass():
     def pulse_setup(self, runs, mode,cam_trigger, ns_exp_time, ns_readout_time):#, mw_duty, mw_rep):
         #print('\n using sequence without wait time')
         seqs=[]
-        if cam_trigger == 'external':
+        if cam_trigger == 'External':
             seqs.append(self.WFODMR(runs, ns_exp_time, ns_readout_time,  mode = mode, FT = False))#, mw_duty = mw_duty, mw_rep = mw_rep))
         else:
             seqs.append(self.WFODMR(runs, ns_exp_time, ns_readout_time,10000000,5000000,mode))#, mw_duty = mw_duty, mw_rep = mw_rep))
@@ -252,7 +252,7 @@ class PulserClass():
         """
         Pulse sequence for widefield imaging.
         """
-        if cam_trigger == 'external':
+        if cam_trigger == 'External':
             pulse=self.WFODMR(runs, ns_exp_time, ns_readout_time,  mode = mode, FT = False)#, mw_duty = mw_duty, mw_rep = mw_rep))
         else:
             pulse=self.WFODMR(runs, ns_exp_time, ns_readout_time,10000000,5000000,mode)#, mw_duty = mw_duty, mw_rep = mw_rep))

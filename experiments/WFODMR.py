@@ -126,16 +126,20 @@ class WideFieldODMR():
             #     self.t_cool = time.time()
             self.gain=get_gain(mgr, optimize_gain, gain, self.runs, mode, self.ns_exp_time, self.ns_readout_time)
             self.t_gain = time.time()
-
             plots={}
-            for ND in range(len(self.ROI_xyr)):
-                plots[f"signal_{ND+1}"]=StreamingList()
-                plots[f"background_{ND+1}"]=StreamingList()
+            for nd in range(len(self.ROI_xyr)):
+                plots[f"signal_{nd+1}"]=StreamingList()
+                plots[f"background_{nd+1}"]=StreamingList()
             for rep in range(self.repetitions):
                 for sweep in range(self.sweeps):
+                    counts_list=np.empty(len(self.frequencies))
+                    counts_list[:] = np.nan
+                    for nd in range(len(self.ROI_xyr)):
+                        plots[f"signal_{nd+1}"].append(np.stack([self.frequencies/1e9, counts_list]))
+                        plots[f"background_{nd+1}"].append(np.stack([self.frequencies/1e9, counts_list]))
                     count = 0
-                    for f in self.frequency:
-                        print("frequency: ", f)
+                    for f, freq in enumerate(self.frequencies):
+                        print("frequency: ", freq)
 
                         #import pdb;pdb.set_trace()
                         mgr.Camera.start_acquisition()
@@ -145,7 +149,7 @@ class WideFieldODMR():
                             return
                         print('Starting Acquisition', ret)
                         time.sleep(0.1) #Give time to start acquisition, not optimized
-                        mgr.sg.set_frequency(f) ## make sure the sg frequency is set! (overhead of <1ms)
+                        mgr.sg.set_frequency(freq) ## make sure the sg frequency is set! (overhead of <1ms)
                         mgr.Pulser.stream_umOFF(self.seqs[0], 1, AM = self.AM_mode, SWITCH = self.switch_mode)
                         timeout_counter = 0
 
@@ -208,18 +212,10 @@ class WideFieldODMR():
                             self.sig_data[ND][count] +=(sig)
                             self.bg_data[ND][count] += (bg)
                             self.ODMR_data[ND][count] += (sig/bg)
-                            signal=plots[f"signal_{ND+1}"]
-                            
-                            background=plots[f"background_{ND+1}"]
-                            #print("Signal before", signal)
-                            #print("Background before", background)
-            
-                            #print("Signal after", signal)
-                            #print("Background after", background)
-                            plots[f"signal_{ND+1}"].append(np.array([np.array([f]), np.array([sig])]))
+                            plots[f"signal_{ND+1}"][-1][1][f] = sig
                             plots[f"signal_{ND+1}"].updated_item(-1)
-                            print(plots[f"signal_{ND+1}"][0].shape)
-                            plots[f"background_{ND+1}"].append(np.array([np.array([f]), np.array([bg])]))
+                            plots[f"background_{ND+1}"][-1][1][f] = bg
+                            plots[f"background_{ND+1}"].updated_item(-1)
 
                         while len(sigs)<5:
                             sigs.append(0)
@@ -287,7 +283,7 @@ class WideFieldODMR():
         self.misc = eval(Misc)
         self.ROI_xyr = eval(ROI_xyr)
         eval_frequency = eval(frequency)
-        self.frequency = np.linspace(eval_frequency[0], eval_frequency[1], eval_frequency[2], endpoint=True)
+        self.frequencies = np.linspace(eval_frequency[0], eval_frequency[1], eval_frequency[2], endpoint=True)
 
         self.t_gain = None
 
@@ -295,9 +291,9 @@ class WideFieldODMR():
         self.bg_data = []
         self.ODMR_data = []
         for ND in range(len(self.ROI_xyr)):
-            self.sig_data.append(np.zeros(len(self.frequency)))
-            self.bg_data.append(np.zeros(len(self.frequency)))
-            self.ODMR_data.append(np.zeros(len(self.frequency)))
+            self.sig_data.append(np.zeros(len(self.frequencies)))
+            self.bg_data.append(np.zeros(len(self.frequencies)))
+            self.ODMR_data.append(np.zeros(len(self.frequencies)))
         self.gain_string = ''
         ## create self parameters ------------------------------
         print('Initializing WFODMR_New')
@@ -352,7 +348,7 @@ class WideFieldODMR():
         self.ns_collect_time = self.ns_exp_time+self.ns_readout_time
 
         if cam_trigger == 'EXTERNAL_EXPOSURE':
-            mgr.Camera.set_trigger_mode("External Exposure Bulb") #Pulse  length controls exposure
+            mgr.Camera.set_trigger_mode("External Exposure (Bulb)") #Pulse  length controls exposure
             if self.ns_laser_lag < self.ns_readout_time+10000000:
                 print('laser lag must be larger than readout_time + 10 ms for camera initialization.')
                 return
@@ -411,7 +407,7 @@ class WideFieldODMR():
             self.AM_mode = True
         self.seqs=mgr.Pulser.pulse_setup(self.runs, mode,cam_trigger, self.ns_exp_time, self.ns_readout_time)
 
-        mgr.sg.set_rf_toggle(True)
+        mgr.sg.set_rf_toggle(1)
         mgr.sg.set_mod_toggle(True)
         mgr.sg.set_mod_function(mode, 'external')
 
@@ -428,7 +424,7 @@ class WideFieldODMR():
         ret = mgr.Camera.set_shutter("Closed")
         print("Function SetShutter returned {}".format(ret))
         ## turns off instruments, close shutter
-        mgr.sg.set_rf_toggle(False)
+        mgr.sg.set_rf_toggle(0)
         mgr.sg.set_mod_toggle(False)
         mgr.Pulser.reset()
 
@@ -438,7 +434,7 @@ class WideFieldODMR():
             print(ret) ##returns 20002 if successful
 
         print(self.gain_string)
-        self.freq_data = self.frequency
+        self.freq_data = self.frequencies
         if ended:
             for i in range(len(self.ODMR_data)):
                 try:

@@ -1,16 +1,11 @@
 import numpy as np
 
-from nspyre import FlexLinePlotWidget
+
 from nspyre import ExperimentWidget
-from nspyre import DataSink
-from pyqtgraph import SpinBox
 from pyqtgraph.Qt import QtWidgets
 from PyQt6.QtWidgets import QSpinBox, QLineEdit, QCheckBox
-import experiments.counts_new
 from special_widgets import unit_widgets
-from nspyre import InstrumentManager
-#from special_widgets.experiment_widget import ExperimentWidget
-from nspyre import DataSource
+
 
 import experiments.picture
 

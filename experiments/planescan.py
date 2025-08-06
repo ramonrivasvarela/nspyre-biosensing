@@ -138,11 +138,12 @@ class PlaneScan:
                             np.linalg.norm(scan_vector) + adjust_line,
                             line_scan_steps
                         )
-            step_vals = np.linspace(
-                adjust_step,                                # start offset
-                np.linalg.norm(extent_vector) + adjust_step,# end offset
-                extent_steps + 1                            # rows = extent_steps+1
-            )
+            # step_vals = np.linspace(
+            #     adjust_step,                                # start offset
+            #     np.linalg.norm(extent_vector) + adjust_step,# end offset
+            #     extent_steps + 1                            # rows = extent_steps+1
+            # )
+            step_vals=np.array([])
             if stack_count>1:
                 self.check_limit(mgr, origin-stack_vector*(z_stack-1), 'origin-stack_vector*(z_stack-1)')
                 self.check_limit(mgr, origin+stack_vector*(z_stack-1), 'origin+stack_vector*(z_stack-1)')
@@ -163,11 +164,12 @@ class PlaneScan:
             origin = origin - stack_vector * z_stack
             datasets={}
             for z in range(stack_count):
-                datasets[f"stack_{z+1}"]= np.zeros((extent_steps + 1, line_scan_steps)) 
+                datasets[f"stack_{z+1}"]= StreamingList()
                 origin = origin + stack_vector
                 for rep in range(repetitions):
                     print(origin)
                     for s in range(extent_steps + 1):
+                        step_vals.append(adjust_step + s/(extent_steps) * np.linalg.norm(extent_vector))
                         
                         line_scan_start_pt = origin + s/(extent_steps) * extent_vector
                         line_scan_stop_pt = line_scan_start_pt + scan_vector 
@@ -197,7 +199,8 @@ class PlaneScan:
                             
                             
                         counts = rpyc.utils.classic.obtain(line_data)
-                        datasets[f"stack_{z+1}"][s, :] = datasets[f"stack_{z+1}"][s, :] + counts
+                        datasets[f"stack_{z+1}"].append(counts)
+                        datasets[f"stack_{z+1}"].updated_item(-1)
                         ## scan_vals contains the x values corresponding to the line scan data
                         
                         #stack_pos= (z - z_stack + 1) * np.linalg.norm(stack_vector) + adjust_step
