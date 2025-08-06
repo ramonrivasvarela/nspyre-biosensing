@@ -29,15 +29,15 @@ get_param_value_funs={
             unit_widgets.FlexiblePointWidget: lambda w: w.get_points(),
         }
 
-MAXIMUM=2147483647
+MAXIMUM=2147483647 # There has to be a better way...
 class ConfocalODMRWidget(ExperimentWidget):
     def __init__(self):
         from PyQt6.QtWidgets import QLineEdit, QSpinBox, QCheckBox, QComboBox
 
         # Define widgets that require extra configuration outside of params:
-        channel1_cb = QComboBox()
-        channel1_cb.addItems(['ctr0', 'ctr1', 'ctr2', 'ctr3', 'none'])
-        channel1_cb.setCurrentText('ctr1')
+        # channel1_cb = QComboBox()
+        # channel1_cb.addItems(['ctr0', 'ctr1', 'ctr2', 'ctr3', 'none'])
+        # channel1_cb.setCurrentText('ctr1')
         
         runs_sb = QSpinBox()
         runs_sb.setMinimum(1)
@@ -56,13 +56,13 @@ class ConfocalODMRWidget(ExperimentWidget):
 
 
         
-        repetitions_sb = QSpinBox()
-        repetitions_sb.setMinimum(1)
-        repetitions_sb.setValue(1)
+        # repetitions_sb = QSpinBox()
+        # repetitions_sb.setMinimum(1)
+        # repetitions_sb.setValue(1)
 
-        sequence_cb = QComboBox()
-        sequence_cb.addItems(['odmr_heat_wait', 'odmr_no_wait'])
-        sequence_cb.setCurrentText('odmr_no_wait')
+        # sequence_cb = QComboBox()
+        # sequence_cb.addItems(['odmr_heat_wait', 'odmr_no_wait'])
+        # sequence_cb.setCurrentText('odmr_no_wait')
         
         sweeps_til_fb_sb = QSpinBox()
         sweeps_til_fb_sb.setMinimum(1)
@@ -74,16 +74,16 @@ class ConfocalODMRWidget(ExperimentWidget):
         starting_point_cb.setCurrentText('current_position (ignore input)')
         
         mode_cb = QComboBox()
-        mode_cb.addItems(['QAM', 'AM'])
+        mode_cb.addItems(['QAM', 'AM', 'NoMod', 'FM'])
         mode_cb.setCurrentText('QAM')
 
-        sampling_rate_sb=unit_widgets.HzLineEdit(50000)
+        # sampling_rate_sb=unit_widgets.HzLineEdit(50000)
 
-        repeat_minutes_sb = SpinBox()
-        repeat_minutes_sb.setValue(0)
-        repeat_minutes_sb.setMinimum(0)
-        repeat_minutes_sb.setMaximum(None)
-        repeat_minutes_sb.setDecimals(3)
+        # repeat_minutes_sb = SpinBox()
+        # repeat_minutes_sb.setValue(0)
+        # repeat_minutes_sb.setMinimum(0)
+        # repeat_minutes_sb.setMaximum(None)
+        # repeat_minutes_sb.setDecimals(3)
 
         rf_amplitude_sb = QSpinBox()
         rf_amplitude_sb.setMinimum(-100)
@@ -96,6 +96,9 @@ class ConfocalODMRWidget(ExperimentWidget):
         dozfb_cb=QCheckBox()
         dozfb_cb.setChecked(True)
 
+        switch_cb=QCheckBox()
+        switch_cb.setChecked(False)
+
         count_step_shrink_sb=QSpinBox()
         count_step_shrink_sb.setMinimum(1)
 
@@ -103,22 +106,22 @@ class ConfocalODMRWidget(ExperimentWidget):
         # Build the parameter configuration dictionary using only display_text and widget.
         # Widgets that require extra config have been defined above.
         params_config = {
-            'device': {
-                'display_text': 'Device',
-                'widget': QLineEdit("Dev1")
-            },
-            'channel1': {
-                'display_text': 'Channel1',
-                'widget': channel1_cb
-            },
-            'PS_clk_channel': {
-                'display_text': 'PS Clock Channel',
-                'widget': QLineEdit("PFI0")
-            },
-            'sampling_rate': {
-                'display_text': 'Sampling Rate',
-                'widget': sampling_rate_sb
-            },
+            # 'device': {
+            #     'display_text': 'Device',
+            #     'widget': QLineEdit("Dev1")
+            # },
+            # 'channel1': {
+            #     'display_text': 'Channel1',
+            #     'widget': channel1_cb
+            # },
+            # 'PS_clk_channel': {
+            #     'display_text': 'PS Clock Channel',
+            #     'widget': QLineEdit("PFI0")
+            # },
+            # 'sampling_rate': {
+            #     'display_text': 'Sampling Rate',
+            #     'widget': sampling_rate_sb
+            # },
             'runs': {
                 'display_text': 'Runs',
                 'widget': runs_sb
@@ -131,14 +134,14 @@ class ConfocalODMRWidget(ExperimentWidget):
                 'display_text': 'Sweeps',
                 'widget': sweeps_sb
             },
-            'repeat_every_x_minutes': {
-                'display_text': 'Repeat Every X Minutes',
-                'widget': repeat_minutes_sb
-            },
-            'repetitions': {
-                'display_text': 'Repetitions',
-                'widget': repetitions_sb
-            },
+            # 'repeat_every_x_minutes': {
+            #     'display_text': 'Repeat Every X Minutes',
+            #     'widget': repeat_minutes_sb
+            # },
+            # 'repetitions': {
+            #     'display_text': 'Repetitions',
+            #     'widget': repetitions_sb
+            # },
             'frequency': {
                 'display_text': 'Frequency',
                 'widget': QLineEdit("(2.84e9, 2.90e9, 30)")
@@ -161,12 +164,16 @@ class ConfocalODMRWidget(ExperimentWidget):
             },
             'cooldown_time': {
                 'display_text': 'Cooldown Time',
-                'widget': unit_widgets.SecLineEdit(5e-6)
+                'widget': unit_widgets.SecLineEdit(0)
             },
-            'sequence': {
-                'display_text': 'Sequence',
-                'widget': sequence_cb
+            'use_switch': {
+                'display_text': 'Switch',
+                'widget': switch_cb
             },
+            # 'sequence': {
+            #     'display_text': 'Sequence',
+            #     'widget': sequence_cb
+            # },
             'feedback': {
                 'display_text': 'Feedback',
                 'widget': feedback_cb
@@ -196,10 +203,10 @@ class ConfocalODMRWidget(ExperimentWidget):
                 'display_text': 'Starting Point',
                 'widget': starting_point_cb
             },
-            'data_download': {
-                'display_text': 'Data Download',
-                'widget': QCheckBox()
-            },
+            # 'data_download': {
+            #     'display_text': 'Data Download',
+            #     'widget': QCheckBox()
+            # },
             'mode': {
                 'display_text': 'Mode',
                 'widget': mode_cb
@@ -219,13 +226,32 @@ class ConfocalODMRWidget(ExperimentWidget):
             get_param_value_funs=get_param_value_funs
         )
 
+def process_ODMR_data(sink: DataSink):
+    """Subtract the signal from background trace and add it as a new 'diff' dataset."""
+    div_sweeps = []
+    for s,_ in enumerate(sink.datasets['signal']):
+        freqs = sink.datasets['signal'][s][0]
+        sig = sink.datasets['signal'][s][1]
+        bg = sink.datasets['background'][s][1]
+        div_sweeps.append(np.stack([freqs, sig / bg]))
+    sink.datasets['div'] = div_sweeps
+
+
 class ConfocalODMRPlotWidget(FlexLinePlotWidget):
     """Add some default settings to the FlexSinkLinePlotWidget."""
     def __init__(self):
-        super().__init__()
+        super().__init__(data_processing_func=process_ODMR_data)
         # create some default signal plots
-        self.add_plot('Series',        series='series',   scan_i='',     scan_j='',  processing='Append')
-        self.add_plot('Background',        series='background',   scan_i='',     scan_j='',  processing='Append')
+        self.add_plot('sig_avg',        series='signal',   scan_i='',     scan_j='',  processing='Average')
+        self.add_plot('sig_latest',     series='signal',   scan_i='-1',   scan_j='',  processing='Average')
+
+        # create some default background plots
+        self.add_plot('bg_avg',         series='background',   scan_i='',     scan_j='',  processing='Average')
+        self.add_plot('bg_latest',      series='background',   scan_i='-1',   scan_j='',  processing='Average')
+
+        # create some default diff plots
+        self.add_plot('div_avg',       series='div',  scan_i='',      scan_j='',  processing='Average')
+        self.add_plot('div_latest',    series='div',  scan_i='-1',    scan_j='',  processing='Average') #what does append do in this case? Test it some day...
 
 
         # retrieve legend object
