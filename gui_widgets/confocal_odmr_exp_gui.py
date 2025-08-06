@@ -226,13 +226,32 @@ class ConfocalODMRWidget(ExperimentWidget):
             get_param_value_funs=get_param_value_funs
         )
 
+def process_ODMR_data(sink: DataSink):
+    """Subtract the signal from background trace and add it as a new 'diff' dataset."""
+    div_sweeps = []
+    for s,_ in enumerate(sink.datasets['signal']):
+        freqs = sink.datasets['signal'][s][0]
+        sig = sink.datasets['signal'][s][1]
+        bg = sink.datasets['background'][s][1]
+        div_sweeps.append(np.stack([freqs, sig / bg]))
+    sink.datasets['div'] = div_sweeps
+
+
 class ConfocalODMRPlotWidget(FlexLinePlotWidget):
     """Add some default settings to the FlexSinkLinePlotWidget."""
     def __init__(self):
-        super().__init__()
+        super().__init__(data_processing_func=process_ODMR_data)
         # create some default signal plots
-        self.add_plot('Series',        series='series',   scan_i='',     scan_j='',  processing='Append')
-        self.add_plot('Background',        series='background',   scan_i='',     scan_j='',  processing='Append')
+        self.add_plot('sig_avg',        series='signal',   scan_i='',     scan_j='',  processing='Average')
+        self.add_plot('sig_latest',     series='signal',   scan_i='-1',   scan_j='',  processing='Average')
+
+        # create some default background plots
+        self.add_plot('bg_avg',         series='background',   scan_i='',     scan_j='',  processing='Average')
+        self.add_plot('bg_latest',      series='background',   scan_i='-1',   scan_j='',  processing='Average')
+
+        # create some default diff plots
+        self.add_plot('div_avg',       series='div',  scan_i='',      scan_j='',  processing='Average')
+        self.add_plot('div_latest',    series='div',  scan_i='-1',    scan_j='',  processing='Average') #what does append do in this case? Test it some day...
 
 
         # retrieve legend object

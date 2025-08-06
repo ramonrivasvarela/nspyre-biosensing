@@ -204,7 +204,7 @@ class ConfocalODMR():
         if self.VERBOSE:
             import pickle, os
             print(f'saving sequence to seq.pkl in {os.getcwd()}')
-            pickle.dump(seq, open('seq.pkl', 'wb'))
+            pickle.dump(self.seq, open('seq.pkl', 'wb'))
 
         ## Prepare Sig Gen
 
@@ -482,8 +482,6 @@ class ConfocalODMR():
             print('delta_buffer:', delta_buffer)
             print('sum_sig:', sum_sig, 'sum_bg:', sum_bg)
         return sum_sig, sum_bg
-
-
 
     #### FINALIZATION METHODS
 
