@@ -121,7 +121,7 @@ class ConfocalODMR():
                 for i in range(n_freq):
                     #### Acquire
                     mgr.sg.set_frequency(self.frequency[i])
-                    mgr.DAQCounter.start()             
+                    mgr.DAQCounter.start(time_wait=0.01)      
                     mgr.Pulser.stream_sequence(self.seq, 1) # number of runs accounted for in construction of the sequence.
                     data = mgr.DAQCounter.read_to_data(timeout = self.timeout) # Collect ODMR point
                     mgr.Pulser.set_state_off()
