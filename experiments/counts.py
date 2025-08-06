@@ -82,7 +82,7 @@ class CountsTime:
             self.initialize(mgr)
             seq = self.create_sequence(mgr)
             start_t = time.time()
-            
+
             ###########################
             #### EXPERIMENTAL LOOP ####
             ###########################
@@ -124,7 +124,6 @@ class CountsTime:
         """Initialize the experiment."""      
         mgr.DAQCounter.set_sampling_rate(2/self.probe_time)  # Automatically determined by 2/probe_time
         mgr.DAQCounter.create_buffer(self.n_points+1) # +1 to account for signal being a difference of counts
-        print(mgr.DAQCounter.buffer)
         mgr.DAQCounter.initialize()
 
 
