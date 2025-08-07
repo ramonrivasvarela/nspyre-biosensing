@@ -87,7 +87,7 @@ class PulserClass():
 
     def stream(
         self,
-        couples: list[tuple[float, list[int]]],
+        couples: list[tuple[int, list[int]]],
         i: float = 0.0,
         q: float = 0.0,
         n_runs: int = 1,
@@ -156,7 +156,6 @@ class PulserClass():
 
     def flip_mirror(self, output=[], i=0, q=0, n_runs=1):
         pulse = [(1000000, [5], 0, 0)]
-        self.change_state([], 0, 0)
         self.Pulser.stream(pulse, n_runs, final=OutputState(output, i, q))
         self.change_state(output, q, i)
 

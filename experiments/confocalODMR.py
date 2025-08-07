@@ -94,7 +94,7 @@ class ConfocalODMR():
         ## Set up experiment parameters
         INIT_PARAMS = [ runs, mode, frequency, rf_amplitude, laser_lag, cooldown_time,
                         probe_time, clock_duration, use_switch, timeout]
-        n_freq = len(self.frequency)
+        n_freq = len(self.frequencies)
 
         signal=StreamingList()
         background=StreamingList()
@@ -120,7 +120,7 @@ class ConfocalODMR():
 
                 for i in range(n_freq):
                     #### Acquire
-                    mgr.sg.set_frequency(self.frequency[i])
+                    mgr.sg.set_frequency(self.frequencies[i])
                     mgr.DAQCounter.start()             
                     mgr.Pulser.stream_sequence(self.seq, 1) # number of runs accounted for in construction of the sequence.
                     data = mgr.DAQCounter.read_to_data(timeout = self.timeout) # Collect ODMR point
@@ -180,7 +180,7 @@ class ConfocalODMR():
 
         self.timeout=timeout #time to wait for clock before raising an error
         eval_frequency=eval(frequency)
-        self.frequency = np.linspace(eval_frequency[0], eval_frequency[1], eval_frequency[2])
+        self.frequencies = np.linspace(eval_frequency[0], eval_frequency[1], eval_frequency[2])
 
         ## Prepare timing variables
         self.ns_probe_time = int(round(probe_time*1e9)) #laser time per window
@@ -235,7 +235,8 @@ class ConfocalODMR():
         '''
         Sets up the pulse sequence for ODMR without wait time. Returns the relevant instrument sequences as a dictionary
         '''
-        
+        self.IQ0 = [-0.0025,-0.0025]
+        self.IQpx = [0.4461,-.0025]
         
         if self.VERBOSE: 
             print('\n using sequence without wait time')
@@ -320,6 +321,8 @@ class ConfocalODMR():
         Sets up the pulse sequence for ODMR without wait time. Returns the relevant instrument sequences as a dictionary
         '''
         
+        self.IQ0 = [-0.0025,-0.0025]
+        self.IQpx = [0.4461,-.0025]
         
         if self.VERBOSE: 
             print('\n using sequence with wait time')
