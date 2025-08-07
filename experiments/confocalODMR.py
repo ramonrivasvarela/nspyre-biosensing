@@ -94,7 +94,9 @@ class ConfocalODMR():
         ## Set up experiment parameters
         INIT_PARAMS = [ runs, mode, frequency, rf_amplitude, laser_lag, cooldown_time,
                         probe_time, clock_duration, use_switch, timeout]
-        n_freq = len(self.frequencies)
+        n_freq = len(self.frequency)
+        self.AM = mode == 'AM'
+        self.SWITCH = use_switch
 
         signal=StreamingList()
         background=StreamingList()
@@ -120,8 +122,8 @@ class ConfocalODMR():
 
                 for i in range(n_freq):
                     #### Acquire
-                    mgr.sg.set_frequency(self.frequencies[i])
-                    mgr.DAQCounter.start()             
+                    mgr.sg.set_frequency(self.frequency[i])
+                    mgr.DAQCounter.start()      
                     mgr.Pulser.stream_sequence(self.seq, 1) # number of runs accounted for in construction of the sequence.
                     data = mgr.DAQCounter.read_to_data(timeout = self.timeout) # Collect ODMR point
                     mgr.Pulser.set_state_off()
@@ -458,7 +460,7 @@ class ConfocalODMR():
         
         ## Start, Stream, Read
         mgr.DAQCounter.start()             
-        mgr.Pulser.stream_sequence(seq, 1) # number of runs accounted for in construction of the sequence.
+        mgr.Pulser.stream_sequence(seq, 1, AM = self.AM, SWITCH = self.SWITCH) # number of runs accounted for in construction of the sequence.
         data = mgr.DAQCounter.read_to_data(timeout = self.timeout) # Collect ODMR point
         mgr.Pulser.set_state_off()
 

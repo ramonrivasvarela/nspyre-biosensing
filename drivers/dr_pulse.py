@@ -146,27 +146,25 @@ class PulserClass():
 
 
 
-    def stream_sequence(self, sequence:Sequence, n_runs:int=1):
+    def stream_sequence(self, sequence:Sequence, n_runs:int=1, SWITCH:bool=False, AM:bool=False):
         """
         Stream a sequence object for n_runs.
         WARNING: WILL NOT CHANGE self.blue_laser_on, self.green_laser_on, self.switch_on, self.q_analog, or self.i_analog.
         Use self.change_state() to change the state of the pulser before streaming.
+
+        If SWITCH or AM are true, then the relevant final states are implemented to keep the microwave off.
         """
-        self.Pulser.stream(sequence, n_runs)
+        digital_set = []
+        if SWITCH:
+            digital_set.append(self.channel_dict['switch'])
+        analog_set = -1 if AM else 0
+        self.Pulser.stream(sequence,n_runs, final = OutputState(digital_set, analog_set,0))
+        self.change_state(digital_set, analog_set, 0)
 
     def flip_mirror(self, output=[], i=0, q=0, n_runs=1):
         pulse = [(1000000, [5], 0, 0)]
         self.Pulser.stream(pulse, n_runs, final=OutputState(output, i, q))
         self.change_state(output, q, i)
-
-
-    def stream_umOFF(self,seq,n_runs,AM = True, SWITCH = True): #for shutting off the microwave via AM and Switch
-        digital_set = []
-        if SWITCH:
-            digital_set.append(self.channel_dict['switch'])
-        analog_set = -1 if AM else 0
-        self.Pulser.stream(seq,n_runs, final = OutputState(digital_set, analog_set,0))
-        self.change_state(digital_set, analog_set, 0)
 
     def reset(self):
         self.Pulser.reset()
@@ -291,142 +289,142 @@ class PulserClass():
 
 
 
-    # def ODMRHeatDissipation(self, ns_read_time, ns_clock_duration, ns_laser_lag, runs ,  wait_time):  
-    #     #Developed by Tian-Xing at 20230720, for trainsent ODMR on WSP, for avoiding the Singlet Fission
-    #     # laser_recharge is not used here, since we want to 'wait' after both sg and bg
-    #     print('now setting up pulse sequence')
-    #     print('self.read_time:', ns_read_time)
-    #     print('self.clock_time:',  ns_clock_duration)        
-    #     #self.laser_lag
-    #     #self.laserLag_time = 80 #hard coded for now
+    def ODMRHeatDissipation(self, ns_read_time, ns_clock_duration, ns_laser_lag, runs ,  wait_time):  
+        #Developed by Tian-Xing at 20230720, for trainsent ODMR on WSP, for avoiding the Singlet Fission
+        # laser_recharge is not used here, since we want to 'wait' after both sg and bg
+        print('now setting up pulse sequence')
+        print('self.read_time:', ns_read_time)
+        print('self.clock_time:',  ns_clock_duration)        
+        #self.laser_lag
+        #self.laserLag_time = 80 #hard coded for now
         
-    #     # First block of the full seuqence, which is turnning on the laser
-    #     laser = []
-    #     clock = []
-    #     mwI = []
-    #     mwQ = []
+        # First block of the full seuqence, which is turnning on the laser
+        laser = []
+        clock = []
+        mwI = []
+        mwQ = []
         
-    #     # Laser_lag repeating sequence
-    #     Laser_lag_laser = [(ns_laser_lag, 1)]
-    #     Laser_lag_clock = [(ns_laser_lag, 0)]
-    #     Laser_lag_mwI = [(ns_laser_lag, self.IQ0[0])]
-    #     Laser_lag_mwQ = [(ns_laser_lag, self.IQ0[1])]
+        # Laser_lag repeating sequence
+        Laser_lag_laser = [(ns_laser_lag, 1)]
+        Laser_lag_clock = [(ns_laser_lag, 0)]
+        Laser_lag_mwI = [(ns_laser_lag, self.IQ0[0])]
+        Laser_lag_mwQ = [(ns_laser_lag, self.IQ0[1])]
 
-    #     # mwOn repeating sequence
-    #     # TX Note: not sure setting the readout clock like this will work, becaues the odmr_math in the dr_psNew spyrelet seems incompatible with this
-    #     mwOn_laser = [(ns_read_time, 1)]
-    #     mwOn_clock = [(ns_clock_duration,1),(ns_read_time-2*ns_clock_duration,0),(ns_clock_duration,1)]
-    #     mwOn_mwI = [(ns_read_time, self.IQpx[0])]
-    #     mwOn_mwQ = [(ns_read_time, self.IQpx[1])]
+        # mwOn repeating sequence
+        # TX Note: not sure setting the readout clock like this will work, becaues the odmr_math in the dr_psNew spyrelet seems incompatible with this
+        mwOn_laser = [(ns_read_time, 1)]
+        mwOn_clock = [(ns_clock_duration,1),(ns_read_time-2*ns_clock_duration,0),(ns_clock_duration,1)]
+        mwOn_mwI = [(ns_read_time, self.IQpx[0])]
+        mwOn_mwQ = [(ns_read_time, self.IQpx[1])]
 
 
-    #     # mwOff repeating sequence
-    #     mwOff_laser = [(ns_read_time, 1)]
-    #     mwOff_clock = [(ns_clock_duration,1),(ns_read_time-2*ns_clock_duration,0),(ns_clock_duration,1)]
-    #     mwOff_mwI = [(ns_read_time, self.IQ0[0])]
-    #     mwOff_mwQ = [(ns_read_time, self.IQ0[1])]
+        # mwOff repeating sequence
+        mwOff_laser = [(ns_read_time, 1)]
+        mwOff_clock = [(ns_clock_duration,1),(ns_read_time-2*ns_clock_duration,0),(ns_clock_duration,1)]
+        mwOff_mwI = [(ns_read_time, self.IQ0[0])]
+        mwOff_mwQ = [(ns_read_time, self.IQ0[1])]
         
         
-    #     # wait repeating sequence
-    #     wait_laser = [(wait_time, 0)]
-    #     wait_clock = [(wait_time, 0)]
-    #     wait_mwI = [(wait_time, self.IQ0[0])]
-    #     wait_mwQ = [(wait_time, self.IQ0[1])]
+        # wait repeating sequence
+        wait_laser = [(wait_time, 0)]
+        wait_clock = [(wait_time, 0)]
+        wait_mwI = [(wait_time, self.IQ0[0])]
+        wait_mwQ = [(wait_time, self.IQ0[1])]
         
 
-    #     # adding initial sequence to repeating sequence
-    #     for i in range(runs):        
-    #         laser += Laser_lag_laser + mwOn_laser + wait_laser + Laser_lag_laser + mwOff_laser + wait_laser
-    #         clock += Laser_lag_clock + mwOn_clock + wait_clock + Laser_lag_clock + mwOff_clock + wait_clock
-    #         mwI += Laser_lag_mwI + mwOn_mwI + wait_mwI + Laser_lag_mwI + mwOff_mwI + wait_mwI
-    #         mwQ += Laser_lag_mwQ + mwOn_mwQ + wait_mwQ + Laser_lag_mwQ + mwOff_mwQ + wait_mwQ
+        # adding initial sequence to repeating sequence
+        for i in range(runs):        
+            laser += Laser_lag_laser + mwOn_laser + wait_laser + Laser_lag_laser + mwOff_laser + wait_laser
+            clock += Laser_lag_clock + mwOn_clock + wait_clock + Laser_lag_clock + mwOff_clock + wait_clock
+            mwI += Laser_lag_mwI + mwOn_mwI + wait_mwI + Laser_lag_mwI + mwOff_mwI + wait_mwI
+            mwQ += Laser_lag_mwQ + mwOn_mwQ + wait_mwQ + Laser_lag_mwQ + mwOff_mwQ + wait_mwQ
         
-    #     # Last clock to collect for the last point in the run
-    #     # TX Note: Need to set this last clock to readout the current fluorescence value because in math_odmr, delta_buffer = array[1:] - array[0:-1]. We need to recored the fluorescence value for the last waiting window of each run        
-    #     laser += [(ns_clock_duration, 0)]
-    #     clock += [(ns_clock_duration, 1)]
-    #     mwI += [(ns_clock_duration, self.IQ0[0])]
-    #     mwQ += [(ns_clock_duration, self.IQ0[1])]
+        # Last clock to collect for the last point in the run
+        # TX Note: Need to set this last clock to readout the current fluorescence value because in math_odmr, delta_buffer = array[1:] - array[0:-1]. We need to recored the fluorescence value for the last waiting window of each run        
+        laser += [(ns_clock_duration, 0)]
+        clock += [(ns_clock_duration, 1)]
+        mwI += [(ns_clock_duration, self.IQ0[0])]
+        mwQ += [(ns_clock_duration, self.IQ0[1])]
 
-    #     ns_total_time = (2*ns_laser_lag + 2 * ns_read_time + 2*wait_time)*runs + ns_clock_duration
-    #     dchans = [self.channel_dict['laser'],self.channel_dict['clock']]
-    #     achans = [0,1]
-    #     dpatterns = [laser,clock]
-    #     apatterns = [mwI,mwQ]
+        ns_total_time = (2*ns_laser_lag + 2 * ns_read_time + 2*wait_time)*runs + ns_clock_duration
+        dchans = [self.channel_dict['laser'],self.channel_dict['clock']]
+        achans = [0,1]
+        dpatterns = [laser,clock]
+        apatterns = [mwI,mwQ]
         
-    #     self.sequence.setDigital(self.channel_dict['laser'], laser)
-    #     self.sequence.setDigital(self.channel_dict['clock'], clock)
-    #     self.sequence.setAnalog(0, mwI) 
-    #     self.sequence.setAnalog(1, mwQ)    
+        self.sequence.setDigital(self.channel_dict['laser'], laser)
+        self.sequence.setDigital(self.channel_dict['clock'], clock)
+        self.sequence.setAnalog(0, mwI) 
+        self.sequence.setAnalog(1, mwQ)    
         
-    #     print('Finished setting up pulse sequence')
-    #     print('self.sequence data:',  self.sequence.getData())
-    #     #self.plotSeq(self.sequence.getData(),'CWUriMRnew')
-    #     #self.plotSeq(dchans,achans,dpatterns,apatterns,'CWUriMRnew') #works
+        print('Finished setting up pulse sequence')
+        print('self.sequence data:',  self.sequence.getData())
+        #self.plotSeq(self.sequence.getData(),'CWUriMRnew')
+        #self.plotSeq(dchans,achans,dpatterns,apatterns,'CWUriMRnew') #works
         
-    #     return self.sequence
+        return self.sequence
     
-    # def ODMRNoWait(self,  ns_read_time, ns_clock_duration, ns_laser_lag, runs , mode = 'QAM',):
-    #     print('now setting up pulse sequence')
-    #     print('self.read_time:', ns_read_time)
-    #     print('self.clock_time:',  ns_clock_duration)        
-    #     #self.laser_lag
-    #     #self.laserLag_time = 80 #hard coded for now
+    def ODMRNoWait(self,  ns_read_time, ns_clock_duration, ns_laser_lag, runs , mode = 'QAM',):
+        print('now setting up pulse sequence')
+        print('self.read_time:', ns_read_time)
+        print('self.clock_time:',  ns_clock_duration)        
+        #self.laser_lag
+        #self.laserLag_time = 80 #hard coded for now
         
-    #     # First laser lag for first MWon signal
-    #     laser = [(ns_laser_lag, 1)]
-    #     clock = [(ns_laser_lag, 0)]
-    #     if mode == 'QAM': 
-    #         mwI = [(ns_laser_lag, self.IQ0[0])]
-    #         mwQ = [(ns_laser_lag, self.IQ0[1])]
-    #     else:
-    #         mwI = [(ns_laser_lag, -1)]
+        # First laser lag for first MWon signal
+        laser = [(ns_laser_lag, 1)]
+        clock = [(ns_laser_lag, 0)]
+        if mode == 'QAM': 
+            mwI = [(ns_laser_lag, self.IQ0[0])]
+            mwQ = [(ns_laser_lag, self.IQ0[1])]
+        else:
+            mwI = [(ns_laser_lag, -1)]
 
-    #     # mwOnOff repeating sequence
-    #     mwOnOff_laser = [(ns_read_time, 1), (ns_read_time, 1)]
-    #     if mode == 'QAM':
-    #         mwOnOff_mwI = [(ns_read_time, self.IQpx[0]), (ns_read_time, self.IQ0[0])]
-    #         mwOnOff_mwQ = [(ns_read_time, self.IQpx[1]), (ns_read_time, self.IQ0[1])]
-    #     else:
-    #         mwOnOff_mwI = [(ns_read_time, 0), (ns_read_time, -1)]
-    #     mwOnOff_clock = [(ns_clock_duration,1),(ns_read_time-ns_clock_duration,0),(ns_clock_duration,1),(ns_read_time-ns_clock_duration,0)]
+        # mwOnOff repeating sequence
+        mwOnOff_laser = [(ns_read_time, 1), (ns_read_time, 1)]
+        if mode == 'QAM':
+            mwOnOff_mwI = [(ns_read_time, self.IQpx[0]), (ns_read_time, self.IQ0[0])]
+            mwOnOff_mwQ = [(ns_read_time, self.IQpx[1]), (ns_read_time, self.IQ0[1])]
+        else:
+            mwOnOff_mwI = [(ns_read_time, 0), (ns_read_time, -1)]
+        mwOnOff_clock = [(ns_clock_duration,1),(ns_read_time-ns_clock_duration,0),(ns_clock_duration,1),(ns_read_time-ns_clock_duration,0)]
 
-    #     # adding initial sequence to repeating sequence
-    #     for i in range(runs):        
-    #         laser += mwOnOff_laser
-    #         clock += mwOnOff_clock
-    #         mwI += mwOnOff_mwI
-    #         if mode == 'QAM':
-    #             mwQ += mwOnOff_mwQ
+        # adding initial sequence to repeating sequence
+        for i in range(runs):        
+            laser += mwOnOff_laser
+            clock += mwOnOff_clock
+            mwI += mwOnOff_mwI
+            if mode == 'QAM':
+                mwQ += mwOnOff_mwQ
         
-    #     # Last clock to collect for the last point in the run        
-    #     laser += [(ns_clock_duration, 0)]
-    #     clock += [(ns_clock_duration, 1)]
-    #     if mode == 'QAM':
-    #         mwI += [(ns_clock_duration, self.IQ0[0])]
-    #         mwQ += [(ns_clock_duration, self.IQ0[1])]
-    #     else:
-    #         mwI += [(ns_clock_duration, -1)]
+        # Last clock to collect for the last point in the run        
+        laser += [(ns_clock_duration, 0)]
+        clock += [(ns_clock_duration, 1)]
+        if mode == 'QAM':
+            mwI += [(ns_clock_duration, self.IQ0[0])]
+            mwQ += [(ns_clock_duration, self.IQ0[1])]
+        else:
+            mwI += [(ns_clock_duration, -1)]
 
-    #     # ns_total_time = ns_laser_lag + 2 * ns_read_time*runs + ns_clock_duration
-    #     dchans = [self.channel_dict['laser'],self.channel_dict['clock']]
-    #     dpatterns = [laser,clock]
-    #     if mode == 'QAM':
-    #         achans = [0,1]
-    #         apatterns = [mwI,mwQ]
-    #     else:
-    #         achans = [0]
-    #         apatterns = [mwI]
+        # ns_total_time = ns_laser_lag + 2 * ns_read_time*runs + ns_clock_duration
+        dchans = [self.channel_dict['laser'],self.channel_dict['clock']]
+        dpatterns = [laser,clock]
+        if mode == 'QAM':
+            achans = [0,1]
+            apatterns = [mwI,mwQ]
+        else:
+            achans = [0]
+            apatterns = [mwI]
         
-    #     self.sequence.setDigital(self.channel_dict['laser'], laser)
-    #     self.sequence.setDigital(self.channel_dict['clock'], clock)
-    #     self.sequence.setAnalog(0, mwI)
-    #     if mode == 'QAM':
-    #         self.sequence.setAnalog(1, mwQ)    
+        self.sequence.setDigital(self.channel_dict['laser'], laser)
+        self.sequence.setDigital(self.channel_dict['clock'], clock)
+        self.sequence.setAnalog(0, mwI)
+        if mode == 'QAM':
+            self.sequence.setAnalog(1, mwQ)    
         
-    #     print('Finished setting up pulse sequence')
-    #     print('self.sequence data:',  self.sequence.getData())
-    #     #self.plotSeq(self.sequence.getData(),'CWUriMRnew')
-    #     #self.plotSeq(dchans,achans,dpatterns,apatterns,'CWUriMRnew') #works
-    #     return self.sequence
+        print('Finished setting up pulse sequence')
+        print('self.sequence data:',  self.sequence.getData())
+        #self.plotSeq(self.sequence.getData(),'CWUriMRnew')
+        #self.plotSeq(dchans,achans,dpatterns,apatterns,'CWUriMRnew') #works
+        return self.sequence
     

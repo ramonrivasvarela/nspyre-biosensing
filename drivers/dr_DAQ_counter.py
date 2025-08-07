@@ -109,7 +109,7 @@ class DAQCounter:
     
 
 
-    def start(self):
+    def start(self, time_wait = 0.01):
         """
         Start the counter task.
         """
@@ -117,6 +117,7 @@ class DAQCounter:
             raise RuntimeError("Buffer not created. Call create_buffer() before starting the stream read.")
         if self.read_task is not None:
             self.read_task.start()
+        time.sleep(time_wait)  # Allow some time for the task to start properly
 
 
 
