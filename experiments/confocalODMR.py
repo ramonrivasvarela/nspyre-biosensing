@@ -128,6 +128,8 @@ class ConfocalODMR():
                     mgr.Pulser.set_state_off()
                     #### Format
                     sig_point, bg_point = self.format_data(data, self.ODMR_label)
+                    sig_point/= (probe_time * runs) # cts/s
+                    bg_point/= (probe_time * runs) # cts/s
                     signal[-1][1][i] = sig_point
                     signal.updated_item(-1) # notify the streaminglist that this entry has updated so it will be pushed to the data server
                     background[-1][1][i] = bg_point
