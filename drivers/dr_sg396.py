@@ -179,10 +179,10 @@ class SG396:
         """
         return int(self.device.query('MFNC?'))
 
-    def set_mod_function(self, exp, value):
-        if exp == 'AM' or exp == 'FM' or exp == 'Phase':
+    def set_mod_function(self, type, value): 
+        if type == 'AM' or type == 'FM' or type == 'Phase':
             self.device.write(f"MFNC {self.MODULATION_FUNCTION[value]}")  # Fixed reference
-        elif exp == 'QAM':
+        elif type == 'QAM':
             self.device.write(f"QFNC {self.MODULATION_FUNCTION[value]}")
 
     # units = "Hz", limits = (0.1, 100.e3))
