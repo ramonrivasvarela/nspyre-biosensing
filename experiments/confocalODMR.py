@@ -133,6 +133,7 @@ class ConfocalODMR():
                     background[-1][1][i] = bg_point
                     background.updated_item(-1)
                     #### Send
+                    if self.VERBOSE: print(signal[-1][1], background[-1][1])
                     datasource.push({
                         'params':{
                             'runs': runs,
