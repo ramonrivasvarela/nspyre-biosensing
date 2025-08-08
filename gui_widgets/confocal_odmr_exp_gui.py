@@ -142,8 +142,8 @@ class ConfocalODMRWidget(ExperimentWidget):
             #     'display_text': 'Repetitions',
             #     'widget': repetitions_sb
             # },
-            'frequency': {
-                'display_text': 'Frequency',
+            'frequencies': {
+                'display_text': 'Frequencies',
                 'widget': QLineEdit("(2.84e9, 2.90e9, 30)")
             },
             'rf_amplitude': {

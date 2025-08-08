@@ -149,7 +149,11 @@ class DAQCounter:
         self.read(timeout)
         return self.buffer_to_data(probe_time)
     
-    
+    def read_to_data_array(self, timeout=10.0):
+        self.read(timeout=timeout)
+        return self.buffer
+
+
     # def start_stream_read(self, pulses, sequence, n_runs = 1, timeout = 10):
     #     """
     #     start, stream, and read from a single method by passing in the pulse streamer and all of its arguments.

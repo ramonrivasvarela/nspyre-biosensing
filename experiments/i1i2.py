@@ -877,3 +877,114 @@ class I1I2():
         return a * np.exp(-np.square((xs - x) / (np.sqrt(2) * + sigma))) + b
 
 
+        
+
+    def finalize(self, data_download):
+
+        ## this is here, because i want to look at
+        ## self.data
+        ## so that I can find the slope and return it in the console. Of course, I should also plot.
+
+        # import pdb; pdb.set_trace()
+        self.finalize_action(self.APD_task, data_download)
+        print("Finalize")
+
+    def finalize_action(self, ctr_task, data_download):
+        self.close_task(ctr_task)
+        self.handle_pulsestreamer()
+
+
+
+        if data_download:
+            self.download_excel()
+
+        # Shivam: FUTURE IMPROVEMENTS - Currently the proper slope and zero extraction is only implemented for quasilinear_calibration slope
+        # The quasilinear_calibration slope normalizes using only on values and no background values and that is what we have chosen to use for now
+        regular_calibration_slope = self.regular_slope_extraction()
+        quasilinear_calibration_slope, quasilinear_zero_field_splitting = self.quasilinear_slope_extraction()
+        print('\n\n', regular_calibration_slope,
+              'is the slope between the frequency change and the fluorescence change.\n\n')
+        
+        print(str(quasilinear_calibration_slope) + 
+              ' is the quasilinear slope between the frequency change and the fluorescence change. The zero field splitting is '
+              + str(quasilinear_zero_field_splitting))
+
+    # Shivam: Change calculations to the latest variable names
+    def regular_slope_extraction(self):
+        df = self.data
+        # \ I have Sweeps many data lines
+        print("Test regular slope")
+        grouped = df.groupby('sig_gen_frequency')
+        sigs_left = grouped.I1
+        sigs_right = grouped.I2
+
+        sigs_left_mean = sigs_left.mean()
+        sigs_right_mean = sigs_right.mean()
+
+        sigs_diff = sigs_right_mean - sigs_left_mean
+
+        # index of the minimum element (absolute value) of the average difference of I2 and I1
+        # (Shivam: 0 point of I1-I2 graph)
+        integer_index = np.abs(sigs_diff).argmin()
+        # freq_index = lambda x: avg_I2_I1_diff.index[x]
+        change_fluor = sigs_diff[sigs_diff.index[integer_index + 1]]- sigs_diff[sigs_diff.index[integer_index - 1]]
+        # Shivam: Why is it index 1 and 0 for frequency?
+        # Ans: It seems to be because the differences in generated frequency are constant
+        change_freq = 2 * (df.sig_gen_frequency[1] - df.sig_gen_frequency[0])
+        slope = change_fluor / change_freq  # change_freq in Hz???
+        return slope
+    
+
+    def quasilinear_slope_extraction(self):
+        df = self.data
+        # \ I have Sweeps many data lines
+        grouped = df.groupby('sig_gen_frequency')
+        sigs_left = grouped.I1
+        sigs_right = grouped.I2
+
+        sigs_left_mean = sigs_left.mean()
+        sigs_right_mean = sigs_right.mean()
+
+        sigs_diff = sigs_right_mean - sigs_left_mean
+        sigs_add = (sigs_right_mean + sigs_left_mean) / 2
+
+        sigs_norm = sigs_diff / sigs_add
+        
+        x_values = np.array(sigs_norm.index)
+        y_values = np.array(sigs_norm)
+        
+        # Shivam: Getting the indices of the desired frequency range endpoints and slicing our x and y values accordingly
+        index_left = np.abs(df.sig_gen_frequency - self.left_frequency_slope).idxmin()
+
+        index_right = np.abs(df.sig_gen_frequency - self.right_frequency_slope).idxmin()
+
+        x_values = x_values[index_left : index_right + 1]
+
+        y_values = y_values[index_left : index_right + 1]
+
+        linear_regression = np.polyfit(x_values, y_values, 1)
+
+        # Shivam: Calculating the slope of the line and the y = 0 value (zero field splitting of ODMR)
+
+        slope = linear_regression[0]
+
+        odmr_zfs = -linear_regression[1] / linear_regression[0]
+
+        print(slope)
+
+        print(odmr_zfs)
+
+        return slope, odmr_zfs
+
+    def close_task(self, ctr_task):
+        ctr_task.stop()
+        ctr_task.close()
+
+    def handle_pulsestreamer(self):
+        self.sg.rf_toggle = False
+        self.sg.mod_toggle = False
+        self.streamer.Pulser.reset()
+
+    def download_excel(self):
+        save_excel(self.name)
+        print('The name of the excel data:', self.name)

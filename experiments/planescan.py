@@ -138,11 +138,11 @@ class PlaneScan:
                             np.linalg.norm(scan_vector) + adjust_line,
                             line_scan_steps
                         )
-            # step_vals = np.linspace(
-            #     adjust_step,                                # start offset
-            #     np.linalg.norm(extent_vector) + adjust_step,# end offset
-            #     extent_steps + 1                            # rows = extent_steps+1
-            # )
+            step_vals = np.linspace(
+                adjust_step,                                # start offset
+                np.linalg.norm(extent_vector) + adjust_step,# end offset
+                extent_steps + 1                            # rows = extent_steps+1
+            )
             step_vals=np.array([])
             if stack_count>1:
                 self.check_limit(mgr, origin-stack_vector*(z_stack-1), 'origin-stack_vector*(z_stack-1)')
@@ -169,7 +169,7 @@ class PlaneScan:
                 for rep in range(repetitions):
                     print(origin)
                     for s in range(extent_steps + 1):
-                        step_vals.append(adjust_step + s/(extent_steps) * np.linalg.norm(extent_vector))
+                        # step_vals.append(adjust_step + s/(extent_steps) * np.linalg.norm(extent_vector))
                         
                         line_scan_start_pt = origin + s/(extent_steps) * extent_vector
                         line_scan_stop_pt = line_scan_start_pt + scan_vector 
