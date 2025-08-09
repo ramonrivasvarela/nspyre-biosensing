@@ -210,14 +210,14 @@ class ConfocalODMR():
         ## Prepare Sig Gen
 
         mgr.sg.set_rf_amplitude(rf_amplitude) 
-        mgr.sg.mod_function = 'external'
-        mgr.sg.mod_toggle = True
+        mgr.sg.set_mod_function('external')
+        mgr.sg.set_mod_toggle(True)
         if mode == 'QAM':
             mgr.sg.set_mod_type('QAM')
         elif mode == 'AM' or mode == 'NoMod':
             mgr.sg.set_mod_type('AM')
             mgr.sg.set_AM_mod_depth(100)
-        mgr.sg.rf_toggle = True
+        mgr.sg.set_rf_toggle(True)
 
 
         ## Prepare DAQ counter

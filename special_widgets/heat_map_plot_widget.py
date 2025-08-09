@@ -578,8 +578,14 @@ class _HeatMapPlotWidget(HeatMapWidget):
                         settings = self.heatmap_settings.series_settings[plot_name]
                         if settings.show:
                             if settings.series in data:
-                                self.set_data(xs, ys, data[settings.series])
-                                self._process_data()
+                                try:
+                                    self.set_data(xs, ys, data[settings.series])
+                                    self._process_data()
+                                except Exception as e:
+                                    _logger.error(
+                                        f'Error processing data for heatmap [{plot_name}]: {e}. '
+                                        f'Type is {type(data[settings.series])}.'
+                                    )
                             else:
                                 print("Heatmap series not found in data source:", settings.series)
 
@@ -692,13 +698,26 @@ class _HeatMapPlotWidget(HeatMapWidget):
                                 )
                                 # Try to resize or use what we have
                                 if plot_data.size > 0:
+                                    try:
+                                        self.set_data(xs, ys, plot_data)
+                                        self._process_data()
+                                    except Exception as e:
+                                        _logger.error(
+                                            f'Error processing data for heatmap {heatmap_name}: {e}. '
+                                            f'Type is {type(plot_data)}.'
+                                        )
+                            else:
+                                try:
                                     self.set_data(xs, ys, plot_data)
                                     self._process_data()
-                            else:
-                                self.set_data(xs, ys, plot_data)
-                                self._process_data()
+                                except Exception as e:
+                                    _logger.error(
+                                        f'Error processing data for heatmap {heatmap_name}: {e}. '
+                                        f'Type is {type(plot_data)}.'
+                                    )
                     else:
                         # No sink available, but we still want to update display (e.g., show/hide)
-                        _logger.debug(f'No data source available for heatmap [{heatmap_name}]')
+                        _logger.debug(f'No data source available for heatmap {heatmap_name}. '
+                                      'Skipping data processing.')
                         # Optionally clear the display or show a placeholder
                         break  # Exit after first shown heatmap when no sink
