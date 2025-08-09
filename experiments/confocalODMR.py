@@ -128,11 +128,14 @@ class ConfocalODMR():
                     mgr.Pulser.set_state_off()
                     #### Format
                     sig_point, bg_point = self.format_data(data, self.ODMR_label)
+                    sig_point/= (probe_time * runs) # cts/s
+                    bg_point/= (probe_time * runs) # cts/s
                     signal[-1][1][i] = sig_point
                     signal.updated_item(-1) # notify the streaminglist that this entry has updated so it will be pushed to the data server
                     background[-1][1][i] = bg_point
                     background.updated_item(-1)
                     #### Send
+                    if self.VERBOSE: print(signal[-1][1], background[-1][1])
                     datasource.push({
                         'params':{
                             'runs': runs,
@@ -210,12 +213,13 @@ class ConfocalODMR():
         ## Prepare Sig Gen
 
         mgr.sg.set_rf_amplitude(rf_amplitude) 
-        mgr.sg.set_mod_function('external')
         mgr.sg.set_mod_toggle(True)
         if mode == 'QAM':
             mgr.sg.set_mod_type('QAM')
+            mgr.sg.set_mod_function('QAM', 'external')
         elif mode == 'AM' or mode == 'NoMod':
             mgr.sg.set_mod_type('AM')
+            mgr.sg.set_mod_function('AM', 'external')
             mgr.sg.set_AM_mod_depth(100)
         mgr.sg.set_rf_toggle(True)
 
