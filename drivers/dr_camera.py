@@ -259,14 +259,14 @@ class Camera():
     def set_frame_transfer_mode(self, mode):
         if type(mode) is str:
             mode = mode.lower().replace("-", " ")
-        if mode == "off" or mode == 0:
+        if mode == "off" or mode=="conventional" or mode == 0:
             mode = "OFF"
             ret = self.sdk.SetFrameTransferMode(0)
-        elif mode == "ON" or mode == 1:
+        elif mode == "on" or mode=="frame transfer" or mode == 1:
             mode = "ON"
             ret = self.sdk.SetFrameTransferMode(1)
         else:
-            raise ValueError("Frame transfer mode must be 'frame transfer' or 'conventional'.")
+            raise ValueError("Frame transfer mode must be 'ON' or 'OFF'.")
         if ret == 20002:
             self.frame_transfer_mode = mode
             print(f"Frame transfer mode set to {mode}.")

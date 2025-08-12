@@ -78,7 +78,6 @@ class CountsTime:
         # existing one with the same name if it was created earlier.
         APD_counts = StreamingList()
         with InstrumentManager() as mgr, DataSource(dataset) as counts_data:
-            self.buffer = None 
             self.initialize(mgr)
             seq = self.create_sequence(mgr)
             start_t = time.time()
@@ -88,11 +87,11 @@ class CountsTime:
             ###########################
             while True:
                 ## Start, Stream, Read. Data will be in the buffer
-                mgr.DAQCounter.start()
+                mgr.DAQcontrol.start_counter()
                 time.sleep(0.01)
                 mgr.Pulser.stream_sequence(seq, 1)
-                mgr.DAQCounter.read()
-                data = mgr.DAQCounter.buffer_to_data(self.probe_time)
+                # mgr.DAQcontrol.read()
+                data = mgr.DAQcontrol.read_to_data(self.probe_time)
 
 
                 APD_counts.append(np.array([np.array([time.time()-start_t]),np.array([data])]))
@@ -126,18 +125,18 @@ class CountsTime:
         """Initialize the experiment."""
 
         
-        mgr.DAQCounter.set_sampling_rate(2/self.probe_time)  # Automatically determined by 2/probe_time
-        mgr.DAQCounter.create_buffer(self.n_points+1) # +1 to account for signal being a difference of counts
-        mgr.DAQCounter.initialize()
+        # mgr.DAQcontrol.set_sampling_rate(2/self.probe_time)  # Automatically determined by 2/probe_time
+        # mgr.DAQcontrol.create_buffer(self.n_points+1) # +1 to account for signal being a difference of counts
+        mgr.DAQcontrol.create_counter()
+        mgr.DAQcontrol.prepare_counting(2/self.probe_time, self.n_points)
 
 
 
     def create_sequence(self, mgr):
         seq = mgr.Pulser.create_sequence()
         clock_pulse = [(self.ns_clock_time,1),(self.ns_probe_time-self.ns_clock_time,0)] ##ensure clock_time in nanoseconds
-        laser_pulse=[(self.probe_time,1)]
+        laser=[((self.n_points+1)*self.ns_probe_time,1)]
         clock = clock_pulse * (self.n_points+1)
-        laser=laser_pulse*(self.n_points+1)
         print("Clock sequence:", clock)
         seq.setDigital(mgr.Pulser.channel_dict['clock'], clock)
         seq.setDigital(mgr.Pulser.channel_dict['laser'], laser)
@@ -149,5 +148,5 @@ class CountsTime:
     def finalize(self, mgr):
         """Finalize the experiment."""
         mgr.Pulser.set_state_off()
-        mgr.DAQCounter.finalize()
+        mgr.DAQcontrol.finalize_counter()
         print("FINALIZE")

@@ -197,13 +197,17 @@ class I1I2Widget(ExperimentWidget):
                 'display_text': 'Data Source',
                 'widget': QLineEdit('i1i2'),
             },
+            'tracking_dataset': {
+                'display_text': 'Tracking Data Source',
+                'widget': QLineEdit('i1i2_tracking'),
+            }
         }
         
         super().__init__(
             params_config,
             experiments.i1i2,
-            'I1I2Experiment',
-            'i1i2_experiment',
+            'I1I2',
+            'i1i2',
             title='I1I2 Experiment',
             get_param_value_funs={
                 # Insert the appropriate mapping functions here for each widget type.
@@ -226,9 +230,14 @@ class I1I2Widget(ExperimentWidget):
 class I1I2PlotWidget(FlexLinePlotWidget):
     """Add some default settings to the FlexSinkLinePlotWidget."""
     def __init__(self):
-        super().__init__()
+        
         # create some default signal plots
-        self.add_plot('counts',        series='counts',   scan_i='',     scan_j='',  processing='Append')
+        def processing_function(sink):
+            sink.datasets["I2-I1"]=np.array(sink.datasets["I2"])-np.array(sink.datasets["I1"])
+        super().__init__(data_processing_func=processing_function) 
+        self.add_plot('I1',        series='I1',   scan_i='',     scan_j='',  processing='Append')
+        self.add_plot('I2',        series='I2',   scan_i='',     scan_j='',  processing='Append')
+        self.add_plot('I2-I1',      series='I2-I1', scan_i='',     scan_j='',  processing=processing_function)
 
 
         # retrieve legend object

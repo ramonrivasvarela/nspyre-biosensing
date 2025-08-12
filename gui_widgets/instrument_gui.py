@@ -225,16 +225,13 @@ class InstWidgetV2(QWidget):
                 self.name = name.lower()  # 'x', 'y', or 'z'
                 self.step = 1
                 self.suffix = "nm"
-
+                self.value = 0
                 # Get values directly from XYZSetup
                 if xyz_activation_boolean:
                     with InstrumentManager() as mgr:
-                        xyz_setup = mgr.XYZcontrol
-                        self.value = xyz_setup.get_x() if name == 'x' else xyz_setup.get_y() if name == 'y' else xyz_setup.get_z()
-                        self.min = xyz_setup.axes[name].limits[0]
-                        self.max = xyz_setup.axes[name].limits[1]
+                        self.min = mgr.DAQcontrol.axes[name].limits[0]
+                        self.max = mgr.DAQcontrol.axes[name].limits[1]
                 else:
-                    self.value = 0
                     self.min = 0
                     self.max = 1000
 
@@ -262,17 +259,15 @@ class InstWidgetV2(QWidget):
         self.x_control = AxisControl("x")
         self.y_control = AxisControl("y")
         self.z_control = AxisControl("z")
-
+        self.refresh_xyz_position()
         self.xyz_refresh_button=QPushButton("Refresh")
         self.xyz_refresh_button.clicked.connect(lambda: self.refresh_xyz_position())
 
         # Initialize xyz_setup outside the signal connection
         if xyz_activation_boolean:
-            self.xyz_setup = InstrumentManager().XYZcontrol
-            self.x_control.spinbox.editingFinished.connect(lambda: self.xyz_setup.move_x(self.x_control.spinbox.umvalue))
-            self.y_control.spinbox.editingFinished.connect(lambda: self.xyz_setup.move_y(self.y_control.spinbox.umvalue))
-            self.z_control.spinbox.editingFinished.connect(lambda: self.xyz_setup.move_z(self.z_control.spinbox.umvalue))
-
+            self.x_control.spinbox.editingFinished.connect(lambda: self.move())
+            self.y_control.spinbox.editingFinished.connect(lambda: self.move())
+            self.z_control.spinbox.editingFinished.connect(lambda: self.move())
     '''
     LAYOUT -----------------------------------------------------------------------------------------------------------------------------------------------
     '''
@@ -423,12 +418,16 @@ class InstWidgetV2(QWidget):
         """Refresh the XYZ position values."""
         with InstrumentManager() as mgr:
             try:
-                x_position = mgr.XYZcontrol.get_x()
-                y_position = mgr.XYZcontrol.get_y()
-                z_position = mgr.XYZcontrol.get_z()
-                self.x_control.spinbox.set_value(x_position)
-                self.y_control.spinbox.set_value(y_position)
-                self.z_control.spinbox.set_value(z_position)
+                self.x_control.spinbox.set_value(mgr.DAQcontrol.position['x'])
+                self.y_control.spinbox.set_value(mgr.DAQcontrol.position['y'])
+                self.z_control.spinbox.set_value(mgr.DAQcontrol.position['z'])
             except RuntimeError:
                 raise RuntimeError("Can't extract positions.")
+            
+    def move(self):
+        with InstrumentManager() as mgr:
+            try:
+                mgr.DAQcontrol.move({'x': self.x_control.spinbox.umvalue, 'y': self.y_control.spinbox.umvalue, 'z': self.z_control.spinbox.umvalue})
+            except RuntimeError:
+                raise RuntimeError("Can't move XYZ stage.")
 

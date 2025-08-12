@@ -133,10 +133,6 @@ class WideFieldWidget(ExperimentWidget):
                 'display_text': 'Probe Time',
                 'widget': unit_widgets.SecLineEdit(160e-3),
             },
-            'laser_lag': {
-                'display_text': 'Laser Lag',
-                'widget': unit_widgets.SecLineEdit(0.07),
-            },
             'optimize_gain': {
                 'display_text': 'Optimize Gain',
                 'widget': optimize_gain_cb,

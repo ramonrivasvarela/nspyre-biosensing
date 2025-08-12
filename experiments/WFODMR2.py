@@ -97,6 +97,7 @@ class WideFieldODMR():
                   rf_amplitude:float=-15, 
                   mw_duty:float=1, 
                   mw_rep:int=50,
+                  laser_lag:float=0.07, 
                   probe_time:float=160e-3, 
                   repeat_every_x_minutes:float=0, 
                   data_download:bool=False,
@@ -113,22 +114,19 @@ class WideFieldODMR():
                   mode:str='QAM', 
                   Misc:str="{'DEBUG':False, 'DEBUG_FM': False, 'shutdown': False}"): 
         
-        ### WARNING!!!! probe_time, exp_time, readout_time are all in NANOSECONDS
+        ### WARNING!!!! probe_time, exp_time, laser_lag, readout_time are all in NANOSECONDS
 
         # radius, threshold, minmass, link_radius, microns_per_pixel,
         with InstrumentManager() as mgr, DataSource(dataset) as data_source:
             self.initialize(mgr, exp_time,cam_trigger,readout_time, gain, runs_sweeps_reps, frequency, rf_amplitude, mw_duty, mw_rep,
-                             probe_time, data_download, 
-                            data_path, sleep_time, save_image,ROI_xyr, optimize_gain, protected_readout,mode, Misc)
-            if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
-                self.finalize(mgr, exp_time, readout_time, sleep_time)
-                return
+                            laser_lag, probe_time, data_download, 
+                            data_path, sleep_time, save_image,ROI_xyr,protected_readout,mode, Misc)
             self.t_cool = self.t_init
             # if(cooler):
             #     mgr.Camera.
             #     self.t_cool = time.time()
-            
-            
+            self.gain=get_gain(mgr, optimize_gain, gain, self.runs, mode, self.ns_exp_time, self.ns_readout_time)
+            self.t_gain = time.time()
             plots={}
             for nd in range(len(self.ROI_xyr)):
                 plots[f"signal_{nd+1}"]=StreamingList()
@@ -153,7 +151,7 @@ class WideFieldODMR():
                         print('Starting Acquisition', ret)
                         time.sleep(0.1) #Give time to start acquisition, not optimized
                         mgr.sg.set_frequency(freq) ## make sure the sg frequency is set! (overhead of <1ms)
-                        mgr.Pulser.stream_sequence(self.seqs[0], 1, AM = self.AM_mode, SWITCH = self.switch_mode)
+                        mgr.Pulser.stream_umOFF(self.seqs[0], 1, AM = self.AM_mode, SWITCH = self.switch_mode)
                         timeout_counter = 0
 
                         #### Need to wait to get data
@@ -225,6 +223,7 @@ class WideFieldODMR():
                             bgs.append(0)
 
                     
+                        print(plots)
                         ## acquire the following
                         data_source.push({
                             'params':{
@@ -240,6 +239,7 @@ class WideFieldODMR():
                                 'mw_duty':self.mw_duty,
                                 'mw_rep':self.mw_rep,
                                 'probe_time': probe_time,
+                                'laser_lag':laser_lag,
                                 'optimize_gain': optimize_gain,
                                 'sleep_time':self.sleep_time,
                                 'data_path':self.data_path
@@ -257,7 +257,7 @@ class WideFieldODMR():
                         print("sleep time (s): ", sleep_time) #maybe move this
                         time.sleep(sleep_time)
                         if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
-                            self.finalize(mgr, exp_time, readout_time, sleep_time)
+                            self.finalize(mgr, exp_time, readout_time, frequency, sleep_time)
                             return
 
 
@@ -270,15 +270,15 @@ class WideFieldODMR():
                 
                         
 
-            self.finalize(mgr, exp_time, readout_time, sleep_time, ended=True) #radius, threshold, minmass, link_radius, microns_per_pixel,
+            self.finalize(mgr, exp_time, readout_time, frequency, sleep_time, ended=True) #radius, threshold, minmass, link_radius, microns_per_pixel,
 
 
 
     
 
     def initialize(self, mgr, exp_time, cam_trigger, readout_time, gain, runs_sweeps_reps, frequency, rf_amplitude, mw_duty, mw_rep,
-                   probe_time, laser_lag, data_download,
-                   data_path, sleep_time, save_image, ROI_xyr, optimize_gain, protected_readout, mode, Misc):  # radius, threshold, minmass, link_radius, microns_per_pixel,
+                   laser_lag, probe_time, data_download,
+                   data_path, sleep_time, save_image, ROI_xyr, protected_readout, mode, Misc):  # radius, threshold, minmass, link_radius, microns_per_pixel,
         self.t0 = time.time()
 
         self.misc = eval(Misc)
@@ -307,7 +307,7 @@ class WideFieldODMR():
 
         #self.channel = channel1 #reading channel
         mgr.sg.set_rf_amplitude(rf_amplitude) ## set SG paramaters: running this spyrelet with IQ inputs
-        
+        self.ns_probe_time = int(round(probe_time*1e9)) #laser time per window
         self.point_num = len(frequency)
         self.sweeps = eval_runs_sweeps_reps[1]
         self.sleep_time = sleep_time
@@ -333,29 +333,61 @@ class WideFieldODMR():
                 self.data_path = self.data_path+f'_{time.time()}'
                 os.mkdir(self.data_path)
 
-        self.ns_exp_time = int(round(exp_time*1e9))
-        self.ns_readout_time = int(round(readout_time*1e9))
+        ret = mgr.Camera.initialize()  # Initialize camera
+        print("Function Initialize returned {}".format(ret)) #returns 20002 if successful
+
+        #Can probably get rid of 'ret' but not important...
+        mgr.Camera.set_acquisition_mode("Kinetics") #Taking a series of pulses
+        mgr.Camera.set_read_mode("Image") #reading pixel-by-pixel with no binning
+        '''
+        For some reason if you move SetTriggerMode to a later line the camera seems to go to internal or something?
+        '''
+ 
+        self.ns_exp_time = exp_time*1e9
+        self.ns_readout_time = readout_time*1e9
+        self.ns_laser_lag = int(round(laser_lag*1e9))
         self.ns_collect_time = self.ns_exp_time+self.ns_readout_time
-        self.ns_probe_time = int(round(probe_time*1e9)) #laser time per window
-        self.ns_laser_lag = int(round(laser_lag*1e9)) #laser lag time after readout
 
-        
-        
+        if cam_trigger == 'EXTERNAL_EXPOSURE':
+            mgr.Camera.set_trigger_mode("External Exposure (Bulb)") #Pulse  length controls exposure
+            if self.ns_laser_lag < self.ns_readout_time+10000000:
+                print('laser lag must be larger than readout_time + 10 ms for camera initialization.')
+                return
+            elif self.ns_laser_lag > self.ns_readout_time + 1.5 * self.ns_exp_time:
+                print('risk of over-exposing during initialization! laser lag too high.')
+                return
+        else:
+            '''
+            exposure min is 46.611 ms. The set exposure time is done in excess of this s.t. exp_time = 0 corresponds to 46.611 ms exposure.
+            The pulse streamer will trigger the camera by sending pulses of 10ms, and the rest of the exposure time plus any set readout time will be 
+            sent to the pulse streamer as readout time
+            '''
+            mgr.Camera.set_trigger_mode("External") #Pulse  length controls exposure
+            exposure_min = 0.046611e9
+            if self.ns_exp_time < exposure_min:
+                print(f'exposure must be at least {exposure_min*1000} ms.')
+            elif self.ns_exp_time + self.ns_readout_time < 80000000:
+                print('May experience failure from exposure + readout < 80 ms due to pulses being missed.')
+            mgr.Camera.set_exposure_time(self.ns_exp_time*1e-9) 
+            #### ps-ended stuff
+            mgr.Camera.set_frame_transfer_mode("Conventional") #conventional frame transfer mode
+            print('frame transfer mode on')
 
-        feed_parameters={'optimize_gain': optimize_gain,
-                         'cam_trigger': cam_trigger,
-                         'ns_probe_time': self.ns_probe_time,
-                         'ns_exp_time': self.ns_exp_time,
-                         'ns_readout_time': self.ns_readout_time,
-                         'ns_laser_lag': self.ns_laser_lag,
-                         'gain': gain,
-                         'mode': mode,
-                         'runs': self.runs,
-                         }
-        self.CameraInitialization = CameraInitialization(self.queue_to_exp, self.queue_from_exp)
-        self.gain=self.CameraInitialization.initialize_camera(**feed_parameters)
-        self.t_gain = time.time()
-        
+        if self.ns_readout_time<5000000:
+            print('WARNING readout time should be at least 5 ms even with frame transfer, experiment may fail ')
+        if self.ns_collect_time >= self.ns_probe_time:
+            print('WARNING probe time cannot be less than or equal to collect time!')
+            
+
+        (ret, xpixels, ypixels) = mgr.Camera.get_detector()
+        mgr.Camera.set_image()
+
+        mgr.Camera.set_emccdgain(gain) #setting Electron Multiplier Gain
+        mgr.Camera.set_number_accumulations(int((self.ns_probe_time - (self.ns_probe_time%self.ns_collect_time)) / self.ns_collect_time)) #more explanation
+        mgr.Camera.set_number_kinetics(self.runs * 2 + 1)
+        mgr.Camera.set_shutter("Open") #Open Shutter
+
+
         #connect to pulse sequence------------------------------------------
 
         self.seqs=[]
@@ -374,7 +406,7 @@ class WideFieldODMR():
             mgr.sg.set_AM_mod_depth(100)
             self.switch_mode = True
             self.AM_mode = True
-        self.seqs=mgr.Pulser.pulse_setup(mgr, self.runs, mode,cam_trigger, self.ns_exp_time, self.ns_readout_time)
+        self.seqs=mgr.Pulser.pulse_setup(self.runs, mode,cam_trigger, self.ns_exp_time, self.ns_readout_time)
 
         mgr.sg.set_rf_toggle(1)
         mgr.sg.set_mod_toggle(True)
@@ -382,7 +414,7 @@ class WideFieldODMR():
 
         self.t_init = time.time() 
 
-    def finalize(self, mgr, exp_time, readout_time, sleep_time, ended=False): #radius, threshold, minmass, link_radius, microns_per_pixel,
+    def finalize(self, mgr, exp_time, readout_time, frequency, sleep_time, ended=False): #radius, threshold, minmass, link_radius, microns_per_pixel,
         self.t_exp = time.time()
         # mgr.Camera.abort_acquisition() #stop acquisition
         self.sig_data = np.divide(self.sig_data,self.sweeps)
@@ -491,12 +523,12 @@ class WideFieldODMR():
         return arr.reshape((y_len, x_len))
         
     
-    def pulse_setup(self, mgr, runs,mode, cam_trigger):
+    def pulse_setup(self, runs,mode, cam_trigger, probe_time,  exp_time):
         #print('\n using sequence without wait time')
         if cam_trigger == 'EXTERNAL_EXPOSURE':
-            self.seqs.append(mgr.Pulser.WFODMR(runs, self.ns_exp_time, self.ns_readout_time,mode = mode, FT = False))
+            self.seqs.append(self.pulses.WFODMR(runs, exp_time, probe_time,mode = mode, FT = False, mw_duty = self.mw_duty, mw_rep = self.mw_rep))
         else:
-            self.seqs.append(mgr.Pulser.WFODMR(runs, self.ns_exp_time, self.ns_readout_time,10000000,5000000,mode))
+            self.seqs.append(self.pulses.WFODMR(runs, exp_time, probe_time,10000000,5000000,mode, mw_duty = self.mw_duty, mw_rep = self.mw_rep))
 
     def closest_odd(self, num):
         if num%2 == 0:

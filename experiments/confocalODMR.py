@@ -122,9 +122,9 @@ class ConfocalODMR():
                 for i in range(n_freq):
                     #### Acquire
                     mgr.sg.set_frequency(self.frequencies[i])
-                    mgr.DAQCounter.start()      
+                    mgr.DAQcontrol.start_counter()      
                     mgr.Pulser.stream_sequence(self.seq, 1) # number of runs accounted for in construction of the sequence.
-                    data = np.array(mgr.DAQCounter.read_to_data_array( timeout = self.timeout)) # Collect ODMR point
+                    data = np.array(mgr.DAQcontrol.read_to_data_array( timeout = self.timeout)) # Collect ODMR point
                     mgr.Pulser.set_state_off()
                     #### Format
                     sig_point, bg_point = self.format_data(data, self.ODMR_label)
@@ -230,9 +230,11 @@ class ConfocalODMR():
             sample_rate = max(2/probe_time, 2/cooldown_time)
         else:
             sample_rate = 2/probe_time
-        mgr.DAQCounter.set_sampling_rate(sample_rate)  # Automatically determined by 2/probe_time
-        mgr.DAQCounter.create_buffer(runs*len(self.ODMR_label)+1) # +1 to account for signal being a difference of counts
-        mgr.DAQCounter.initialize()
+        mgr.DAQcontrol.create_counter()
+        mgr.DAQcontrol.prepare_counting(sample_rate, runs * len(self.ODMR_label)) # +1 to account for signal being a difference of counts
+        # mgr.DAQCounter.set_sampling_rate(sample_rate)  # Automatically determined by 2/probe_time
+        # mgr.DAQCounter.create_buffer(runs*len(self.ODMR_label)+1) # +1 to account for signal being a difference of counts
+        # mgr.DAQCounter.initialize()
 
         return
     
@@ -441,12 +443,12 @@ class ConfocalODMR():
 
         ##space_data is the last line of data from spatialfeedbackxyz
         
-        self.x_initial = mgr.XYZcontrol.get_x()
-        self.y_initial = mgr.XYZcontrol.get_y()
+        self.x_initial = mgr.DAQcontrol.position['x']
+        self.y_initial = mgr.DAQcontrol.position['y']
         print('x:', self.x_initial)
         print('y:', self.y_initial)
         if dozfb:
-            self.z_initial = mgr.XYZcontrol.get_z()
+            self.z_initial = mgr.DAQcontrol.position['z']
             print('z:', self.z_initial)
             return self.x_initial, self.y_initial, self.z_initial
         print(self.x_initial)
@@ -462,9 +464,9 @@ class ConfocalODMR():
         '''
         
         ## Start, Stream, Read
-        mgr.DAQCounter.start()             
+        mgr.DAQcontrol.start_counter()             
         mgr.Pulser.stream_sequence(seq, 1, AM = self.AM, SWITCH = self.SWITCH) # number of runs accounted for in construction of the sequence.
-        data = np.array(mgr.DAQCounter.read_to_data_array(timeout = self.timeout)) # Collect ODMR point
+        data = np.array(mgr.DAQcontrol.read_to_data_array(timeout = self.timeout)) # Collect ODMR point
         mgr.Pulser.set_state_off()
 
         return data  
@@ -499,7 +501,7 @@ class ConfocalODMR():
         
         ## stop and close all tasks
         mgr.Pulser.set_state_off()
-        mgr.DAQCounter.finalize()
+        mgr.DAQcontrol.finalize_counter()
         
         ## turns off sg
         mgr.sg.set_rf_toggle(False)

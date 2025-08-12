@@ -63,16 +63,16 @@ with InstrumentServer() as inserv:
    if xyz_activation_boolean:
       
 
-      inserv.add(name = 'XYZcontrol',
-               class_path= _HERE / 'drivers' / 'dr_xyz_controls.py',
-               class_name= 'XYZSetup',
-               args= ['Dev1/ao0', 'Dev1/ao1', 'Dev1/ao2', 'Dev1/ctr1']
-               )
+      # inserv.add(name = 'XYZcontrol',
+      #          class_path= _HERE / 'drivers' / 'dr_xyz_controls.py',
+      #          class_name= 'XYZSetup',
+      #          args= ['Dev1/ao0', 'Dev1/ao1', 'Dev1/ao2', 'Dev1/ctr1']
+      #          )
 
-      inserv.add(name = 'DAQCounter',
-            class_path= _HERE / 'drivers' / 'dr_DAQ_counter.py',
+      inserv.add(name = 'DAQcontrol',
+            class_path= _HERE / 'drivers' / 'dr_DAQ_control.py',
             class_name= 'DAQCounter',
-            args= ['Dev1'],
+            args= ['Dev1', 'ao0', 'ao1', 'ao2'],
             kwargs={'clk_pfi': 'PFI0', 'apd_ctr': 'ctr1'}
             )
    if camera_activation_boolean:

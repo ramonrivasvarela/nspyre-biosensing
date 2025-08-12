@@ -15,6 +15,7 @@ import os
 from collections import deque 
 
 from experiments.camera_settings_tasks.gain_optimization import get_gain
+from experiments.initializecamera import CameraInitialization
 
 ## Nidaqmx
 
@@ -95,7 +96,7 @@ class WFODMRTrack():
 
         ## Optimize Gain ##########
         self.initialize(self, mgr, exp_time, readout_time,cam_trigger,gain,routine, wait_interval, end_ODMR,frequency,label,rf_amplitude,mode,ROI_xy,
-                   alt_label, PID,data_path,save_image,data_download, window, Misc)
+                   alt_label, PID,data_path,save_image,data_download, window, optimize_gain, Misc)
         print('Optimizing gain...')
         with InstrumentManager() as mgr, DataSource(data_source) as source:
             get_gain(mgr, optimize_gain, gain, frequency, self.runs, mode, self.ns_exp_time, self.ns_readout_time)
@@ -350,7 +351,7 @@ class WFODMRTrack():
                       alt_label, PID,save_image,data_download)
 
     def initialize(self, mgr, exp_time, readout_time,cam_trigger,gain,routine, wait_interval, end_ODMR,frequency,label,rf_amplitude,mode,ROI_xy,
-                   alt_label, PID,data_path,save_image,data_download, window, Misc):
+                   alt_label, PID,data_path,save_image,data_download, window, optimize_gain, Misc):
         '''
         Define a class variable for all params that:
             (1) Need to be "formatted" in terms of extracting unitless value, or adding units
@@ -487,6 +488,18 @@ class WFODMRTrack():
             self.I1I2_seqs[1] = self.ZFS_seq_inv
 
         ## Cam init ##########
+        feed_parameters={'optimize_gain': optimize_gain,
+                         'cam_trigger': cam_trigger,
+                         'ns_probe_time': self.ns_exp_time,
+                         'ns_exp_time': self.ns_exp_time,
+                         'ns_readout_time': self.ns_readout_time,
+                         'gain': gain,
+                         'mode': mode,
+                         'runs': self.runs,
+                         }
+        self.CameraInitialization = CameraInitialization(self.queue_to_exp, self.queue_from_exp)
+        self.gain=self.CameraInitialization.initialize_camera(**feed_parameters)
+        self.t_gain = time.time()
         if mgr.Camera.get_status()[0] == 20075:
             ret = mgr.Camera.initialize  # Initialize camera
             print("Function Initialize returned {}".format(ret))
@@ -494,7 +507,7 @@ class WFODMRTrack():
         mgr.Camera.set_acquisition_mode("Kinetics") #Taking a series of pulses
         mgr.Camera.set_read_mode("Image") #reading pixel-by-pixel with no binning
         if cam_trigger == 'EXTERNAL_EXPOSURE':
-            mgr.Camera.set_trigger_mode("External Exposure Bulb")
+            mgr.Camera.set_trigger_mode("External Exposure (Bulb)")
             if self.readout_time<0.059:
                 print('WARNING readout time should be at least 59 ms in pulse-length-exposure mode')
         else:
@@ -508,7 +521,7 @@ class WFODMRTrack():
             if self.readout_time<0.005:
                 print('WARNING readout time should be at least 5 ms even with frame transfer, experiment may fail ')
             mgr.Camera.set_exposure_time(self.exp_time) 
-            mgr.Camera.set_frame_transfer_mode("conventional") 
+            mgr.Camera.set_frame_transfer_mode("ON") 
 
         ret, _, _ = mgr.Camera.get_detector()
         mgr.Camera.set_image() #defining image
@@ -777,7 +790,7 @@ class WFODMRTrack():
                 freq = self.frequency[f]
                 first_pic = s==0 and f==0 
                 last_pic = s==self.sweeps-1 and f==len(self.frequency)-1
-                mgr.set_frequency(freq) #set frequency
+                mgr.sg.set_frequency(freq) #set frequency
                 if first_pic:
                     data_1D = self.GetPictures(self.ODMR_seq, n_pic)
                 else:

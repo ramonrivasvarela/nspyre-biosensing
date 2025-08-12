@@ -579,7 +579,7 @@ class _HeatMapPlotWidget(HeatMapWidget):
                         if settings.show:
                             if settings.series in data:
                                 try:
-                                    self.set_data(xs, ys, data[settings.series])
+                                    self.set_data(xs, ys, np.array(data[settings.series]))
                                     self._process_data()
                                 except Exception as e:
                                     _logger.error(
@@ -687,10 +687,10 @@ class _HeatMapPlotWidget(HeatMapWidget):
                                         f'[{type(data[series][0])}].'
                                     )
                                 # Use the first array in the list
-                                plot_data = data[series]
+                                plot_data = np.array(data[series])
                             else:
-                                plot_data = data[series]
-                            
+                                plot_data = np.array(data[series])
+
                             # check numpy array shape
                             if plot_data.shape[0] != len(ys) or plot_data.shape[1] != len(xs):
                                 _logger.warning(
@@ -703,7 +703,7 @@ class _HeatMapPlotWidget(HeatMapWidget):
                                         self._process_data()
                                     except Exception as e:
                                         _logger.error(
-                                            f'Error processing data for heatmap {heatmap_name}: {e}. '
+                                            f'Error processing data for heatmap [{heatmap_name}]: {e}. '
                                             f'Type is {type(plot_data)}.'
                                         )
                             else:
@@ -712,12 +712,11 @@ class _HeatMapPlotWidget(HeatMapWidget):
                                     self._process_data()
                                 except Exception as e:
                                     _logger.error(
-                                        f'Error processing data for heatmap {heatmap_name}: {e}. '
+                                        f'Error processing data for heatmap [{heatmap_name}]: {e}. '
                                         f'Type is {type(plot_data)}.'
                                     )
                     else:
                         # No sink available, but we still want to update display (e.g., show/hide)
-                        _logger.debug(f'No data source available for heatmap {heatmap_name}. '
-                                      'Skipping data processing.')
+                        _logger.debug(f'No data source available for heatmap [{heatmap_name}]')
                         # Optionally clear the display or show a placeholder
                         break  # Exit after first shown heatmap when no sink

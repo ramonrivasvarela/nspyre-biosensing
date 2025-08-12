@@ -65,8 +65,9 @@ class PlaneScan:
                     acq_rate: int =15000, pts_per_step: int =40, xyz_pos: bool = True, snake_scan :bool = False, sleep_factor : float=1):
         with InstrumentManager() as mgr, DataSource(dataset) as planescan_data:
             # mgr.XYZcontrol.daq_controller.sleep_factor = sleep_factor
-            current_position = mgr.DAQcontrol.get_position()
+            
             # starting point for scan
+            current_position= mgr.XYZcontrol.get_position()
             origin = (point_A['x'], point_A['y'], point_A['z'])
             # this point gives the direction and bound of the line scan
             scan_pt = (point_B['x'], point_B['y'], point_B['z'])
@@ -171,21 +172,21 @@ class PlaneScan:
                         
                         line_scan_start_pt = origin + s/(extent_steps) * extent_vector
                         line_scan_stop_pt = line_scan_start_pt + scan_vector 
-                        
+                        print("running well.")
                         ## adding option for snake scan
                         if snake_scan == True and (s+1)%2 == 0:
                             print('s:', s)
                             line_scan_start_pt = line_scan_stop_pt#-scan_vector/(line_scan_steps)
                             line_scan_stop_pt = origin + s/(extent_steps) * extent_vector#-scan_vector/(line_scan_steps)
-
-                        line_data = mgr.DAQcontrol.line_scan({'x': line_scan_start_pt[0],
-                                                                'y': line_scan_start_pt[1],
-                                                                'z': line_scan_start_pt[2]},
-                                                                {'x': line_scan_stop_pt[0],
-                                                                'y': line_scan_stop_pt[1],
-                                                                'z': line_scan_stop_pt[2]},
+                        
+                        line_data = mgr.XYZcontrol.line_scan({'x': float(line_scan_start_pt[0]),
+                                                        'y': float(line_scan_start_pt[1]),
+                                                        'z': float(line_scan_start_pt[2])},
+                                                        {'x': float(line_scan_stop_pt[0]),
+                                                        'y': float(line_scan_stop_pt[1]),
+                                                        'z': float(line_scan_stop_pt[2])},
                                                             line_scan_steps, pts_per_step)
-                        print("running well.")
+                        
                         #import pdb; pdb.set_trace()                    #print(s / extent_steps * np.linalg.norm(extent_vector))                    #print(np.linspace(0, np.linalg.norm(scan_vector), line_scan_steps))                    #print(z)                    #print(origin)                    #print(z - z_stack + 1)
 
                         ## in case of a snake scan
@@ -197,8 +198,8 @@ class PlaneScan:
                             
                             
                         counts = rpyc.utils.classic.obtain(line_data)
-
-                        datasets[f"stack_{z+1}"][s]+=counts
+                        counts= np.array(counts, dtype=float)
+                        datasets[f"stack_{z+1}"][s]=counts
                         datasets[f"stack_{z+1}"].updated_item(s)
                         ## scan_vals contains the x values corresponding to the line scan data
                         
@@ -235,35 +236,31 @@ class PlaneScan:
 
                         if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
                             # the GUI has asked us nicely to exit
-                            mgr.DAQcontrol.move(current_position)
-                            self.finalize(mgr)
+                            self.finalize(mgr, current_position)
                             return
-            mgr.DAQcontrol.move(current_position)
-            self.finalize(mgr)
-            
+            self.finalize(mgr, current_position)
 
     def initialize(self, mgr, ctr_ch='Dev1/ctr1', acq_rate=15000):
         #create control task, action task already created in app initizalization
-        #mgr.XYZcontrol.initialize()   
-        # mgr.DAQcontrol.n_samples=line_scan_steps+1        # (calls finalize internally if needed)
-        mgr.DAQcontrol.create_counter()  # (calls finalize internally if needed)
-        mgr.DAQcontrol.acq_rate = acq_rate
+        #mgr.XYZcontrol.initialize()           # (calls finalize internally if needed)
+        mgr.XYZcontrol.new_ctr_task(ctr_ch)
+        mgr.XYZcontrol.acq_rate = acq_rate
 
         mgr.Pulser.set_state([7],0.0,0.0)
-        #mgr.DAQcontrol.initialize()
+        #mgr.DAQCounter.initialize()
 
-    def finalize(self,mgr):
+    def finalize(self,mgr, current_position):
         mgr.Pulser.set_state_off()
-        mgr.DAQcontrol.finalize_counter()  # End the counter task
+        # mgr.XYZcontrol.move_to_dict(current_position)
+        mgr.XYZcontrol.end_ctr_task()  # End the counter task
         #mgr.XYZcontrol.finalize()
-        #mgr.DAQcontrol.finalize()
-    
+        #mgr.DAQCounter.finalize()
     
     def check_limit(self, mgr, point, str=""):
         """Check if the point is within the limits of the XYZ control."""
-        if point[0]<mgr.DAQcontrol.axes['x'].limits[0] or point[0]>mgr.DAQcontrol.axes['x'].limits[1]:
-            raise ValueError(f"x position {point[0]} of point {str} is out of bounds {mgr.DAQcontrol.axes['x'].limits}")
-        if point[1]<mgr.DAQcontrol.axes['y'].limits[0] or point[1]>mgr.DAQcontrol.axes['y'].limits[1]:
-            raise ValueError(f"y position {point[1]} of point {str} is out of bounds {mgr.DAQcontrol.axes['y'].limits}")
-        if point[2]<mgr.DAQcontrol.axes['z'].limits[0] or point[2]>mgr.DAQcontrol.axes['z'].limits[1]:
-            raise ValueError(f"z position {point[2]} of point {str} is out of bounds {mgr.DAQcontrol.axes['z'].limits}")
+        if point[0]<mgr.XYZcontrol.axes['x'].limits[0] or point[0]>mgr.XYZcontrol.axes['x'].limits[1]:
+            raise ValueError(f"x position {point[0]} of point {str} is out of bounds {mgr.XYZcontrol.axes['x'].limits}")
+        if point[1]<mgr.XYZcontrol.axes['y'].limits[0] or point[1]>mgr.XYZcontrol.axes['y'].limits[1]:
+            raise ValueError(f"y position {point[1]} of point {str} is out of bounds {mgr.XYZcontrol.axes['y'].limits}")
+        if point[2]<mgr.XYZcontrol.axes['z'].limits[0] or point[2]>mgr.XYZcontrol.axes['z'].limits[1]:
+            raise ValueError(f"z position {point[2]} of point {str} is out of bounds {mgr.XYZcontrol.axes['z'].limits}")

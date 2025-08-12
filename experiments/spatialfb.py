@@ -68,8 +68,14 @@ class SpatialFeedback():
 
     def spatial_feedback(self, ctr_ch, initial_position, do_z, sleep_time, xyz_step,
             shrink_every_x_iter, starting_point):
+        self.n_points=10
+        self.ns_clock_time = 10
+        
+        self.probe_time = sleep_time
+        self.ns_probe_time = int(round(self.probe_time * 1e9))
         with InstrumentManager() as mgr:
-            self.initialize(mgr, ctr_ch, initial_position, starting_point)
+            
+            self.initialize(mgr, initial_position, starting_point)
             x_center = self.init_x
             y_center = self.init_y
             z_center = self.init_z
@@ -97,16 +103,16 @@ class SpatialFeedback():
                     for e in [1, -1]:
                         keepGoing = True
                         #print('\n before first read')
-                        dataZBefore = self.read(mgr, sleep_time)
+                        dataZBefore = self.read(mgr)
                         print('\n DataZBefore:', dataZBefore)
                         while(keepGoing):
-                            mgr.XYZcontrol.move_to(x_center, y_center, z_center + e * (xyz_step + .02))
+                            mgr.DAQcontrol.move({'x': x_center, 'y': y_center, 'z': z_center + e * (xyz_step + .02)})
                             #print('\n before next read')
-                            dataZAfter = self.read(mgr, sleep_time)
+                            dataZAfter = self.read(mgr)
                             print('\n DataZAfter:', dataZAfter)
                             if dataZAfter < dataZBefore:
                                 keepGoing = False
-                                mgr.XYZcontrol.move_to(x_center, y_center, z_center)
+                                mgr.DAQcontrol.move({'x': x_center, 'y': y_center, 'z': z_center})
                             else:
                                 z_center = z_center + e * (xyz_step + .02)
                                 dataZBefore = dataZAfter
@@ -122,16 +128,16 @@ class SpatialFeedback():
                 for e in [1, -1]:
                     keepGoing = True
                     #print('\n before first read')
-                    dataXBefore = self.read(mgr, sleep_time)
+                    dataXBefore = self.read(mgr)
                     print('\n DataXBefore:', dataXBefore)
                     while(keepGoing):
-                        mgr.XYZcontrol.move_to(x_center + e * xyz_step, y_center, z_center)
+                        mgr.DAQcontrol.move({'x': x_center + e * xyz_step, 'y': y_center, 'z': z_center})
                         #print('\n before next read')
-                        dataXAfter = self.read(mgr, sleep_time)
+                        dataXAfter = self.read(mgr)
                         print('\n DataXAfter:', dataXAfter)
                         if dataXAfter < dataXBefore:
                             keepGoing = False
-                            mgr.XYZcontrol.move_to(x_center, y_center, z_center)
+                            mgr.DAQcontrol.move({'x': x_center, 'y': y_center, 'z': z_center})
                         else:
                             x_center = x_center + e * xyz_step
                             dataXBefore = dataXAfter
@@ -145,17 +151,17 @@ class SpatialFeedback():
                 #######################################################################################
                 for e in [1, -1]:
                     keepGoing = True
-                    dataYBefore = self.read(mgr, sleep_time)
+                    dataYBefore = self.read(mgr)
                     print('\n DataYBefore:', dataYBefore)
                     while(keepGoing):
                         # Move via XYZcontrol
-                        mgr.XYZcontrol.move_to(x_center, y_center + e * xyz_step, z_center)
-                        dataYAfter = self.read(mgr, sleep_time)
+                        mgr.DAQcontrol.move({'x': x_center, 'y': y_center + e * xyz_step, 'z': z_center})
+                        dataYAfter = self.read(mgr)
                         print('\n DataYAfter:', dataYAfter)
                         if dataYAfter < dataYBefore:
                             keepGoing = False
                             # Move back via XYZcontrol
-                            mgr.XYZcontrol.move_to(x_center, y_center, z_center)
+                            mgr.DAQcontrol.move({'x': x_center, 'y': y_center, 'z': z_center})
                         else:
                             y_center = y_center + e * xyz_step
                             dataYBefore = dataYAfter
@@ -174,46 +180,50 @@ class SpatialFeedback():
                     return
                 
             
-            print("final position:", mgr.XYZcontrol.position)
+            print("final position:", mgr.DAQcontrol.get_position())
             self.finalize(mgr)
 
 
-    def read(self, mgr, deltaT):
-        #import pdb; pdb.set_trace()
-        #print(self.urixyz.daq_controller.counter_tasks[0])
-        ctrs_start = rpyc.utils.classic.obtain(mgr.XYZcontrol.current_counter_task.read(1)[0])#()
-        print(ctrs_start)
-        time.sleep(deltaT)
-        print('\n sleep finishes')
-        ctrs_end = rpyc.utils.classic.obtain(mgr.XYZcontrol.current_counter_task.read(1)[0])#()
-        print(ctrs_end)
-        dctrs = ctrs_end - ctrs_start
-        ctrs_rate = dctrs / deltaT
-        # print("dctrs", dctrs)
-        # print("deltaT", deltaT)
-        # # ctrs_rate = self.urixyz.daq_controller.counter_tasks[-1].read()
-        return ctrs_rate
+    def read(self, mgr):
+        mgr.DAQcontrol.start_counter()
+        time.sleep(0.01)
+        mgr.Pulser.stream_sequence(self.pulse_sequence, 1)
+        # mgr.DAQcontrol.read()
+        data = mgr.DAQcontrol.read_to_data(self.probe_time)
+        return data
         
         
-    def initialize(self, mgr, ctr_ch, initial_position, starting_point):
+    def initialize(self, mgr, initial_position, starting_point):
         
         if starting_point == 'user_input':            
-            mgr.XYZcontrol.move(initial_position)
-        self.init_x = mgr.XYZcontrol.get_x()
-        self.init_y = mgr.XYZcontrol.get_y()
-        self.init_z = mgr.XYZcontrol.get_z()
-        mgr.Pulser.set_state([7],0.0,0.0)   
-        print('ctr ch:' + ctr_ch)
-        mgr.XYZcontrol.new_ctr_task(ctr_ch)
-        mgr.XYZcontrol.current_counter_task.start()
-        print('\n ctr_ch should be added')
+            mgr.DAQcontrol.move(initial_position)
+        current_position = mgr.DAQcontrol.get_position()
+        self.init_x = current_position['x']
+        self.init_y = current_position['y']
+        self.init_z = current_position['z'] 
+        # mgr.DAQcontrol.set_sampling_rate(2/self.probe_time) 
+        # mgr.DAQcontrol.create_buffer(self.n_points+1) # +1 to account for signal being a difference of counts
+        mgr.DAQcontrol.create_counter()
+        mgr.DAQcontrol.prepare_counting(2/self.probe_time, self.n_points)
+        self.pulse_sequence = self.create_sequence(mgr)
+        # mgr.XYZcontrol.current_counter_task.start()
         return
 
     def finalize(self, mgr):
-        mgr.XYZcontrol.end_ctr_task()
+        mgr.DAQcontrol.finalize_counter()
         mgr.Pulser.set_state_off()
     
         return
+    
+    def create_sequence(self, mgr):
+        seq = mgr.Pulser.create_sequence()
+        clock_pulse = [(self.ns_clock_time,1),(self.ns_probe_time-self.ns_clock_time,0)] ##ensure clock_time in nanoseconds
+        laser=[((self.n_points+1)*self.ns_probe_time,1)]
+        clock = clock_pulse * (self.n_points+1)
+        print("Clock sequence:", clock)
+        seq.setDigital(mgr.Pulser.channel_dict['clock'], clock)
+        seq.setDigital(mgr.Pulser.channel_dict['laser'], laser)
+        return seq
 
     def gaussian(self,xs, a=1, x=0, width=1, b=0):
         return a * np.exp(-np.square((xs - x) / width)) + b

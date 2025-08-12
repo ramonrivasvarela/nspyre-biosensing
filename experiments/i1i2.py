@@ -21,7 +21,7 @@ from nidaqmx.constants import (AcquisitionType, CountDirection, Edge,
     READ_ALL_AVAILABLE, TaskMode, TriggerType)
 from nidaqmx.stream_readers import CounterReader
 from experiments.spatialfb import SpatialFeedback
-from nspyre import InstrumentManager, DataSource
+from nspyre import InstrumentManager, DataSource, StreamingList
 import math
 import rpyc.utils.classic
 
@@ -86,32 +86,40 @@ class I1I2():
                    continuous_tracking, searchXYZ, max_search, min_search, 
                    scan_distance, changing_search, search_PID, 
                    search_integral_history, spot_size, advanced_tracking, 
-                   diffusion_constant, data_download, dataset):
-        with InstrumentManager() as mgr, DataSource(dataset) as data_source:
+                   diffusion_constant, data_download, dataset, tracking_dataset):
+        with InstrumentManager() as mgr, DataSource(dataset) as data_source, DataSource(tracking_dataset) as tracking_data_source:
             self.initialize(mgr, device, PS_clock_channel, APD_channel, sampling_rate,
                    time_per_sgpoint, mwPulseTime, clockPulseTime, rf_amplitude,
                     frequencies, slope_range, sideband_frequency,
-                   
                    continuous_tracking, searchXYZ, max_search, min_search, 
                    scan_distance,  search_PID, 
                    spot_size, advanced_tracking, 
                    diffusion_constant)
-            freq, sb_freq = self.process_frequencies(frequencies, sideband_frequency)
+            freqs, sb_freq = self.process_frequencies(frequencies, sideband_frequency)
             print('main take me off your feet?')
             
-
+            I1_sweeps=StreamingList()
+            I2_sweeps=StreamingList()
+            I1_tracking=StreamingList()
+            I2_tracking=StreamingList()
             # Shivam: The following is the classical case where we are not tracking
             # while taking I1 and I2 data
-
+            n_freqs=len(freqs)
+            start_t= time.time()
             if not continuous_tracking:
-        
+                
                 for sweep in range(sweeps):
+                    I1_data=np.empty(n_freqs)
+                    I2_data=np.empty(n_freqs)
+                    I1_sweeps.append(np.stack([freqs, I1_data]))
+                    I2_sweeps.append(np.stack([freqs, I2_data]))
                     print('before feedback')
                     self.feedback(sweep, sweeps_until_feedback, z_feedback_every, xyz_step_nm, shrink_every_x_iter,starting_point)
-                    for f in freq:
+                    for f in freqs:
                         print("Frequency value is " + str(f))
                         # time_start = time.time()
                         #import pdb; pdb.set_trace()
+                        
                         mgr.sg.set_frequency(f)
                         print('frequency:', f)
                         # import pdb; pdb.set_trace()
@@ -119,6 +127,14 @@ class I1I2():
                         output_buffer = self.odmr_read(mgr, self.buffer, self.APD_task, self.APD_reader, self.sequence,
                                                     self.stream_count, read_timeout)
                         data_I1, data_I2 = self.odmr_math(output_buffer)
+                        I1_sweeps[-1][1][f] = data_I1
+                        I1_sweeps.updated_item(-1)
+                        I2_sweeps[-1][1][f] = data_I2
+                        I2_sweeps.updated_item(-1)
+                        I1_tracking.append(np.array([np.array(time.time()-start_t), np.array([data_I1])]))
+                        I1_tracking.updated_item(-1)
+                        I2_tracking.append(np.array([np.array(time.time()-start_t), np.array([data_I2])]))
+                        I2_tracking.updated_item(-1)
                         print("ODMR Maths result:")
                         print(data_I1, data_I2)
                         # Shivam: equivalent of return statement, since acquired into mongo database
@@ -154,6 +170,18 @@ class I1I2():
                             'diffusion_constant': diffusion_constant,
                             'data_download': data_download,
                             'data_source': dataset,
+                            'datasets':{
+                                'I1': I1_sweeps,
+                                'I2': I2_sweeps
+                            }
+                        })
+                        tracking_data_source.push({
+                            'title': 'Tracking Data',
+                            'xlabel': 'Time (s)',
+                            'datasets': {
+                                'I1_tracking': I1_tracking,
+                                'I2_tracking': I2_tracking,
+                            }
                         })
                         #self.mongo_acquire(data_I1, data_I2, sweep, f, sb_freq, self.total_fluor)
                         
@@ -163,11 +191,17 @@ class I1I2():
                 # Shivam: The search_error_array has 3 rows for x, y, z and integral_history columns for the latest to oldest error values
                 search_error_array = np.zeros((3, search_integral_history))  # Shivam: Same as above but for search radius optimization
                 index = 0
+                x_tracking=StreamingList()
+                y_tracking=StreamingList()
+                z_tracking=StreamingList()
                 # Counts every time we measure a certain frequency value
                 self.counter = 0
                 for sweep in range(sweeps):
-                
-                    for f in freq:
+                    I1_data=np.empty(n_freqs)
+                    I2_data=np.empty(n_freqs)
+                    I1_sweeps.append(np.stack([freqs, I1_data]))
+                    I2_sweeps.append(np.stack([freqs, I2_data]))
+                    for f in freqs:
                         # time_start = time.time()
                         #import pdb; pdb.set_trace()
                         mgr.sg.set_frequency(f)
@@ -182,14 +216,75 @@ class I1I2():
                                                                             sampling_rate)
                         
                         # Shivam: Use self.current_temp to continually use the latest temperature from the initial setting onwards.
-
+                        I1_sweeps[-1][1][f] = data_I1
+                        I1_sweeps.updated_item(-1)
+                        I2_sweeps[-1][1][f] = data_I2
+                        I2_sweeps.updated_item(-1)
+                        I1_tracking.append(np.array([np.array(time.time()-start_t), np.array([data_I1])]))
+                        I1_tracking.updated_item(-1)
+                        I2_tracking.append(np.array([np.array(time.time()-start_t), np.array([data_I2])]))
+                        I2_tracking.updated_item(-1)
+                        x_tracking.append(np.array([np.array(time.time()-start_t), np.array([self.XYZ_center[0]])]))
+                        x_tracking.updated_item(-1)
+                        y_tracking.append(np.array([np.array(time.time()-start_t), np.array([self.XYZ_center[1]])]))
+                        y_tracking.updated_item(-1)
+                        z_tracking.append(np.array([np.array(time.time()-start_t), np.array([self.XYZ_center[2]])]))
+                        z_tracking.updated_item(-1)
+                        
                         print("Main search_error_array is " + str(search_error_array))
                         print(data_I1, data_I2)
                         # Shivam: equivalent of return statement, since acquired into mongo database
 
                         
                         
-                        self.mongo_acquire(data_I1, data_I2, sweep, f, sb_freq, self.total_fluor)
+                        # Push all arguments of i1i2 plus measurement results to the DataSource
+                        data_source.push({
+                            'device': device,
+                            'PS_clock_channel': PS_clock_channel,
+                            'APD_channel': APD_channel,
+                            'sampling_rate': sampling_rate,
+                            'time_per_sgpoint': time_per_sgpoint,
+                            'mwPulseTime': mwPulseTime,
+                            'clockPulseTime': clockPulseTime,
+                            'rf_amplitude': rf_amplitude,
+                            'sweeps': sweeps,
+                            'frequencies': frequencies,
+                            'slope_range': slope_range,
+                            'sideband_frequency': sideband_frequency,
+                            'read_timeout': read_timeout,
+                            'sweeps_until_feedback': sweeps_until_feedback,
+                            'z_feedback_every': z_feedback_every,
+                            'xyz_step_nm': xyz_step_nm,
+                            'shrink_every_x_iter': shrink_every_x_iter,
+                            'starting_point': starting_point,
+                            'continuous_tracking': continuous_tracking,
+                            'searchXYZ': searchXYZ,
+                            'max_search': max_search,
+                            'min_search': min_search,
+                            'scan_distance': scan_distance,
+                            'search_PID': search_PID,
+                            'search_integral_history': search_integral_history,
+                            'spot_size': spot_size,
+                            'advanced_tracking': advanced_tracking,
+                            'diffusion_constant': diffusion_constant,
+                            'data_download': data_download,
+                            'data_source': dataset,
+                            'datasets':{
+                                'I1': I1_sweeps,
+                                'I2': I2_sweeps
+                            }
+                        })
+                        tracking_data_source.push({
+                            'title': 'Tracking Data',
+                            'xlabel': 'Time (s)',
+                            'datasets': {
+                                'I1_tracking': I1_tracking,
+                                'I2_tracking': I2_tracking,
+                                'x_tracking': x_tracking,
+                                'y_tracking': y_tracking,
+                                'z_tracking': z_tracking,
+                            }
+                        })
 
                         self.counter += 1
 
@@ -202,7 +297,7 @@ class I1I2():
                                 return
 
 
-    def initialize(self, mgr, device, ctr_ch, PS_clock_channel, APD_channel, sampling_rate,
+    def initialize(self, mgr, device, PS_clock_channel, APD_channel, sampling_rate,
                    time_per_sgpoint, mwPulseTime, clockPulseTime, rf_amplitude,
                     frequencies, slope_range, sideband_frequency,
                    continuous_tracking, searchXYZ, max_search, min_search, 
@@ -212,8 +307,8 @@ class I1I2():
         
         ### NEW METHOD FOR INITIALIZING USING XYZcontrol- inspired on planescan
         self.ns_time_per_sgpoint = int(round(time_per_sgpoint*1e9))
-        mgr.XYZcontrol.new_ctr_task(ctr_ch)
-        mgr.XYZcontrol.acq_rate = sampling_rate
+        mgr.DAQcontrol.create_counter()
+        mgr.DAQcontrol.acq_rate = sampling_rate
 
         #\if I write self.freq instead of freq, it is addressable in main, so that line of code would be redundant
         
@@ -224,7 +319,7 @@ class I1I2():
         
 
         # SHIVAM: CHECK IF I SHOULD ONLY HAVE THIS IF STATIONARY TRACKING
-        self.sequence, self.stream_count, self.new_pulse_time = self.ready_pulse_sequence( mwPulseTime, clockPulseTime,
+        self.sequence, self.stream_count, self.new_pulse_time = self.ready_pulse_sequence(mgr, mwPulseTime, clockPulseTime,
                                                                      sb_freq, rf_amplitude)
 
         self.buffer = self.create_buffer( mwPulseTime)
@@ -270,9 +365,9 @@ class I1I2():
                 self.diffusion_constant = diffusion_constant
                 self.n_k = (0, 0, 0)
                 self.p_k = (2 * diffusion_constant * self.time_elapsed) * 3
-                self.x_k = (mgr.XYZcontrol.get_x(),
-                            mgr.XYZcontrol.get_y(),
-                            mgr.XYZcontrol.get_z())
+                self.x_k = (mgr.DAQcontrol.position['x'],
+                            mgr.DAQcontrol.position['y'],
+                            mgr.DAQcontrol.position['z'])
                 print("x_k is " + str(self.x_k))
 
                 # CHECK THE TUNING OF w
@@ -282,9 +377,9 @@ class I1I2():
         
             
 
-        self.XYZ_center = (mgr.XYZcontrol.get_x(),
-                           mgr.XYZcontrol.get_y(),
-                           mgr.XYZcontrol.get_z())
+        self.XYZ_center = (mgr.DAQcontrol.position['x'],
+                           mgr.DAQcontrol.position['y'],
+                           mgr.DAQcontrol.position['z'])
 
         # This will be the variable storing total fluorescence every run
         self.total_fluor = 0
@@ -375,7 +470,7 @@ class I1I2():
         # Remaining buffer is for later calculations, but this function is primarily for the scan.
         # Points per step signifies how many repetitions of the line scan we are doing
         remaining_buffer = buffer_size - (number_of_steps * buffer_allocation)
-        mgr.XYZcontrol.prepare_line_scan(
+        mgr.DAQcontrol.prepare_line_scan(
                                             {'x': pos_center_st[0], 'y': pos_center_st[1], 'z': pos_center_st[2]},
                                             {'x': pos_center_end[0], 'y': pos_center_end[1], 'z': pos_center_end[2]},
                                             number_of_steps, buffer_size)
@@ -388,7 +483,7 @@ class I1I2():
         ## this is 35 ms all on its own. 
         'the data is sorted into a i,j,k dimension tensor. num_bins represents i, j is automatically 8 due to the 8 pulses for the MW. k is remainder of the total data points over i*j,'
         # Shivam: Changed from num_freq * 2 to num_freq because we are not doing background collection
-        scan_data = mgr.XYZcontrol.start_line_scan()
+        scan_data = mgr.DAQcontrol.start_line_scan()
 
         mgr.Pulser.reset()
         ## this is 5 miliseconds
@@ -504,9 +599,9 @@ class I1I2():
 
             print("debugging, XYZ center is " + str(self.XYZ_center))
             
-            mgr.XYZcontrol.move({'x': self.XYZ_center[0], 'y': self.XYZ_center[1], 'z': self.XYZ_center[2]})
+            mgr.DAQcontrol.move({'x': self.XYZ_center[0], 'y': self.XYZ_center[1], 'z': self.XYZ_center[2]})
             print("xyz positions set are " + str(self.XYZ_center[0]) + str(self.XYZ_center[1]) + str(self.XYZ_center[2]))
-            print('\nHere is where the laser is currently pointing:', mgr.XYZcontrol.get_position())
+            print('\nHere is where the laser is currently pointing:', mgr.DAQcontrol.get_position())
 
             if changing_search:
                 search_change = 0.0
@@ -610,9 +705,9 @@ class I1I2():
                 self.drift[index] = max_count_position - self.XYZ_center[index]
                 self.XYZ_center[index] = max_count_position
 
-            mgr.XYZcontrol.move({'x': self.XYZ_center[0], 'y': self.XYZ_center[1], 'z': self.XYZ_center[2]})
+            mgr.DAQcontrol.move({'x': self.XYZ_center[0], 'y': self.XYZ_center[1], 'z': self.XYZ_center[2]})
             print("xyz positions set are " + str(self.XYZ_center[0]) + str(self.XYZ_center[1]) + str(self.XYZ_center[2]))
-            print('\nHere is where the laser is currently pointing:', mgr.XYZcontrol.get_position())
+            print('\nHere is where the laser is currently pointing:', mgr.DAQcontrol.get_position())
 
             if changing_search:
                 search_change = 0.0
@@ -811,10 +906,10 @@ class I1I2():
             if dozfb:
                 z_initial = space_data['z_center'].values[0]
 
-                mgr.XYZcontrol.move({'x': x_initial, 'y': y_initial, 'z': z_initial})
+                mgr.DAQcontrol.move({'x': x_initial, 'y': y_initial, 'z': z_initial})
                 return
             # Shivam: Is there supposed to be an else over here?
-            mgr.XYZcontrol.move({'x': x_initial, 'y': y_initial, 'z': self.XYZ_center[2]})
+            mgr.DAQcontrol.move({'x': x_initial, 'y': y_initial, 'z': self.XYZ_center[2]})
             return
         else:
             return
