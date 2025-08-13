@@ -72,9 +72,9 @@ class AdvancedTracking():
                              sequence, search, scan_distance, num_freq, do_not_run_feedback, 
                              read_timeout, spot_size, advanced_tracking, changing_search, 
                              search_error_array, search_integral_history,
-                             drift=(0,0,0), previous_fluors=(0,0,0), 
+                             drift=(0,0,0), 
                              x_k=None, p_k=None, n_k=None, w=None, diffusion_constant=None, time_elapsed=None):
-        self.previous_fluors = previous_fluors
+
         self.max_search = max_search
         self.min_search = min_search
         self.drift=drift
@@ -127,8 +127,8 @@ class AdvancedTracking():
                     search[i] *= 0.9 if abs(self.drift[i]) < (2 / 5 * search[i]) else 1.2 if abs(self.drift[i]) > (
                             7 / 10 * search[i]) else 1
             if advanced_tracking:
-                return search, temp_data, search_error_array, self.XYZ_center, self.drift, self.previous_fluors, self.x_k, self.p_k, self.n_k
-            return  search, temp_data, search_error_array, self.XYZ_center, self.drift, self.previous_fluors
+                return search, temp_data, search_error_array, self.XYZ_center, self.drift, self.x_k, self.p_k, self.n_k
+            return  search, temp_data, search_error_array, self.XYZ_center, self.drift
     def process_data(self, input_buffer, buffer_allocation, remaining_buffer, index, search, do_not_run_feedback):
         # Shivam: We are removing the last value of I2 from the buffer to not have the last photon count
         # This is because we do not have a clock at the last time period and so would only have 1 out of 2 relevant counts for that segment when subtracting
@@ -252,7 +252,6 @@ class AdvancedTracking():
                  changing_search, search_error_array, search_integral_history):
         print("/n/n In data analysis/n")
         #import pdb; pdb.set_trace()
-        self.previous_fluors[index-1] = self.total_fluor
         self.total_fluor = np.sum(tracking_data)
 
         # Shivam: Attempt to fix search radius issue when theres a rapid change in position, but not working well yet

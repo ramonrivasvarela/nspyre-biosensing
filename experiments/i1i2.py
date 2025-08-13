@@ -25,6 +25,8 @@ from nspyre import InstrumentManager, DataSource, StreamingList
 import math
 import rpyc.utils.classic
 
+from experiments.advancedtracking import AdvancedTracking
+
 
 # nspyre
 
@@ -208,13 +210,33 @@ class I1I2():
                         print('frequency:', f)
                         # import pdb; pdb.set_trace()
 
-                        self.search, data_I1, data_I2, search_error_array = self.one_axis_measurement(self.bufsize, index, PS_clock_channel,
-                                                                            self.search, self.scan_distance,
-                                                                            read_timeout, self.spot_size, 
-                                                                            advanced_tracking, changing_search, 
-                                                                            search_error_array, search_integral_history,
-                                                                            sampling_rate)
-                        
+                        self.AdvancedTracking=AdvancedTracking(self.queue_to_exp, self.queue_from_exp)
+                        feed_params={
+                            'buffer_size':self.bufsize,
+                            'index':index,
+                            'search': self.search,
+                            'scan_distance':self.scan_distance,
+                            'read_timeout':read_timeout,
+                            'spot_size':self.spot_size, 
+                            'do_not_run_feedback': True,
+                            'advanced_tracking':advanced_tracking, 
+                            'changing_search':changing_search, 
+                            'search_error_array':search_error_array, 
+                            'search_integral_history':search_integral_history,
+                            'sampling_rate':sampling_rate,
+                            'drift':self.drift,
+                            'x_k':self.x_k, 
+                            'p_k':self.p_k, 
+                            'n_k':self.n_k,
+                            'w':self.w,
+                            'diffusion_constant':self.diffusion_constant,
+                            'time_elapsed':self.time_elapsed
+                            
+                        }
+
+                        self.search, temp_data, search_error_array = self.AdvancedTracking.one_axis_measurement(**feed_params)
+                        data_I1=temp_data[0]
+                        data_I2=temp_data[1]
                         # Shivam: Use self.current_temp to continually use the latest temperature from the initial setting onwards.
                         I1_sweeps[-1][1][f] = data_I1
                         I1_sweeps.updated_item(-1)
@@ -417,388 +439,388 @@ class I1I2():
         new_frequencies = np.linspace(eval(frequencies)[0], eval(frequencies)[1], eval(frequencies)[2])
         return new_frequencies, new_sideband       
 
-    def one_axis_measurement(self, mgr, buffer_size, index, PS_clk_channel,
-                search, scan_distance, read_timeout, spot_size, advanced_tracking, 
-                changing_search, search_error_array, search_integral_history,
-                sampling_rate):
+    # def one_axis_measurement(self, mgr, buffer_size, index, PS_clk_channel,
+    #             search, scan_distance, read_timeout, spot_size, advanced_tracking, 
+    #             changing_search, search_error_array, search_integral_history,
+    #             sampling_rate):
         
-        print("We are indeed running tracking code")
-        data, buffer_allocation, remaining_buffer = self.read_stream_flee(mgr, index, PS_clk_channel, search, buffer_size, scan_distance, read_timeout)
+    #     print("We are indeed running tracking code")
+    #     data, buffer_allocation, remaining_buffer = self.read_stream_flee(mgr, index, PS_clk_channel, search, buffer_size, scan_distance, read_timeout)
 
-        ## confirmed, here I have 180-200 ms of lag
-        print("Length of data is " + str(len(data)))
-        ## after this is 70-130 ms of lag        
-        tracking_data, track_steps, data_I1, data_I2 = self.process_data(data, buffer_allocation, remaining_buffer, index, search)
+    #     ## confirmed, here I have 180-200 ms of lag
+    #     print("Length of data is " + str(len(data)))
+    #     ## after this is 70-130 ms of lag        
+    #     tracking_data, track_steps, data_I1, data_I2 = self.process_data(data, buffer_allocation, remaining_buffer, index, search)
 
-        # Shivam: Processes tracking data and sets to new position along index axis
-        search, search_error_array = self.datanaly(mgr, tracking_data, track_steps, index, search, spot_size, advanced_tracking, 
-                               changing_search, search_error_array, search_integral_history)
+    #     # Shivam: Processes tracking data and sets to new position along index axis
+    #     search, search_error_array = self.datanaly(mgr, tracking_data, track_steps, index, search, spot_size, advanced_tracking, 
+    #                            changing_search, search_error_array, search_integral_history)
 
-        ## total it says i have 250 ms of lag
+    #     ## total it says i have 250 ms of lag
 
-        ## I can have up to 300 ms.
+    #     ## I can have up to 300 ms.
 
-        return search, data_I1, data_I2, search_error_array
+    #     return search, data_I1, data_I2, search_error_array
     
 
-    def read_stream_flee(self, mgr,index, search, buffer_size, scan_distance, read_timeout):
-        ## total this has 180 ms of lag.
-        # time_track = time.time()
-        xyz_steps = np.linspace(self.XYZ_center[index] - search[index], self.XYZ_center[index] + search[index],
-                                buffer_size)
-        # Shivam: Assigns the entire XYZ_center array to both newly defined arrays
-        pos_center_st = self.XYZ_center[:]
-        pos_center_end = self.XYZ_center[:]
-        pos_center_st[index] = xyz_steps[0]
-        pos_center_end[index] = xyz_steps[-1]
+    # def read_stream_flee(self, mgr,index, search, buffer_size, scan_distance, read_timeout):
+    #     ## total this has 180 ms of lag.
+    #     # time_track = time.time()
+    #     xyz_steps = np.linspace(self.XYZ_center[index] - search[index], self.XYZ_center[index] + search[index],
+    #                             buffer_size)
+    #     # Shivam: Assigns the entire XYZ_center array to both newly defined arrays
+    #     pos_center_st = self.XYZ_center[:]
+    #     pos_center_end = self.XYZ_center[:]
+    #     pos_center_st[index] = xyz_steps[0]
+    #     pos_center_end[index] = xyz_steps[-1]
 
-        distance_of_sweep = (np.abs(pos_center_end[index] - pos_center_st[index]))
-        print(distance_of_sweep)
-        print(scan_distance)
-        number_of_steps = math.ceil(distance_of_sweep / scan_distance[index])
-        print("The number of steps is " + str(number_of_steps))
-        effective_scan_distance = distance_of_sweep / number_of_steps
-        print("The effective scan distance is " + str(effective_scan_distance))
-        # Shivam: Subtracted by 2 because of the way the buffer is sliced to keep equal photon exposure for I1 and I2 
-        effective_buffer_size = buffer_size - 2
-        print("The effective buffer size is " + str(effective_buffer_size))
-        # Shivam: Buffer allocation for each step of scan
-        buffer_allocation = math.floor(effective_buffer_size / number_of_steps)
-        print("The buffer allocation is " + str(buffer_allocation))
-        # import pdb; pdb.set_trace()
-        # Shivam: Doing a 1 axis scan from the set start point till end point with buffer_size steps
-        # Remaining buffer is for later calculations, but this function is primarily for the scan.
-        # Points per step signifies how many repetitions of the line scan we are doing
-        remaining_buffer = buffer_size - (number_of_steps * buffer_allocation)
-        mgr.DAQcontrol.prepare_line_scan(
-                                            {'x': pos_center_st[0], 'y': pos_center_st[1], 'z': pos_center_st[2]},
-                                            {'x': pos_center_end[0], 'y': pos_center_end[1], 'z': pos_center_end[2]},
-                                            number_of_steps, buffer_size)
+    #     distance_of_sweep = (np.abs(pos_center_end[index] - pos_center_st[index]))
+    #     print(distance_of_sweep)
+    #     print(scan_distance)
+    #     number_of_steps = math.ceil(distance_of_sweep / scan_distance[index])
+    #     print("The number of steps is " + str(number_of_steps))
+    #     effective_scan_distance = distance_of_sweep / number_of_steps
+    #     print("The effective scan distance is " + str(effective_scan_distance))
+    #     # Shivam: Subtracted by 2 because of the way the buffer is sliced to keep equal photon exposure for I1 and I2 
+    #     effective_buffer_size = buffer_size - 2
+    #     print("The effective buffer size is " + str(effective_buffer_size))
+    #     # Shivam: Buffer allocation for each step of scan
+    #     buffer_allocation = math.floor(effective_buffer_size / number_of_steps)
+    #     print("The buffer allocation is " + str(buffer_allocation))
+    #     # import pdb; pdb.set_trace()
+    #     # Shivam: Doing a 1 axis scan from the set start point till end point with buffer_size steps
+    #     # Remaining buffer is for later calculations, but this function is primarily for the scan.
+    #     # Points per step signifies how many repetitions of the line scan we are doing
+    #     remaining_buffer = buffer_size - (number_of_steps * buffer_allocation)
+    #     mgr.DAQcontrol.prepare_line_scan(
+    #                                         {'x': pos_center_st[0], 'y': pos_center_st[1], 'z': pos_center_st[2]},
+    #                                         {'x': pos_center_end[0], 'y': pos_center_end[1], 'z': pos_center_end[2]},
+    #                                         number_of_steps, buffer_size)
 
-        ###Before this, around .12 seconds have elapsed
+    #     ###Before this, around .12 seconds have elapsed
 
-        'start the pulse streamer and the task close to simultaneously'
+    #     'start the pulse streamer and the task close to simultaneously'
 
-        mgr.Pulser.stream_sequence(self.sequence, self.run_ct)
-        ## this is 35 ms all on its own. 
-        'the data is sorted into a i,j,k dimension tensor. num_bins represents i, j is automatically 8 due to the 8 pulses for the MW. k is remainder of the total data points over i*j,'
-        # Shivam: Changed from num_freq * 2 to num_freq because we are not doing background collection
-        scan_data = mgr.DAQcontrol.start_line_scan()
+    #     mgr.Pulser.stream_sequence(self.sequence, self.run_ct)
+    #     ## this is 35 ms all on its own. 
+    #     'the data is sorted into a i,j,k dimension tensor. num_bins represents i, j is automatically 8 due to the 8 pulses for the MW. k is remainder of the total data points over i*j,'
+    #     # Shivam: Changed from num_freq * 2 to num_freq because we are not doing background collection
+    #     scan_data = mgr.DAQcontrol.start_line_scan()
 
-        mgr.Pulser.reset()
-        ## this is 5 miliseconds
-        # print('time for read stream flee:', time.time() - time_track)
+    #     mgr.Pulser.reset()
+    #     ## this is 5 miliseconds
+    #     # print('time for read stream flee:', time.time() - time_track)
 
-        ## pulser stream to pulser reset has 60ms delay.
+    #     ## pulser stream to pulser reset has 60ms delay.
         
-        return rpyc.utils.classic.obtain(scan_data), buffer_allocation, remaining_buffer
+    #     return rpyc.utils.classic.obtain(scan_data), buffer_allocation, remaining_buffer
     
 
-    def process_data(self, input_buffer, buffer_allocation, remaining_buffer, index, search):
-        # Shivam: We are removing the last value of I2 from the buffer to not have the last photon count
-        # This is because we do not have a clock at the last time period and so would only have 1 out of 2 relevant counts for that segment when subtracting
-        # This means that we will effectively have n - 1 runs when setting the time per sg point for n runs
-        print("The input buffer size is " + str(len(input_buffer)))
-        effective_buffer = input_buffer[:-1]
-        print("The later effective buffer size is " + str(len(effective_buffer)))
-        # Shivam: sliced to new array 2nd element onwards subtracting all elements to the left (I1 - I0, I2 - I1, ... ,
-        interval_data = effective_buffer[1:] - effective_buffer[:-1]
+    # def process_data(self, input_buffer, buffer_allocation, remaining_buffer, index, search):
+    #     # Shivam: We are removing the last value of I2 from the buffer to not have the last photon count
+    #     # This is because we do not have a clock at the last time period and so would only have 1 out of 2 relevant counts for that segment when subtracting
+    #     # This means that we will effectively have n - 1 runs when setting the time per sg point for n runs
+    #     print("The input buffer size is " + str(len(input_buffer)))
+    #     effective_buffer = input_buffer[:-1]
+    #     print("The later effective buffer size is " + str(len(effective_buffer)))
+    #     # Shivam: sliced to new array 2nd element onwards subtracting all elements to the left (I1 - I0, I2 - I1, ... ,
+    #     interval_data = effective_buffer[1:] - effective_buffer[:-1]
 
-        # This gets the number of I1 I2 pulsesequences that we are considering in our calculations
-        # This is needed for our calculation of total time of photon collection in advanced_tracking
+    #     # This gets the number of I1 I2 pulsesequences that we are considering in our calculations
+    #     # This is needed for our calculation of total time of photon collection in advanced_tracking
 
-        num_bins = int(len(interval_data) / 2)
-        print("The number of bins is " + str(num_bins))
+    #     num_bins = int(len(interval_data) / 2)
+    #     print("The number of bins is " + str(num_bins))
 
-        # Shivam: sums interval data in steps of 4 (I1-I0+I5-I4+...) is the first element
-        sum_Is = [np.sum(interval_data[i::2]) for i in range(2)]
-        # \ sum_Is = [#,#,#,#]
-        # data = sum_Is[0]/sum_Is[1] - sum_Is[2]/sum_Is[3]
+    #     # Shivam: sums interval data in steps of 4 (I1-I0+I5-I4+...) is the first element
+    #     sum_Is = [np.sum(interval_data[i::2]) for i in range(2)]
+    #     # \ sum_Is = [#,#,#,#]
+    #     # data = sum_Is[0]/sum_Is[1] - sum_Is[2]/sum_Is[3]
 
-        # Shivam: I1, I2 total counts for w1 and w2
-        data_I1 = sum_Is[0]
-        data_I2 = sum_Is[1]
-
-
-        if remaining_buffer > 0:
-            tracking_buffer = input_buffer[:(-remaining_buffer + 1)]
-        else:
-            print("Error in remaining buffer")
-
-        print("Tracking buffer is " + str(tracking_buffer))
-        print("Length of tracking buffer is " + str(len(tracking_buffer)))
-
-        tracking_interval = tracking_buffer[1:] - tracking_buffer[:-1]
-
-        print("Tracking interval is " + str(tracking_interval))
-        print("Length of tracking interval is " + str(len(tracking_interval)))
+    #     # Shivam: I1, I2 total counts for w1 and w2
+    #     data_I1 = sum_Is[0]
+    #     data_I2 = sum_Is[1]
 
 
-        # Shivam: This sums over the buffer allocation for each position step of the scan and stores in new array
-        tracking_data = np.sum(tracking_interval.reshape(-1, buffer_allocation), axis=1)
-        print("Length of tracking data is " + str(len(tracking_data)))
-        print("Tracking data is " + str(tracking_data))
+    #     if remaining_buffer > 0:
+    #         tracking_buffer = input_buffer[:(-remaining_buffer + 1)]
+    #     else:
+    #         print("Error in remaining buffer")
 
-        track_steps = np.linspace(self.XYZ_center[index] - search[index], self.XYZ_center[index] + search[index],
-                                len(tracking_data))
+    #     print("Tracking buffer is " + str(tracking_buffer))
+    #     print("Length of tracking buffer is " + str(len(tracking_buffer)))
+
+    #     tracking_interval = tracking_buffer[1:] - tracking_buffer[:-1]
+
+    #     print("Tracking interval is " + str(tracking_interval))
+    #     print("Length of tracking interval is " + str(len(tracking_interval)))
+
+
+    #     # Shivam: This sums over the buffer allocation for each position step of the scan and stores in new array
+    #     tracking_data = np.sum(tracking_interval.reshape(-1, buffer_allocation), axis=1)
+    #     print("Length of tracking data is " + str(len(tracking_data)))
+    #     print("Tracking data is " + str(tracking_data))
+
+    #     track_steps = np.linspace(self.XYZ_center[index] - search[index], self.XYZ_center[index] + search[index],
+    #                             len(tracking_data))
         
         
-        return tracking_data, track_steps, data_I1, data_I2
+    #     return tracking_data, track_steps, data_I1, data_I2
     
 
-    def datanaly(self, mgr, tracking_data, track_steps, index, search, spot_size, advanced_tracking, 
-                 changing_search, search_error_pre_array, search_integral_history):
-        '''
-        Calculates Gaussian fit for the tracking data and sets the new center position for the next scan (moves the laser directly)
-        '''
-        self.total_fluor = np.sum(tracking_data)
-        print("Total Fluorescence is " + str(self.total_fluor))
-        print('Out of XYZ = [0,1,2], this is the', index, 'axis')
+    # def datanaly(self, mgr, tracking_data, track_steps, index, search, spot_size, advanced_tracking, 
+    #              changing_search, search_error_pre_array, search_integral_history):
+    #     '''
+    #     Calculates Gaussian fit for the tracking data and sets the new center position for the next scan (moves the laser directly)
+    #     '''
+    #     self.total_fluor = np.sum(tracking_data)
+    #     print("Total Fluorescence is " + str(self.total_fluor))
+    #     print('Out of XYZ = [0,1,2], this is the', index, 'axis')
 
 
-        # Here we are attempting to fit to Gaussian. spot_size is the initial guess for the FWHM of the Gaussian spot
-        p0 = [np.max(tracking_data), track_steps[np.argmax(tracking_data)], spot_size, np.min(tracking_data)]
-        if advanced_tracking:
-            try:
-                # Shivam: popt is the return of the optimized values of curve parameters (array of form such as p0)
-                print("made it to before curve fit")
-                print("Track steps is " + str(track_steps))
-                print("Length of track steps is " + str(len(track_steps)))
-                print("Tracking data is " + str(tracking_data))
-                print("Length of tracking data is " + str(len(tracking_data)))
-                popt, pcov = optimize.curve_fit(self.gaussian, track_steps, tracking_data, p0=p0)
-                print("popt[1] is " + str(popt[1]))
-                print("popt is " + str(popt))
-                plot_fitted = self.gaussian(track_steps, *popt)
-                plot_center_fit = popt[1]
-                plotbackground = popt[3]
-                # plotbackground = self.gaussian(track_steps[0], *popt)
-                plotpeak = self.gaussian(plot_center_fit, *popt)
-                print('plot peak, background, SBR: ' + str(plotpeak) + ',' + str(plotbackground) + ',' + str(
-                    plotpeak / plotbackground - 1), '\n')
-                if np.min(track_steps) <= plot_center_fit <= np.max(track_steps):
-                    # import pdb; pdb.set_trace()
-                    if popt[0] < 0:
-                        print("negative fit")
+    #     # Here we are attempting to fit to Gaussian. spot_size is the initial guess for the FWHM of the Gaussian spot
+    #     p0 = [np.max(tracking_data), track_steps[np.argmax(tracking_data)], spot_size, np.min(tracking_data)]
+    #     if advanced_tracking:
+    #         try:
+    #             # Shivam: popt is the return of the optimized values of curve parameters (array of form such as p0)
+    #             print("made it to before curve fit")
+    #             print("Track steps is " + str(track_steps))
+    #             print("Length of track steps is " + str(len(track_steps)))
+    #             print("Tracking data is " + str(tracking_data))
+    #             print("Length of tracking data is " + str(len(tracking_data)))
+    #             popt, pcov = optimize.curve_fit(self.gaussian, track_steps, tracking_data, p0=p0)
+    #             print("popt[1] is " + str(popt[1]))
+    #             print("popt is " + str(popt))
+    #             plot_fitted = self.gaussian(track_steps, *popt)
+    #             plot_center_fit = popt[1]
+    #             plotbackground = popt[3]
+    #             # plotbackground = self.gaussian(track_steps[0], *popt)
+    #             plotpeak = self.gaussian(plot_center_fit, *popt)
+    #             print('plot peak, background, SBR: ' + str(plotpeak) + ',' + str(plotbackground) + ',' + str(
+    #                 plotpeak / plotbackground - 1), '\n')
+    #             if np.min(track_steps) <= plot_center_fit <= np.max(track_steps):
+    #                 # import pdb; pdb.set_trace()
+    #                 if popt[0] < 0:
+    #                     print("negative fit")
 
-                    else:
-                        self.drift[index] = plot_center_fit - self.XYZ_center[index]
-                        self.XYZ_center[index] = self.advanced_tracking(plot_center_fit, index)
+    #                 else:
+    #                     self.drift[index] = plot_center_fit - self.XYZ_center[index]
+    #                     self.XYZ_center[index] = self.advanced_tracking(plot_center_fit, index)
 
-                else:
-                    print('Gaussian fit max is out of scanning range. Using maximum point instead')
-                    max_count_position = track_steps[np.argmax(tracking_data)]
-                    self.drift[index] = max_count_position - self.XYZ_center[index]
-                    self.XYZ_center[index] = self.advanced_tracking(max_count_position, index)
-                    "CHECK WHAT THIS BECOMES"
-            except:
-                print('no Gaussian fit')
-                max_count_position = track_steps[np.argmax(tracking_data)]
-                self.drift[index] = max_count_position - self.XYZ_center[index]
-                self.XYZ_center[index] = self.advanced_tracking(max_count_position, index)
+    #             else:
+    #                 print('Gaussian fit max is out of scanning range. Using maximum point instead')
+    #                 max_count_position = track_steps[np.argmax(tracking_data)]
+    #                 self.drift[index] = max_count_position - self.XYZ_center[index]
+    #                 self.XYZ_center[index] = self.advanced_tracking(max_count_position, index)
+    #                 "CHECK WHAT THIS BECOMES"
+    #         except:
+    #             print('no Gaussian fit')
+    #             max_count_position = track_steps[np.argmax(tracking_data)]
+    #             self.drift[index] = max_count_position - self.XYZ_center[index]
+    #             self.XYZ_center[index] = self.advanced_tracking(max_count_position, index)
 
-            print("debugging, XYZ center is " + str(self.XYZ_center))
+    #         print("debugging, XYZ center is " + str(self.XYZ_center))
             
-            mgr.DAQcontrol.move({'x': self.XYZ_center[0], 'y': self.XYZ_center[1], 'z': self.XYZ_center[2]})
-            print("xyz positions set are " + str(self.XYZ_center[0]) + str(self.XYZ_center[1]) + str(self.XYZ_center[2]))
-            print('\nHere is where the laser is currently pointing:', mgr.DAQcontrol.get_position())
+    #         mgr.DAQcontrol.move({'x': self.XYZ_center[0], 'y': self.XYZ_center[1], 'z': self.XYZ_center[2]})
+    #         print("xyz positions set are " + str(self.XYZ_center[0]) + str(self.XYZ_center[1]) + str(self.XYZ_center[2]))
+    #         print('\nHere is where the laser is currently pointing:', mgr.DAQcontrol.get_position())
 
-            if changing_search:
-                search_change = 0.0
-                ### Shivam: this is the new search change which is adaptive with PID control that has a target 
-                # to set search radius to double the drift
-                n = search_integral_history
-                print("search_error_pre_array is " + str(search_error_pre_array))
-                # Target value for search radius is thrice the drift
-                search_error_pre = search_error_pre_array[index][0]
-                # Shivam: The factor next to self.drift[index] determines how much larger the search radius should be than the drift
-                search_error = (-1) * (search[index] - self.drift[index] * 2)
+    #         if changing_search:
+    #             search_change = 0.0
+    #             ### Shivam: this is the new search change which is adaptive with PID control that has a target 
+    #             # to set search radius to double the drift
+    #             n = search_integral_history
+    #             print("search_error_pre_array is " + str(search_error_pre_array))
+    #             # Target value for search radius is thrice the drift
+    #             search_error_pre = search_error_pre_array[index][0]
+    #             # Shivam: The factor next to self.drift[index] determines how much larger the search radius should be than the drift
+    #             search_error = (-1) * (search[index] - self.drift[index] * 2)
 
-                print("drift is " + str(self.drift[index]))
-                print("search_error is " + str(search_error))
+    #             print("drift is " + str(self.drift[index]))
+    #             print("search_error is " + str(search_error))
 
-                # The below line looks like: 
-                # [deque([0.0, 0.0, 0.0, 0.0, 0.0]), deque([0.0, 0.0, 0.0, 0.0, 0.0]), deque([0.0, 0.0, 0.0, 0.0, 0.0])]
+    #             # The below line looks like: 
+    #             # [deque([0.0, 0.0, 0.0, 0.0, 0.0]), deque([0.0, 0.0, 0.0, 0.0, 0.0]), deque([0.0, 0.0, 0.0, 0.0, 0.0])]
                 
-                search_error_deques = [collections.deque(row) for row in search_error_pre_array]
-                print("search_error_deques is " + str(search_error_deques))
+    #             search_error_deques = [collections.deque(row) for row in search_error_pre_array]
+    #             print("search_error_deques is " + str(search_error_deques))
 
-                # Append the latest search error value to the deque at the relevant index and remove the oldest value
-                search_error_deques[index].appendleft(search_error)
-                search_error_deques[index].pop()
-                # Convert the modified deque into a NumPy array
-                search_error_array = np.array([list(row_deque) for row_deque in search_error_deques])
+    #             # Append the latest search error value to the deque at the relevant index and remove the oldest value
+    #             search_error_deques[index].appendleft(search_error)
+    #             search_error_deques[index].pop()
+    #             # Convert the modified deque into a NumPy array
+    #             search_error_array = np.array([list(row_deque) for row_deque in search_error_deques])
 
-                print("search_error_array is " + str(search_error_array))
+    #             print("search_error_array is " + str(search_error_array))
 
 
-                # Check that PID_recurrence values are not 0 to avoid divide by zero error (if any is zero then never use it in calculation)
+    #             # Check that PID_recurrence values are not 0 to avoid divide by zero error (if any is zero then never use it in calculation)
 
-                search_change += self.search_kp * search_error
+    #             search_change += self.search_kp * search_error
 
-                # Shivam: Implementation of weighted sum of error values (geometric series) for integral component of PID (can change with constant in front of n)
-                integral_sum = 0.0
-                for i in np.arange(n):
-                    integral_sum += search_error_array[index][i]*(0.5**i)
+    #             # Shivam: Implementation of weighted sum of error values (geometric series) for integral component of PID (can change with constant in front of n)
+    #             integral_sum = 0.0
+    #             for i in np.arange(n):
+    #                 integral_sum += search_error_array[index][i]*(0.5**i)
 
-                search_change += self.search_ki * integral_sum
+    #             search_change += self.search_ki * integral_sum
 
-                search_change += self.search_kd * (search_error - search_error_pre)
+    #             search_change += self.search_kd * (search_error - search_error_pre)
                 
-                # Limitations of what search radius can be with min and max search radius
+    #             # Limitations of what search radius can be with min and max search radius
                 
-                # Converting search[index] to float to do maths then back to nm for the variable
-                search[index] =  search[index] + search_change
+    #             # Converting search[index] to float to do maths then back to nm for the variable
+    #             search[index] =  search[index] + search_change
 
-                if search[index] > self.max_search[index]:
-                    print("Max search radius for index " + str(index) + " reached.")
-                    search[index] = self.max_search[index]
+    #             if search[index] > self.max_search[index]:
+    #                 print("Max search radius for index " + str(index) + " reached.")
+    #                 search[index] = self.max_search[index]
 
-                if search[index] < self.min_search[index]:
-                    print("Min search radius for index " + str(index) + " reached.")
-                    search[index] = self.min_search[index]
+    #             if search[index] < self.min_search[index]:
+    #                 print("Min search radius for index " + str(index) + " reached.")
+    #                 search[index] = self.min_search[index]
 
-                print("Search radius for index " + str(index) + " is updated to " + str(search[index]))
+    #             print("Search radius for index " + str(index) + " is updated to " + str(search[index]))
 
          
 
 
-        else:
+    #     else:
 
-            try:
-                # Shivam: popt is the return of the optimized values of curve parameters (array of form such as p0)
-                print("made it to before curve fit")
-                print("Track steps is " + str(track_steps))
-                print("Length of track steps is " + str(len(track_steps)))
-                print("Tracking data is " + str(tracking_data))
-                print("Length of tracking data is " + str(len(tracking_data)))
-                popt, pcov = optimize.curve_fit(self.gaussian, track_steps, tracking_data, p0=p0)
-                print("popt[1] is " + str(popt[1]))
-                print("popt is " + str(popt))
-                plot_fitted = self.gaussian(track_steps, *popt)
-                plot_center_fit = popt[1]
-                plotbackground = popt[3]
-                # plotbackground = self.gaussian(track_steps[0], *popt)
-                plotpeak = self.gaussian(plot_center_fit, *popt)
-                print('plot peak, background, SBR: ' + str(plotpeak) + ',' + str(plotbackground) + ',' + str(
-                    plotpeak / plotbackground - 1), '\n')
-                if np.min(track_steps) <= plot_center_fit <= np.max(track_steps):
-                    # import pdb; pdb.set_trace()
-                    if popt[0] < 0:
-                        print("negative fit")
+    #         try:
+    #             # Shivam: popt is the return of the optimized values of curve parameters (array of form such as p0)
+    #             print("made it to before curve fit")
+    #             print("Track steps is " + str(track_steps))
+    #             print("Length of track steps is " + str(len(track_steps)))
+    #             print("Tracking data is " + str(tracking_data))
+    #             print("Length of tracking data is " + str(len(tracking_data)))
+    #             popt, pcov = optimize.curve_fit(self.gaussian, track_steps, tracking_data, p0=p0)
+    #             print("popt[1] is " + str(popt[1]))
+    #             print("popt is " + str(popt))
+    #             plot_fitted = self.gaussian(track_steps, *popt)
+    #             plot_center_fit = popt[1]
+    #             plotbackground = popt[3]
+    #             # plotbackground = self.gaussian(track_steps[0], *popt)
+    #             plotpeak = self.gaussian(plot_center_fit, *popt)
+    #             print('plot peak, background, SBR: ' + str(plotpeak) + ',' + str(plotbackground) + ',' + str(
+    #                 plotpeak / plotbackground - 1), '\n')
+    #             if np.min(track_steps) <= plot_center_fit <= np.max(track_steps):
+    #                 # import pdb; pdb.set_trace()
+    #                 if popt[0] < 0:
+    #                     print("negative fit")
 
-                    else:
-                        self.drift[index] = plot_center_fit - self.XYZ_center[index]
-                        self.XYZ_center[index] = plot_center_fit
+    #                 else:
+    #                     self.drift[index] = plot_center_fit - self.XYZ_center[index]
+    #                     self.XYZ_center[index] = plot_center_fit
 
                     
-                else:
-                    print('Gaussian fit max is out of scanning range. Using maximum point instead')
-                    max_count_position = track_steps[np.argmax(tracking_data)]
-                    self.drift[index] = max_count_position - self.XYZ_center[index]
-                    self.XYZ_center[index] = max_count_position
+    #             else:
+    #                 print('Gaussian fit max is out of scanning range. Using maximum point instead')
+    #                 max_count_position = track_steps[np.argmax(tracking_data)]
+    #                 self.drift[index] = max_count_position - self.XYZ_center[index]
+    #                 self.XYZ_center[index] = max_count_position
 
 
-            except:
-                print('no Gaussian fit')
-                max_count_position = track_steps[np.argmax(tracking_data)]
-                self.drift[index] = max_count_position - self.XYZ_center[index]
-                self.XYZ_center[index] = max_count_position
+    #         except:
+    #             print('no Gaussian fit')
+    #             max_count_position = track_steps[np.argmax(tracking_data)]
+    #             self.drift[index] = max_count_position - self.XYZ_center[index]
+    #             self.XYZ_center[index] = max_count_position
 
-            mgr.DAQcontrol.move({'x': self.XYZ_center[0], 'y': self.XYZ_center[1], 'z': self.XYZ_center[2]})
-            print("xyz positions set are " + str(self.XYZ_center[0]) + str(self.XYZ_center[1]) + str(self.XYZ_center[2]))
-            print('\nHere is where the laser is currently pointing:', mgr.DAQcontrol.get_position())
+    #         mgr.DAQcontrol.move({'x': self.XYZ_center[0], 'y': self.XYZ_center[1], 'z': self.XYZ_center[2]})
+    #         print("xyz positions set are " + str(self.XYZ_center[0]) + str(self.XYZ_center[1]) + str(self.XYZ_center[2]))
+    #         print('\nHere is where the laser is currently pointing:', mgr.DAQcontrol.get_position())
 
-            if changing_search:
-                search_change = 0.0
-                ### Shivam: this is the new search change which is adaptive with PID control that has a target 
-                # to set search radius to double the drift
-                n = search_integral_history
-                print("search_error_pre_array is " + str(search_error_pre_array))
-                # Target value for search radius is twice the drift
-                search_error_pre = search_error_pre_array[index][0]
-                search_error = (-1) * (search[index] - self.drift[index] * 2)
+    #         if changing_search:
+    #             search_change = 0.0
+    #             ### Shivam: this is the new search change which is adaptive with PID control that has a target 
+    #             # to set search radius to double the drift
+    #             n = search_integral_history
+    #             print("search_error_pre_array is " + str(search_error_pre_array))
+    #             # Target value for search radius is twice the drift
+    #             search_error_pre = search_error_pre_array[index][0]
+    #             search_error = (-1) * (search[index] - self.drift[index] * 2)
 
-                print("drift is " + str(self.drift[index]))
-                print("search_error is " + str(search_error))
+    #             print("drift is " + str(self.drift[index]))
+    #             print("search_error is " + str(search_error))
 
-                # The below line looks like: 
-                # [deque([0.0, 0.0, 0.0, 0.0, 0.0]), deque([0.0, 0.0, 0.0, 0.0, 0.0]), deque([0.0, 0.0, 0.0, 0.0, 0.0])]
+    #             # The below line looks like: 
+    #             # [deque([0.0, 0.0, 0.0, 0.0, 0.0]), deque([0.0, 0.0, 0.0, 0.0, 0.0]), deque([0.0, 0.0, 0.0, 0.0, 0.0])]
                 
-                search_error_deques = [collections.deque(row) for row in search_error_pre_array]
-                print("search_error_deques is " + str(search_error_deques))
+    #             search_error_deques = [collections.deque(row) for row in search_error_pre_array]
+    #             print("search_error_deques is " + str(search_error_deques))
 
-                # Append the latest search error value to the deque at the relevant index and remove the oldest value
-                search_error_deques[index].appendleft(search_error)
-                search_error_deques[index].pop()
-                # Convert the modified deque into a NumPy array
-                search_error_array = np.array([list(row_deque) for row_deque in search_error_deques])
+    #             # Append the latest search error value to the deque at the relevant index and remove the oldest value
+    #             search_error_deques[index].appendleft(search_error)
+    #             search_error_deques[index].pop()
+    #             # Convert the modified deque into a NumPy array
+    #             search_error_array = np.array([list(row_deque) for row_deque in search_error_deques])
 
-                print("search_error_array is " + str(search_error_array))
+    #             print("search_error_array is " + str(search_error_array))
 
 
-                # Check that PID_recurrence values are not 0 to avoid divide by zero error (if any is zero then never use it in calculation)
+    #             # Check that PID_recurrence values are not 0 to avoid divide by zero error (if any is zero then never use it in calculation)
 
-                search_change += self.search_kp * search_error
+    #             search_change += self.search_kp * search_error
 
-                # Shivam: Implementation of weighted sum of error values (geometric series) for integral component of PID (can change with constant in front of n)
-                integral_sum = 0.0
-                for i in np.arange(n):
-                    integral_sum += search_error_array[index][i]*(0.5**i)
+    #             # Shivam: Implementation of weighted sum of error values (geometric series) for integral component of PID (can change with constant in front of n)
+    #             integral_sum = 0.0
+    #             for i in np.arange(n):
+    #                 integral_sum += search_error_array[index][i]*(0.5**i)
 
-                search_change += self.search_ki * integral_sum
+    #             search_change += self.search_ki * integral_sum
 
-                search_change += self.search_kd * (search_error - search_error_pre)
+    #             search_change += self.search_kd * (search_error - search_error_pre)
                 
-                # Limitations of what search radius can be with min and max search radius
+    #             # Limitations of what search radius can be with min and max search radius
                 
-                # Converting search[index] to float to do maths then back to nm for the variable
-                search[index] =  search[index] + search_change
+    #             # Converting search[index] to float to do maths then back to nm for the variable
+    #             search[index] =  search[index] + search_change
 
-                if search[index] > self.max_search[index]:
-                    print("Max search radius for index " + str(index) + " reached.")
-                    search[index] = self.max_search[index]
+    #             if search[index] > self.max_search[index]:
+    #                 print("Max search radius for index " + str(index) + " reached.")
+    #                 search[index] = self.max_search[index]
 
-                if search[index] < self.min_search[index]:
-                    print("Min search radius for index " + str(index) + " reached.")
-                    search[index] = self.min_search[index]
+    #             if search[index] < self.min_search[index]:
+    #                 print("Min search radius for index " + str(index) + " reached.")
+    #                 search[index] = self.min_search[index]
 
-                print("Search radius for index " + str(index) + " is updated to " + str(search[index]))
+    #             print("Search radius for index " + str(index) + " is updated to " + str(search[index]))
 
          
         
-        return search, search_error_array
+    #     return search, search_error_array
     
-    def advanced_tracking(self, gaussian_center, index):
-        '''
-        Helper function to predict position of nanodiamond using a statistical Brownian motion analysis. Found in Harry's paper.
-        "Probing and manipulation embryogenesis via nanoscale thermometry and temperature control"
-        '''
-        # Variable storing how many photons were collected in the scan
-        self.old_n_k = self.n_k
-        self.n_k[index] = self.total_fluor
+    # def advanced_tracking(self, gaussian_center, index):
+    #     '''
+    #     Helper function to predict position of nanodiamond using a statistical Brownian motion analysis. Found in Harry's paper.
+    #     "Probing and manipulation embryogenesis via nanoscale thermometry and temperature control"
+    #     '''
+    #     # Variable storing how many photons were collected in the scan
+    #     self.old_n_k = self.n_k
+    #     self.n_k[index] = self.total_fluor
 
-        # Value of current Gaussian center in current index of search
-        c_k = gaussian_center
+    #     # Value of current Gaussian center in current index of search
+    #     c_k = gaussian_center
 
         
-        self.old_p_k = self.p_k
+    #     self.old_p_k = self.p_k
 
-        self.p_k[index] = ((self.w * self.old_p_k[index]) / (self.w + self.old_n_k[index] * self.old_p_k[index])) + 2 * self.diffusion_constant * self.time_elapsed
+    #     self.p_k[index] = ((self.w * self.old_p_k[index]) / (self.w + self.old_n_k[index] * self.old_p_k[index])) + 2 * self.diffusion_constant * self.time_elapsed
 
-        self.old_x_k = self.x_k
+    #     self.old_x_k = self.x_k
 
-        # Shivam: This is the predicted position of the nanodiamond
-        print("w is " + str(self.w))
-        print("pk is " + str(self.p_k))
-        print("ck is " + str(c_k))
-        print("nk is " + str(self.n_k))
-        print("old xk is " + str(self.old_x_k))
-        self.x_k[index] = (self.w * self.old_x_k[index] + self.n_k[index] * self.p_k[index] * c_k) / (self.w + self.n_k[index] * self.p_k[index])
+    #     # Shivam: This is the predicted position of the nanodiamond
+    #     print("w is " + str(self.w))
+    #     print("pk is " + str(self.p_k))
+    #     print("ck is " + str(c_k))
+    #     print("nk is " + str(self.n_k))
+    #     print("old xk is " + str(self.old_x_k))
+    #     self.x_k[index] = (self.w * self.old_x_k[index] + self.n_k[index] * self.p_k[index] * c_k) / (self.w + self.n_k[index] * self.p_k[index])
 
-        print("debugging, x_k is " + str(self.x_k))
+    #     print("debugging, x_k is " + str(self.x_k))
 
-        return self.x_k[index]
+    #     return self.x_k[index]
         
         
 
@@ -828,57 +850,59 @@ class I1I2():
         # time_read = time.time()
         print(buffer)
         print(len(buffer))
+        mgr.DAQcontrol.start_counter()
         ctr_task.start()
         print("Counter Started")
         mgr.Pulser.stream_sequence(sequence, stream_count)
         print("ps start")
+        buffer=mgr.DAQcontrol.read_to_data_array(read_timeout*2)
         data_obtain = ctr_reader.read_many_sample_uint32(
             buffer,
             number_of_samples_per_channel=len(buffer),
             timeout=read_timeout * 2
         )
         ctr_task.stop()
-        mgr.Pulser.reset()
+        mgr.Pulser.set_state_off()
         # print('the time it took to actually run the pulse sequence and read:', time.time() - time_read)
         print('end of read')
         return buffer
 
-    def mongo_acquire(self, data_I1, data_I2, sweep, f, sideband_frequency, total_fluor):
-        # Shivam: check changes to mongo_acquire with new I2_I1 and I2/I1
-        # Shivam: Change names of the groupby things in plotting below
+    # def mongo_acquire(self, data_I1, data_I2, sweep, f, sideband_frequency, total_fluor):
+    #     # Shivam: check changes to mongo_acquire with new I2_I1 and I2/I1
+    #     # Shivam: Change names of the groupby things in plotting below
 
-        if not self.continuous_tracking:
-            self.acquire({
-                'I2': float(data_I2),
-                'I1': float(data_I1),
-                'sweep_number': sweep,
-                'sig_gen_frequency': f,
-                'V1': f - float(sideband_frequency),
-                'V2': f + float(sideband_frequency),
-                'total_fluor': float(total_fluor),
+    #     if not self.continuous_tracking:
+    #         self.acquire({
+    #             'I2': float(data_I2),
+    #             'I1': float(data_I1),
+    #             'sweep_number': sweep,
+    #             'sig_gen_frequency': f,
+    #             'V1': f - float(sideband_frequency),
+    #             'V2': f + float(sideband_frequency),
+    #             'total_fluor': float(total_fluor),
 
-            })
+    #         })
 
-        else:
-            self.acquire({
-                'I2': float(data_I2),
-                'I1': float(data_I1),
-                'sweep_number': sweep,
-                'sig_gen_frequency': f,
-                'V1': f - float(sideband_frequency),
-                'V2': f + float(sideband_frequency),
-                'total_fluor': float(total_fluor),
-                'searchX_um': list(self.search)[0],
-                'searchY_um': list(self.search)[1],
-                'searchZ_um': list(self.search)[2],
-                'x_pos': self.XYZ_center[0],
-                'y_pos': self.XYZ_center[1],
-                'z_pos': self.XYZ_center[2],
-                'count': self.counter,
-            })
-            print("Total fluorescence is " + str(total_fluor))
-            print("Search radius is " + str(self.search))
-            print("count is " + str(self.counter))
+    #     else:
+    #         self.acquire({
+    #             'I2': float(data_I2),
+    #             'I1': float(data_I1),
+    #             'sweep_number': sweep,
+    #             'sig_gen_frequency': f,
+    #             'V1': f - float(sideband_frequency),
+    #             'V2': f + float(sideband_frequency),
+    #             'total_fluor': float(total_fluor),
+    #             'searchX_um': list(self.search)[0],
+    #             'searchY_um': list(self.search)[1],
+    #             'searchZ_um': list(self.search)[2],
+    #             'x_pos': self.XYZ_center[0],
+    #             'y_pos': self.XYZ_center[1],
+    #             'z_pos': self.XYZ_center[2],
+    #             'count': self.counter,
+    #         })
+    #         print("Total fluorescence is " + str(total_fluor))
+    #         print("Search radius is " + str(self.search))
+    #         print("count is " + str(self.counter))
 
     def feedback(self, mgr, sweep, sweeps_until_feedback, z_feedback_every, xyz_step_nm, shrink_every_x_iter,starting_point):
         # \consider taking away sweep>0, allows you to avoid running spatial feedback before experiment

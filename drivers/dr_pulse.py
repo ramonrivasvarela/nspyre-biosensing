@@ -3,6 +3,7 @@ Created on 5/30/2025 by Ramon Rivas
 """
 import numpy as np
 from math import sin, cos, radians, lcm
+import math
 #from threed.data_and_plot import save_excel
 import datetime as Dt
 
@@ -428,3 +429,66 @@ class PulserClass():
         #self.plotSeq(dchans,achans,dpatterns,apatterns,'CWUriMRnew') #works
         return self.sequence
     
+    def odmr_temp_calib_no_bg(self, freq, ns_read_time, ns_clock_time):
+        '''
+        Shivam: Same as above but with no background measurements for normalization.
+        '''
+        print('self.read_time:', ns_read_time)
+        print(' self.clock_time:',  ns_clock_time)
+        # self.total_time = 0
+        seq1, new_pulse_time = self.new_sideband_center(ns_read_time, ns_clock_time, freq, modulation = "left")
+        seq2, new_pulse_time = self.new_sideband_center(ns_read_time, ns_clock_time, freq, modulation = "right")
+        
+
+        # self.total_time += 2 * ns_read_time
+        
+        return seq1 + seq2 , new_pulse_time
+    
+    def new_sideband_center(self, ns_pulse_time, ns_clock_time, frequency, modulation):
+        '''
+        This function produces one pulse_time pulse of a sideband modulation of frequency (generally 50 us)
+        Modulation "left" and "right" indicate which direction to produce sideband peak.
+        
+        '''
+        experiment = self.create_sequence()
+        patternAO0, patternAO1 = [], []
+        itty_bitty_time = 8
+        freq_ns = frequency/ 1e9
+        multiplier = math.lcm(round((1/freq_ns)),8)
+        new_pulse_time = multiplier * int(ns_pulse_time/multiplier)
+        print("New pulse time is " + str(new_pulse_time))
+        num_samples = new_pulse_time /  itty_bitty_time
+        print("num_samples is  " + str(num_samples))
+        endpoint = freq_ns * (num_samples - 1) * itty_bitty_time
+
+        pointsAO0 = np.linspace(0., float(endpoint), num = int(num_samples))
+        pointsAO1 = np.linspace(0., float(endpoint), num = int(num_samples))
+
+        # Note that we have different amplitudes of sine waves for left and right sideband modulations from calibration
+
+        if modulation == "left":
+            analog_ptsAO0, analog_ptsAO1 = np.cos(2*np.pi * pointsAO0), np.sin(2*np.pi * pointsAO1)
+            zip_seqAO0 = [(itty_bitty_time,) * (int(num_samples)), tuple((self.IQleft[0] * analog_ptsAO0))]
+            zip_seqAO1 = [(itty_bitty_time,) * (int(num_samples)), tuple((self.IQleft[1] * analog_ptsAO1))]
+
+        elif modulation == "right":
+            analog_ptsAO0, analog_ptsAO1 = np.sin(2*np.pi * pointsAO0), np.cos(2*np.pi * pointsAO1)
+            zip_seqAO0 = [(itty_bitty_time,) * (int(num_samples)), tuple((self.IQright[0] * analog_ptsAO0))]
+            zip_seqAO1 = [(itty_bitty_time,) * (int(num_samples)), tuple((self.IQright[1] * analog_ptsAO1))]
+
+        
+
+        patternAO0 += list(zip(*zip_seqAO0)) 
+        patternAO1 += list(zip(*zip_seqAO1))
+
+        patternClock = [(ns_clock_time, 1), (new_pulse_time - ns_clock_time, 0)]
+        patternGreen = [(new_pulse_time, 1)]
+
+
+        experiment.setAnalog(0, patternAO0)
+        experiment.setAnalog(1, patternAO1)
+
+        experiment.setDigital(self.channel_dict['clock'], patternClock)
+        experiment.setDigital(self.channel_dict['laser'], patternGreen)
+
+        return experiment, new_pulse_time

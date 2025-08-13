@@ -570,10 +570,10 @@ class TemperatureVsTime():
 
             else:
                 self.frequencies = [(odmr_frequency - sb_MHz_2fq), (odmr_frequency + sb_MHz_2fq)]
-                sg_frequency = (odmr_frequency - (sb_MHz_2fq + Q_(5, 'MHz'))).to('Hz').m
-                self.ps_frequencies = [freq.to('Hz').m - sg_frequency for freq in
+                sg_frequency = (odmr_frequency - (sb_MHz_2fq + 5000))
+                self.ps_frequencies = [freq - sg_frequency for freq in
                                     self.frequencies]  # (frequencies.to('Hz').m - sg_frequency)
-                self.sg.frequency = sg_frequency
+                mgr.sg.set_frequency(sg_frequency)
 
                 self.sequence = self.setup_LPvT(self.ps_frequencies, mwPulseTime, clock_time, time_per_scan, num_freq, rf_amplitude)
     
@@ -895,7 +895,9 @@ class TemperatureVsTime():
                                 }
                                 self.AdvancedTracking=AdvancedTracking(self.queue_to_exp, self.queue_from_exp)
                                 if advanced_tracking:
-                                    self.search, temp_data, search_error_array, self.XYZ_center, self.drift, self.previous_fluors, self.x_k, self.p_k, self.n_k = self.AdvancedTracking.one_axis_measurement(**feed_params)
+                                    self.search, temp_data, search_error_array, self.XYZ_center, self.drift, self.x_k, self.p_k, self.n_k = self.AdvancedTracking.one_axis_measurement(**feed_params)
+                                else:
+                                    self.search, temp_data, search_error_array, self.XYZ_center, self.drift=self.AdvancedTracking.one_axis_measurement(**feed_params)
                                 print("MAIN: search is " + str(list(self.search.to('um').m)))
                     
                 
