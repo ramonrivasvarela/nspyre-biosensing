@@ -265,74 +265,72 @@ class DAQCounter:
 
     def line_scan(self, init_point, final_point, steps, pts_per_step=1):
         """1-axis line scan while acquiring counter data"""
-        self.prepare_line_scan(init_point, final_point, steps, pts_per_step)
-        return self.start_line_scan()
-        # #print(init_point)
-        # #print('self.sleep_factor in line scan right before calling move():', self.sleep_factor)
-        # self.move(init_point)
-        # #print("start line_scan")
-        # step_voltages = self.linear_func(init_point, final_point, steps)
-        # step_voltages = np.repeat(step_voltages, pts_per_step + 1, axis=0)
-        # # configure analog output task
-        # self.ao_motion_task.timing.cfg_samp_clk_timing(
-        #     self.acq_rate,
-        #     sample_mode=nidaqmx.constants.AcquisitionType.FINITE,
-        #     samps_per_chan=step_voltages.shape[0]
-        # )
-        # #print('line_scan acq rate:', self.acq_rate)
-        # #self.ao_motion_task.triggers.start_trigger.disable_start_trig()
-        # # Shivam: This is the line which writes the voltage values into the ao_motion_task
-        # # and starts when we write self.ao_motion_task.start() below.
-        # sample_writer_stream = AnalogMultiChannelWriter(self.ao_motion_task.out_stream,
-        #                                                     auto_start=False)
-        # # must use array with contiguous memory region because NI uses C arrays under the hood
-        # # Shivam: This is the section where voltage values are made contiguous and encoded
-        # ni_ao_sample_buffer = np.ascontiguousarray(step_voltages.transpose(), dtype=float)
-        # # TODO timeout
-        # sample_writer_stream.write_many_sample(ni_ao_sample_buffer, timeout=60)
+        #print(init_point)
+        #print('self.sleep_factor in line scan right before calling move():', self.sleep_factor)
+        self.move(init_point)
+        #print("start line_scan")
+        step_voltages = self.linear_func(init_point, final_point, steps)
+        step_voltages = np.repeat(step_voltages, pts_per_step + 1, axis=0)
+        # configure analog output task
+        self.ao_motion_task.timing.cfg_samp_clk_timing(
+            self.acq_rate,
+            sample_mode=nidaqmx.constants.AcquisitionType.FINITE,
+            samps_per_chan=step_voltages.shape[0]
+        )
+        #print('line_scan acq rate:', self.acq_rate)
+        #self.ao_motion_task.triggers.start_trigger.disable_start_trig()
+        # Shivam: This is the line which writes the voltage values into the ao_motion_task
+        # and starts when we write self.ao_motion_task.start() below.
+        sample_writer_stream = AnalogMultiChannelWriter(self.ao_motion_task.out_stream,
+                                                            auto_start=False)
+        # must use array with contiguous memory region because NI uses C arrays under the hood
+        # Shivam: This is the section where voltage values are made contiguous and encoded
+        ni_ao_sample_buffer = np.ascontiguousarray(step_voltages.transpose(), dtype=float)
+        # TODO timeout
+        sample_writer_stream.write_many_sample(ni_ao_sample_buffer, timeout=60)
         
-        # # e.g. "Dev1"
-        # device_name = list(self.axes.items())[0][1].ch.split('/')[0]
+        # e.g. "Dev1"
+        device_name = list(self.axes.items())[0][1].ch.split('/')[0]
         
-        # # configure counter input task
-        # self.read_task.timing.cfg_samp_clk_timing(
-        #     self.acq_rate,
-        #     source='/{}/ao/SampleClock'.format(device_name),
-        #     sample_mode=nidaqmx.constants.AcquisitionType.FINITE,
-        #     samps_per_chan=step_voltages.shape[0]
-        # )
+        # configure counter input task
+        self.read_task.timing.cfg_samp_clk_timing(
+            self.acq_rate,
+            source='/{}/ao/SampleClock'.format(device_name),
+            sample_mode=nidaqmx.constants.AcquisitionType.FINITE,
+            samps_per_chan=step_voltages.shape[0]
+        )
         
-        # # set the counter input to trigger / start acquisition when the AO starts
-        # self.read_task.triggers.arm_start_trigger.dig_edge_src = '/{}/ao/StartTrigger'.format(device_name)
-        # self.read_task.triggers.arm_start_trigger.trig_type = nidaqmx.constants.TriggerType.DIGITAL_EDGE
-        # #self.ao_motion_task.triggers.start_trigger.disable_start_trig()
+        # set the counter input to trigger / start acquisition when the AO starts
+        self.read_task.triggers.arm_start_trigger.dig_edge_src = '/{}/ao/StartTrigger'.format(device_name)
+        self.read_task.triggers.arm_start_trigger.trig_type = nidaqmx.constants.TriggerType.DIGITAL_EDGE
+        #self.ao_motion_task.triggers.start_trigger.disable_start_trig()
         
-        # # create counter stream object
-        # sample_reader_stream = CounterReader(self.read_task.in_stream)
+        # create counter stream object
+        sample_reader_stream = CounterReader(self.read_task.in_stream)
         
-        # # must use array with contiguous memory region because NI uses C arrays under the hood
-        # ni_ctr_sample_buffer = np.ascontiguousarray(np.zeros(step_voltages.shape[0]), dtype=np.uint32)
+        # must use array with contiguous memory region because NI uses C arrays under the hood
+        ni_ctr_sample_buffer = np.ascontiguousarray(np.zeros(step_voltages.shape[0]), dtype=np.uint32)
         
-        # # start the move
-        # self.read_task.start()
-        # self.ao_motion_task.start()
-        # # TODO timeout
-        # sample_reader_stream.read_many_sample_uint32(ni_ctr_sample_buffer,
-        #                                 number_of_samples_per_channel=nidaqmx.constants.READ_ALL_AVAILABLE,
-        #                                 timeout=60)
+        # start the move
+        self.read_task.start()
+        self.ao_motion_task.start()
+        # TODO timeout
+        sample_reader_stream.read_many_sample_uint32(ni_ctr_sample_buffer,
+                                        number_of_samples_per_channel=nidaqmx.constants.READ_ALL_AVAILABLE,
+                                        timeout=60)
         
-        # # wait for motion to complete
-        # #time.sleep((1.1*step_voltages.shape[0] / self.acq_rate).to('s').m)
+        # wait for motion to complete
+        #time.sleep((1.1*step_voltages.shape[0] / self.acq_rate).to('s').m)
         
-        # self.read_task.stop()
-        # self.ao_motion_task.stop()
-        # scanned = ni_ctr_sample_buffer.reshape((steps, pts_per_step+1))
-        # averaged = np.diff(scanned).mean(axis=1)
-        # self.position = final_point
-        # # print('what is my final point', final_point, self.position)
-        # return averaged*self.acq_rate
+        self.read_task.stop()
+        self.ao_motion_task.stop()
+        scanned = ni_ctr_sample_buffer.reshape((steps, pts_per_step+1))
+        averaged = np.diff(scanned).mean(axis=1)
+        self.position = final_point
+        # print('what is my final point', final_point, self.position)
+        return averaged*self.acq_rate
 
-    def prepare_line_scan(self, init_point, final_point, steps, pts_per_step=1):
+    def prepare_line_scan(self, ctr_buffer_size, buffer_allocation, init_point, final_point, steps, pts_per_step=1):
         """1-axis line scan while acquiring counter data"""
         #print(init_point)
         #print('self.sleep_factor in line scan right before calling move():', self.sleep_factor)
@@ -340,7 +338,7 @@ class DAQCounter:
         self.final_point = final_point
         #print("start line_scan")
         self.buffer_shape= (steps, pts_per_step + 1)
-        step_voltages = self.linear_func(init_point, final_point, steps)
+        step_voltages, remainding_buffer = self.linear_func(init_point, final_point, steps)
         step_voltages = np.repeat(step_voltages, pts_per_step + 1, axis=0)
         # configure analog output task
         self.ao_motion_task.timing.cfg_samp_clk_timing(
@@ -385,6 +383,7 @@ class DAQCounter:
         # start the move
         self.read_task.start()
         self.ao_motion_task.start()
+        return remainding_buffer
 
     def start_line_scan(self):
         # 9) read — match v1’s use of READ_ALL_AVAILABLE
@@ -401,9 +400,9 @@ class DAQCounter:
         averaged = np.diff(scanned).mean(axis=1)
         self.position = self.final_point
         # print('what is my final point', final_point, self.position)
-        return averaged*self.acq_rate
+        return self.ni_ctr_sample_buffer
     
-    def linear_func(self, start_pt, stop_pt, steps):
+    def linear_func(self, start_pt, stop_pt, steps, buffer_allocation, ctr_buffer_size, hs=False):
         """Generate a set of linearly spaced points between the start and stop point
         return value is in volts"""
         start_volts = np.array([])
@@ -420,9 +419,21 @@ class DAQCounter:
                         
                         # [[0.1, 0.2, ..., 1]
                         # [0.2, 0.4, ..., 2]]
-        return np.outer(np.ones(steps), start_volts) + np.outer(linear_steps, stop_volts-start_volts)
-    
-    
+        linear_volt= np.outer(np.ones(steps), start_volts) + np.outer(linear_steps, stop_volts-start_volts)
+        if not hs:
+            return linear_volt
+        repeated_linear_volt = np.repeat(linear_volt, buffer_allocation, axis=0)
+
+       
+        
+        remaining_buffer = ctr_buffer_size - repeated_linear_volt.shape[0]
+        
+        # Shivam: If the remaining buffer is greater than 0, then repeat the last voltage value (each voltage value is an array of 3 elements for xyz)
+        if remaining_buffer > 0:
+            print(linear_volt[-1])
+            repeated_linear_volt = np.vstack((repeated_linear_volt, np.tile(linear_volt[-1], (remaining_buffer, 1))))
+      
+        return repeated_linear_volt, remaining_buffer
 
 
     def get_position(self):
