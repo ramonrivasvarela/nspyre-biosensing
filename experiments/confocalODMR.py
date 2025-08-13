@@ -484,12 +484,13 @@ class ConfocalODMR():
         if self.VERBOSE:
             print('data:', data)
         delta_buffer = data[1:] - data[0:-1]
-        for i,data_point in enumerate(delta_buffer):
-            idx_sig = label.index(1)
-            idx_bg = label.index(0)
-            interval = len(label)
-            sum_sig = np.sum(delta_buffer[idx_sig::interval]) # MW on
-            sum_bg = np.sum(delta_buffer[idx_bg::interval]) # MW off
+        ## Assuming the label remains only [1, 0 ] or [1, 'x', 0, 'x'].
+        # If this becomes untrue, a more generic solution must be implemented.
+        idx_sig = label.index(1)
+        idx_bg = label.index(0)
+        interval = len(label)
+        sum_sig = np.sum(delta_buffer[idx_sig::interval]) # MW on
+        sum_bg = np.sum(delta_buffer[idx_bg::interval]) # MW off
         if self.VERBOSE:
             print('delta_buffer:', delta_buffer)
             print('sum_sig:', sum_sig, 'sum_bg:', sum_bg)

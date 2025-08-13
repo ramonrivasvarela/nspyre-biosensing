@@ -30,7 +30,7 @@ get_param_value_funs={
         }
 
 MAXIMUM=2147483647 # There has to be a better way...
-class ConfocalODMRWidget(ExperimentWidget):
+class ConfocalFMODMRWidget(ExperimentWidget):
     def __init__(self):
         from PyQt6.QtWidgets import QLineEdit, QSpinBox, QCheckBox, QComboBox
 
@@ -43,7 +43,7 @@ class ConfocalODMRWidget(ExperimentWidget):
         runs_sb.setMinimum(1)
         
         runs_sb.setMaximum(MAXIMUM)
-        runs_sb.setValue(1000)
+        runs_sb.setValue(10)
         
         timeout_sb = QSpinBox()
         timeout_sb.setMinimum(0)
@@ -52,18 +52,8 @@ class ConfocalODMRWidget(ExperimentWidget):
         sweeps_sb = QSpinBox()
         sweeps_sb.setMinimum(1)
         sweeps_sb.setMaximum(MAXIMUM)
-        sweeps_sb.setValue(10)
+        sweeps_sb.setValue(100)
 
-
-        
-        # repetitions_sb = QSpinBox()
-        # repetitions_sb.setMinimum(1)
-        # repetitions_sb.setValue(1)
-
-        # sequence_cb = QComboBox()
-        # sequence_cb.addItems(['odmr_heat_wait', 'odmr_no_wait'])
-        # sequence_cb.setCurrentText('odmr_no_wait')
-        
         sweeps_til_fb_sb = QSpinBox()
         sweeps_til_fb_sb.setMinimum(1)
         sweeps_til_fb_sb.setMaximum(MAXIMUM)
@@ -72,10 +62,6 @@ class ConfocalODMRWidget(ExperimentWidget):
         starting_point_cb = QComboBox()
         starting_point_cb.addItems(['user_input', 'current_position (ignore input)'])
         starting_point_cb.setCurrentText('current_position (ignore input)')
-        
-        mode_cb = QComboBox()
-        mode_cb.addItems(['QAM', 'AM', 'NoMod'])
-        mode_cb.setCurrentText('QAM')
 
         # sampling_rate_sb=unit_widgets.HzLineEdit(50000)
 
@@ -96,9 +82,6 @@ class ConfocalODMRWidget(ExperimentWidget):
         dozfb_cb=QCheckBox()
         dozfb_cb.setChecked(True)
 
-        switch_cb=QCheckBox()
-        switch_cb.setChecked(False)
-
         count_step_shrink_sb=QSpinBox()
         count_step_shrink_sb.setMinimum(1)
 
@@ -106,22 +89,6 @@ class ConfocalODMRWidget(ExperimentWidget):
         # Build the parameter configuration dictionary using only display_text and widget.
         # Widgets that require extra config have been defined above.
         params_config = {
-            # 'device': {
-            #     'display_text': 'Device',
-            #     'widget': QLineEdit("Dev1")
-            # },
-            # 'channel1': {
-            #     'display_text': 'Channel1',
-            #     'widget': channel1_cb
-            # },
-            # 'PS_clk_channel': {
-            #     'display_text': 'PS Clock Channel',
-            #     'widget': QLineEdit("PFI0")
-            # },
-            # 'sampling_rate': {
-            #     'display_text': 'Sampling Rate',
-            #     'widget': sampling_rate_sb
-            # },
             'runs': {
                 'display_text': 'Runs',
                 'widget': runs_sb
@@ -134,14 +101,7 @@ class ConfocalODMRWidget(ExperimentWidget):
                 'display_text': 'Sweeps',
                 'widget': sweeps_sb
             },
-            # 'repeat_every_x_minutes': {
-            #     'display_text': 'Repeat Every X Minutes',
-            #     'widget': repeat_minutes_sb
-            # },
-            # 'repetitions': {
-            #     'display_text': 'Repetitions',
-            #     'widget': repetitions_sb
-            # },
+
             'frequencies': {
                 'display_text': 'Frequencies',
                 'widget': QLineEdit("(2.84e9, 2.90e9, 30)")
@@ -166,14 +126,7 @@ class ConfocalODMRWidget(ExperimentWidget):
                 'display_text': 'Cooldown Time',
                 'widget': unit_widgets.SecLineEdit(0)
             },
-            'use_switch': {
-                'display_text': 'Switch',
-                'widget': switch_cb
-            },
-            # 'sequence': {
-            #     'display_text': 'Sequence',
-            #     'widget': sequence_cb
-            # },
+
             'feedback': {
                 'display_text': 'Feedback',
                 'widget': feedback_cb
@@ -186,11 +139,7 @@ class ConfocalODMRWidget(ExperimentWidget):
                 'display_text': 'Sweeps Till Feedback',
                 'widget': sweeps_til_fb_sb
             },
-            # 'initial_position': {
-            #     'display_text': 'Initial Position',
-            #     'widget': unit_widgets.PointWidget(0.0, 0.0, 0.0)
-            # },
-            
+        
             'xyz_step': {
                 'display_text': 'XYZ Step',
                 'widget': unit_widgets.MLineEdit(45e-9)
@@ -203,14 +152,6 @@ class ConfocalODMRWidget(ExperimentWidget):
                 'display_text': 'Starting Point',
                 'widget': starting_point_cb
             },
-            # 'data_download': {
-            #     'display_text': 'Data Download',
-            #     'widget': QCheckBox()
-            # },
-            'mode': {
-                'display_text': 'Mode',
-                'widget': mode_cb
-            },
             'dataset':{
                 'display_text':'Data Set',
                 'widget':QLineEdit('odmr')
@@ -220,9 +161,9 @@ class ConfocalODMRWidget(ExperimentWidget):
         super().__init__(
             params_config,
             experiments.confocalODMR,  # Ensure that experiments.ConfocalODMR exists in your experiments folder
-            'ConfocalODMR',
-            'confocal_odmr',
-            title='Confocal ODMR',
+            'ConfocalFMODMR',
+            'confocal_fmodmr',
+            title='Confocal FMODMR',
             get_param_value_funs=get_param_value_funs
         )
 
