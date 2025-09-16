@@ -73,6 +73,7 @@ class AdvancedTracking():
                              read_timeout, spot_size, advanced_tracking, changing_search, 
                              search_error_array, search_integral_history,
                              drift=(0,0,0), 
+                             run_ct=1, 
                              x_k=None, p_k=None, n_k=None, w=None, diffusion_constant=None, time_elapsed=None):
 
         self.max_search = max_search
@@ -112,13 +113,34 @@ class AdvancedTracking():
             self.sequence=sequence
             self.XYZ_center= mgr.DAQcontrol.get_position()
             for i in list(index):
-                data = self.read_stream_flee( mgr, index, search, buffer_size, scan_distance, num_freq, read_timeout)
+                if do_not_run_feedback:
+            
+
+                    mgr.DAQcontrol.start_counting()
+
+                    mgr.Pulser.stream_sequence(self.sequence, run_ct)
+
+                    data=mgr.DAQcontrol.read_to_data_array(read_timeout)
+
+                    # self.current_counter_task.clear()
+                    
+
+                    buffer_allocation = None
+                    remaining_buffer = None
+
+
+                else:
+                    print("-------------------")
+                    print("\n\n\nWe are indeed running tracking code")
+                    data, buffer_allocation, remaining_buffer = self.read_stream_flee( mgr, i, search, buffer_size, scan_distance, num_freq, run_ct, read_timeout)
+
+                # data = self.read_stream_flee( mgr, index, search, buffer_size, scan_distance, num_freq, read_timeout)
 
                 ## confirmed, here I have 180-200 ms of lag
 
                 ## after this is 70-130 ms of lag        
-                tracking_data, track_steps, temp_data, num_bins = self.process_data(i, data, search)
-
+                tracking_data, track_steps, temp_data, num_bins = self.process_data(data, buffer_allocation, remaining_buffer, index, search, do_not_run_feedback)
+                total_fluor=np.sum(tracking_data)
                 self.data_analysis(mgr, tracking_data, track_steps, index, search, do_not_run_feedback, spot_size, num_bins, advanced_tracking, 
                  changing_search, search_error_array, search_integral_history)
                 mgr.DAQcontrol.move({'x': self.XYZ_center[0], 'y': self.XYZ_center[1], 'z': self.XYZ_center[2]})
@@ -127,8 +149,8 @@ class AdvancedTracking():
                     search[i] *= 0.9 if abs(self.drift[i]) < (2 / 5 * search[i]) else 1.2 if abs(self.drift[i]) > (
                             7 / 10 * search[i]) else 1
             if advanced_tracking:
-                return search, temp_data, search_error_array, self.XYZ_center, self.drift, self.x_k, self.p_k, self.n_k
-            return  search, temp_data, search_error_array, self.XYZ_center, self.drift
+                return search, temp_data, total_fluor, search_error_array, self.XYZ_center, self.drift, self.x_k, self.p_k, self.n_k
+            return  search, temp_data, total_fluor, search_error_array, self.XYZ_center, self.drift
     def process_data(self, input_buffer, buffer_allocation, remaining_buffer, index, search, do_not_run_feedback):
         # Shivam: We are removing the last value of I2 from the buffer to not have the last photon count
         # This is because we do not have a clock at the last time period and so would only have 1 out of 2 relevant counts for that segment when subtracting
@@ -195,7 +217,7 @@ class AdvancedTracking():
             track_steps = None
             
         return tracking_data, track_steps, temp_data, num_bins
-    def read_stream_flee(self, mgr, index, search, buffer_size, scan_distance, num_freq, read_timeout):
+    def read_stream_flee(self, mgr, index, search, buffer_size, scan_distance, num_freq, run_ct, read_timeout):
         ## total this has 180 ms of lag.
         # time_track = time.time()
         xyz_steps = np.linspace(self.XYZ_center[index] - search[index], self.XYZ_center[index] + search[index],
@@ -234,7 +256,7 @@ class AdvancedTracking():
 
         'start the pulse streamer and the task close to simultaneously'
 
-        mgr.Pulser.stream_sequence(self.sequence, self.runs)
+        mgr.Pulser.stream_sequence(self.sequence, run_ct)
         ## this is 35 ms all on its own. 
         'the data is sorted into a i,j,k dimension tensor. num_bins represents i, j is automatically 8 due to the 8 pulses for the MW. k is remainder of the total data points over i*j,'
         # Shivam: Changed from num_freq * 2 to num_freq because we are not doing background collection
@@ -319,7 +341,7 @@ class AdvancedTracking():
 
             print("debugging, XYZ center is " + str(XYZ_center))
             
-            mgr.DAQcontroler.move({'x': XYZ_center[0], 'y': XYZ_center[1], 'z': XYZ_center[2]})
+            mgr.DAQcontrol.move({'x': XYZ_center[0], 'y': XYZ_center[1], 'z': XYZ_center[2]})
             print("xyz positions set are " + str(XYZ_center[0]) + str(XYZ_center[1]) + str(XYZ_center[2]))
             print('\nHere is where the laser is currently pointing:', mgr.DAQcontrol.position)
 

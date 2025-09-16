@@ -17,7 +17,7 @@ get_param_value_funs={
             unit_widgets.HzIntervalWidget: lambda w: w.get_range(),
             unit_widgets.ThreeValueWidget: lambda w: w.get_values(),
             QSpinBox: lambda w: w.value(),
-            unit_widgets.FlexiblePointWidget: lambda w: w.get_points(),
+            
         }
 
 
@@ -73,18 +73,6 @@ class I1I2Widget(ExperimentWidget):
         # New params_config dictionary using only display_text and widget:
         
         params_config = {
-            'device': {
-                'display_text': 'Device',
-                'widget': QLineEdit("Dev1")
-            },
-            'PS_clock_channel': {
-                'display_text': 'PS Clock Channel',
-                'widget': QLineEdit("PFI0")
-            },
-            'APD_channel': {
-                'display_text': 'APD Channel',
-                'widget': apd_channel_cb
-            },
             'sampling_rate': {
                 'display_text': 'Sampling Rate',
                 'widget': unit_widgets.HzLineEdit(50000)
@@ -219,7 +207,6 @@ class I1I2Widget(ExperimentWidget):
                 unit_widgets.HzIntervalWidget: lambda w: w.get_range(),
                 unit_widgets.ThreeValueWidget: lambda w: w.get_values(),
                 QSpinBox: lambda w: w.value(),
-                unit_widgets.FlexiblePointWidget: lambda w: w.get_points(),
                 QCheckBox: lambda w: w.isChecked(),
                 QLineEdit: lambda w: w.text(),
                 QComboBox: lambda w: w.currentText(),

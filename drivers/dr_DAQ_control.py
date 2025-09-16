@@ -137,10 +137,12 @@ class DAQCounter:
         # self.read_task.ci_channels.all.ci_count_edges_term = self.pfi_channel
         
 
-    def prepare_counting(self, sampling_rate, n_points, bounded_sample=True):
+    def prepare_counting(self, sampling_rate=None, n_points=None, bounded_sample=True):
         ## Set up the clock channel.
-        self.set_sampling_rate(sampling_rate)
-        self.create_buffer(n_points + 1)  # +1 to account for signal being a difference of counts
+        if sampling_rate is not None:
+            self.set_sampling_rate(sampling_rate)
+        if n_points is not None:
+            self.create_buffer(n_points + 1)  # +1 to account for signal being a difference of counts
         if bounded_sample:
             sample_mode = AcquisitionType.FINITE
         else:
@@ -338,7 +340,7 @@ class DAQCounter:
         self.final_point = final_point
         #print("start line_scan")
         self.buffer_shape= (steps, pts_per_step + 1)
-        step_voltages, remainding_buffer = self.linear_func(init_point, final_point, steps)
+        step_voltages, remaining_buffer = self.linear_func(init_point, final_point, steps, ctr_buffer_size, buffer_allocation, hs=True)
         step_voltages = np.repeat(step_voltages, pts_per_step + 1, axis=0)
         # configure analog output task
         self.ao_motion_task.timing.cfg_samp_clk_timing(
@@ -383,7 +385,7 @@ class DAQCounter:
         # start the move
         self.read_task.start()
         self.ao_motion_task.start()
-        return remainding_buffer
+        return remaining_buffer
 
     def start_line_scan(self):
         # 9) read — match v1’s use of READ_ALL_AVAILABLE
@@ -401,8 +403,8 @@ class DAQCounter:
         self.position = self.final_point
         # print('what is my final point', final_point, self.position)
         return self.ni_ctr_sample_buffer
-    
-    def linear_func(self, start_pt, stop_pt, steps, buffer_allocation, ctr_buffer_size, hs=False):
+
+    def linear_func(self, start_pt, stop_pt, steps, ctr_buffer_size=None, buffer_allocation=None, hs=False):
         """Generate a set of linearly spaced points between the start and stop point
         return value is in volts"""
         start_volts = np.array([])

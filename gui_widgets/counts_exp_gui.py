@@ -27,7 +27,6 @@ get_param_value_funs={
             unit_widgets.HzIntervalWidget: lambda w: w.get_range(),
             unit_widgets.ThreeValueWidget: lambda w: w.get_values(),
             QSpinBox: lambda w: w.value(),
-            unit_widgets.FlexiblePointWidget: lambda w: w.get_points(),
         }
 
 class CountsWidget(ExperimentWidget):

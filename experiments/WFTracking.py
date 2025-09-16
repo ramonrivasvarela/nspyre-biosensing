@@ -101,7 +101,6 @@ class WFODMRTrack():
         with InstrumentManager() as mgr, DataSource(data_source) as source:
             get_gain(mgr, optimize_gain, gain, frequency, self.runs, mode, self.ns_exp_time, self.ns_readout_time)
 
-
             #### Experiment Loop ##########
             mgr.sg.set_rf_toggle(1)
 
@@ -111,6 +110,7 @@ class WFODMRTrack():
             sb_setpt = sideband
             ls_QLS = eval(QLS)
             ls_ZFS = [ZFS] * len(self.ND_List)
+            initial_time = time.time()
             while(self.reps == -1 or rep < self.reps):
                 print(f'rep: {rep}')
 
@@ -178,6 +178,7 @@ class WFODMRTrack():
                         data_1D = self.GetPictures(self.I1I2_seqs[s%2], n_pic)
                     else:
                         data_1D = self.GetPictures(self.I1I2_seqs[s%2],n_pic, do_save= save_image, last_pics = data, im_labels = im_labels)
+                    current_time = time.time()
                     self.latest_ims = [self.img_1D_to_2D(data_1D[i], 1024, 1024) for i in range(n_throwaway,n_pic)] # The set of pics as 2D arrays, w/o throwaway
                     data = self.latest_ims
                     im_labels = [f'I1I2_r{rep}_s{s}_{i}' for i in range(n_pic-n_throwaway)]
@@ -208,7 +209,9 @@ class WFODMRTrack():
                         dt_raw = self.ROI_analyze(self.ND_List,data[i], r_ROI = 7) #array of [ND] signals from a given image.
                         total_fluorescence = list(np.add(total_fluorescence, dt_raw))
                         total_fluorescence = [int(val) for val in total_fluorescence]
-                        [self.dt_I1I2_raw[ND][-1].append(dt_raw[ND]) for ND in range(len(self.ND_List))]
+                        for ND in range(len(self.ND_List)):
+                            self.dataset[f'I1I2_raw_{ND}'].append(np.array([np.array([current_time-initial_time]), np.array([dt_raw[ND]])]))
+                            self.dataset[f'I1I2_raw_{ND}'].updated_item(-1)
                         if self.I1I2_labels[s%2][n_throwaway + i] == 1:
                             I1_buff = dt_raw
                         elif self.I1I2_labels[s%2][n_throwaway + i] == 2:
@@ -236,8 +239,8 @@ class WFODMRTrack():
 
 
                     for ND in range(len(self.ND_List)):  
-                        self.dt_I1_ref[ND][-1].append(dt_I1[ND])
-                        self.dt_I2_ref[ND][-1].append(dt_I2[ND]) 
+                        self.dataset[f'I1_ref_{ND}'].append(np.array([np.array([current_time-initial_time]), np.array([dt_I1[ND]])]))
+                        self.dataset[f'I2_ref_{ND}'].append(np.array([np.array([current_time-initial_time]), np.array([dt_I2[ND]])]))
 
                         dZFS = (np.mean(dt_I2[ND]) - np.mean(dt_I1[ND]))/ls_QLS[ND]
                         ls_dZFS.append(dZFS)
@@ -246,15 +249,15 @@ class WFODMRTrack():
                         else:
                             ls_dZFS_averaged[ND] += dZFS
 
-                        self.dt_dZFS[ND][-1].append(dZFS)
-                        self.dt_fluorescence[ND][-1].append(total_fluorescence[ND])
+                        self.dataset[f'dt_dZFS_{ND}'].append(np.array([np.array([current_time-initial_time]), np.array([dZFS])]))
+                        self.dataset[f'dt_fluorescence_{ND}'].append(np.array([np.array([current_time-initial_time]), np.array([total_fluorescence[ND]])]))
                         e_arr[ND].appendleft(ls_dZFS[ND]-ls_dZFS_PID[ND])
                         if len(e_arr[ND]) > Mem: e_arr[ND].pop()
 
                     ls_u = self.PID_update(e_arr,Kp,Ki,Kd,Mem_decay)
                     for ND in self.ND_iter:
                         ls_dZFS_PID[ND] += ls_u[ND]
-                        self.dt_dZFS_PID[ND][-1].append(ls_dZFS_PID[ND])
+                        self.dataset[f'dt_dZFS_PID_{ND}'].append(np.array([np.array([current_time-initial_time]), np.array([ls_dZFS_PID[ND]])]))
 
                 
 
@@ -451,14 +454,16 @@ class WFODMRTrack():
 
         ## Data formatting, pickle prep ##########
         self.dt_freq = freq #frequency of ODMR spectra
-        self.dt_ODMR_raw = [[] for i in range(len(self.ND_List))] #dt_ODMR_raw[ND][rep][sweep][freq][count] > yields the raw data to build an ODMR for each sweep
-        self.dt_ODMR_ref = [[] for i in range(len(self.ND_List))] #dt_ODMR_ref[ND][rep][sweep][freq] > yields the combined ODMR from all of the sweeps for a rep
-        self.dt_I1I2_raw = [[] for i in range(len(self.ND_List))] #dt_I1I2_raw[ND][rep][set][count] > yields the raw data for I1I2 measurements
-        self.dt_I1_ref = [[] for i in range(len(self.ND_List))] #dt_I1_ref[ND][rep][set][count_norm] > yields the normalized data for I1 measurements
-        self.dt_I2_ref = [[] for i in range(len(self.ND_List))] #dt_I2_ref[ND][rep][set][count_norm] > yields the normalized data for I2 measurements
-        self.dt_dZFS =  [[] for i in range(len(self.ND_List))] #dt_dZFS[ND][rep][set] > yields the ZFS estimate
-        self.dt_dZFS_PID = [[] for i in range(len(self.ND_List))]
-        self.dt_fluorescence = [[] for i in range(len(self.ND_List))]
+        self.dataset={}
+        for i in range(len(self.ND_List)):
+            self.dataset[f'ODMR_raw_{i}'] = StreamingList()  #dt_ODMR_raw[ND][rep][sweep][freq][count] > yields the raw data to build an ODMR for each sweep
+            self.dataset[f'ODMR_ref_{i}'] = StreamingList()  #dt_ODMR_ref[ND][rep][sweep][freq] > yields the combined ODMR from all of the sweeps for a rep
+            self.dataset[f'I1I2_raw_{i}'] = StreamingList() #dt_I1I2_raw[ND][rep][set][count] > yields the raw data for I1I2 measurements
+            self.dataset[f'I1_ref_{i}'] = StreamingList() #dt_I1_ref[ND][rep][set][count_norm] > yields the normalized data for I1 measurements
+            self.dataset[f'I2_ref_{i}'] = StreamingList() #dt_I2_ref[ND][rep][set][count_norm] > yields the normalized data for I2 measurements
+            self.dataset[f'dZFS_{i}'] = StreamingList() #dt_dZFS[ND][rep][set] > yields the ZFS estimate
+            self.dataset[f'dZFS_PID_{i}'] = StreamingList()
+            self.dataset[f'fluorescence_{i}'] = StreamingList()
 
             
         
@@ -753,13 +758,13 @@ class WFODMRTrack():
 
         for ODMR in ODMRs:
             try:
-                p,pcov = curve_fit(self.fit_func,freq,ODMR, [-0.02,-0.02,10e6,10e6,2.865e9,2.875e9,1])
+                p, _ = curve_fit(self.fit_func,freq,ODMR, [-0.02,-0.02,10e6,10e6,2.865e9,2.875e9,1])
                 ZFS.append((p[4]+p[5])/2) 
                 sb.append((np.abs(p[4]-p[5]) + (p[2]+p[3])/(2*np.sqrt(3)))/2)
                 QLS.append(3*np.sqrt(3)/4 * (p[0]/p[2] + p[1]/p[3]))
             except:
                 try:
-                    p,pcov = curve_fit(self.fit_func_2,freq,ODMR, [-0.02,10e6,2.87e9,1])
+                    p,_ = curve_fit(self.fit_func_2,freq,ODMR, [-0.02,10e6,2.87e9,1])
                     ZFS.append(p[2]) 
                     sb.append(p[1]/(2*np.sqrt(3)))
                     QLS.append(3*np.sqrt(3)/2 * (p[0]/p[1]))
@@ -770,9 +775,12 @@ class WFODMRTrack():
         return ZFS,sb,QLS
 
     def run_ODMR(self, mgr, rep, save_image, do_acquire = True):
-        for ND in self.ND_iter:
-            self.dt_ODMR_raw[ND].append([])#creates dt_ODMR_raw[ND][rep] for each ND
-            self.dt_ODMR_ref[ND].append([])#creates dt_ODMR_ref[ND][rep] for each ND
+        sig_counts=np.empty(len(self.frequency))
+        sig_counts[:]=np.nan
+
+        # for ND in self.ND_iter:
+        #     self.dt_ODMR_raw[ND].append(StreamingList())#creates dt_ODMR_raw[ND][rep] for each ND
+        #     self.dt_ODMR_ref[ND].append(StreamingList())#creates dt_ODMR_ref[ND][rep] for each ND
 
         ## Run ODMR, Collect Params Per ND, Diagnostic
         n_pic = self.runs*2+1
@@ -783,11 +791,10 @@ class WFODMRTrack():
         self.ODMR_timings.append(time.time())
         for s in range(self.sweeps):
             for ND in range(len(self.ND_List)):
-                self.dt_ODMR_raw[ND][-1].append([])  #creates dt_ODMR_raw[ND][rep][sweep] for each ND, the latest rep
-                self.dt_ODMR_ref[ND][-1].append([]) #creates dt_ODMR_raw[ND][rep][sweep] for each ND, the latest rep
-            for f in range(len(self.frequency)):
-                [self.dt_ODMR_raw[ND][-1][-1].append([]) for ND in range(len(self.ND_List))] #creates dt_ODMR_raw[ND][rep][sweep][freq] for each ND, the latest rep, sweep
-                freq = self.frequency[f]
+                self.dt_ODMR_raw[ND].append(np.stack([self.frequency, sig_counts]))  #creates dt_ODMR_raw[ND][rep][sweep] for each ND, the latest rep
+                self.dt_ODMR_ref[ND].append(np.stack([self.frequency, sig_counts])) #creates dt_ODMR_ref[ND][rep][sweep] for each ND, the latest rep
+            for f, freq in enumerate(self.frequency):
+                #[self.dt_ODMR_raw[ND][1][-1].append([]) for ND in range(len(self.ND_List))] #creates dt_ODMR_raw[ND][rep][sweep][freq] for each ND, the latest rep, sweep
                 first_pic = s==0 and f==0 
                 last_pic = s==self.sweeps-1 and f==len(self.frequency)-1
                 mgr.sg.set_frequency(freq) #set frequency
@@ -809,43 +816,35 @@ class WFODMRTrack():
                 [dt_bg.append(0) for ND in range(len(self.ND_List))]
                 for i in range(len(data)):
                     dt_raw = self.ROI_analyze(self.ND_List,data[i], r_ROI = 7) #array of [ND] signals from a given image
-                    [self.dt_ODMR_raw[ND][-1][-1][-1].append(dt_raw[ND]) for ND in range(len(self.ND_List))] #creates dt_ODMR_raw[ND][rep][sweep][freq][count]
+                    
                     if i%2 == 0:
                         dt_sig = [dt_sig[ND] + int(dt_raw[ND]) for ND in range(len(self.ND_List))] 
                     else:
                         dt_bg = [dt_bg[ND] + int(dt_raw[ND]) for ND in range(len(self.ND_List))]
-                [self.dt_ODMR_ref[ND][-1][-1].append(dt_sig[ND]/dt_bg[ND]) for ND in range(len(self.ND_List))] # should correspond to the latest shown ODMR
+                plots_dict={}
+                for ND in range(len(self.ND_List)):
+                    self.dt_ODMR_raw[ND][-1][1][f] = dt_raw[ND]
+                    self.dt_ODMR_raw[ND].updated_item(-1)
 
+                    self.dt_ODMR_ref[ND][-1][1][f] = dt_sig[ND]/dt_bg[ND]  # should correspond to the latest shown ODMR
+                    self.dt_ODMR_ref[ND].updated_item(-1)
+                    plots_dict[f'raw_ND{ND+1}'] = self.dt_ODMR_raw[ND] # for plotting purposes
+                    plots_dict[f'ref_ND{ND+1}'] = self.dt_ODMR_ref[ND] # for plotting purposes
                 if self.window:
                     im = data[0][self.ND_List[0][1] - 12: self.ND_List[0][1] + 12, self.ND_List[0][0] - 12: self.ND_List[0][0]+12]
                 else:
                     im = []
-                if do_acquire:
-                    if (self.sub_interval >= 1 and f%self.sub_interval==0):
-                        self.acquire(
-                            {
-                            'rep_idx': rep,
-                            'sweep_idx': s,
-                            'f': freq,
-                            'bg': list(dt_sig), 
-                            'sig': list(dt_bg),
-                            'ODMR' : list([self.dt_ODMR_ref[ND][-1][-1][f] for ND in range(len(self.ND_List))]), 
-                            'dtype': 'ODMR',
-                            'img': im
-                            })
+                with DataSource("odmr") as data_source:
+                    if do_acquire:
+                        if (self.sub_interval >= 1 and f%self.sub_interval==0):
+                            data_source.push({
+                                    'title': 'ODMR',
+                                    'xlabel': 'Frequency (Hz)',
+                                    'ylabel': 'CPS',
+                                    'dataset': plots_dict
+                                })     
                     else:
-                        self.acquire(
-                            {
-                            'rep_idx': rep,
-                            'sweep_idx': s,
-                            'f': freq,
-                            'bg': list(dt_sig), 
-                            'sig': list(dt_bg),
-                            'ODMR' : list([self.dt_ODMR_ref[ND][-1][-1][f] for ND in range(len(self.ND_List))]), 
-                            'dtype': 'ODMR',
-                            })      
-                else:
-                    print(f'sweep {s+1}/{self.sweeps}, freq {f+1}/{len(self.frequency)}    ', end='\r')
+                        print(f'sweep {s+1}/{self.sweeps}, freq {f+1}/{len(self.frequency)}    ', end='\r')
         self.ODMR_timings[-1] = time.time() - self.ODMR_timings[-1]
 
     ################################################################################################################################################

@@ -450,6 +450,7 @@ class PulserClass():
         Modulation "left" and "right" indicate which direction to produce sideband peak.
         
         '''
+        
         experiment = self.create_sequence()
         patternAO0, patternAO1 = [], []
         itty_bitty_time = 8
@@ -492,3 +493,49 @@ class PulserClass():
         experiment.setDigital(self.channel_dict['laser'], patternGreen)
 
         return experiment, new_pulse_time
+
+    def setup_LPvT(self, ns_read_time, ns_clock_time, freq_array, num_freq = 4):
+        freq_ct = len(freq_array)
+        if freq_ct != num_freq:
+            print("\nWARNING\n\n, Hard Coded", num_freq, "frequencies to be used for ODMR Temperature Measurement.\n",
+                  "frequency array of size greater or smaller was given to pulse streamer. \n\n")
+        experiment = self.create_sequence()
+        #patternNIR = [(self.heat_on, 1), (self.heat_off, 0)] * int((self.read_time)/(self.heat_off + self.heat_on)) 
+        # Shivam: Green laser on for all frequency points       
+        patternGreen = [(ns_read_time, 1)] * freq_ct * 2
+        
+        patternAO0, patternAO1 = [], []
+        #list_for_num_freq = {'4': [0,3,1,2,2,1,3,0], '2': [0,1,1,0]}
+        ## for idx in list_for_num_freq[str(num_freq)]:
+        if freq_ct == 2:
+            for idx in [0,1,1,0]:
+                patternAO0 += self.sidebandPattern(ns_read_time, freq_array[idx], self.IQboth[0])
+                patternAO1 += self.sidebandPattern(ns_read_time, freq_array[idx], self.IQboth[1], sine = True)
+        if freq_ct == 4:
+            for idx in [0,3,1,2,2,1,3,0]:
+                patternAO0 += self.sidebandPattern(ns_read_time, freq_array[idx], self.IQboth[0]) 
+                patternAO1 += self.sidebandPattern(ns_read_time, freq_array[idx], self.IQboth[1], sine = True)
+            
+        patternClock = freq_ct * [(ns_clock_time, 1), (ns_read_time - ns_clock_time, 0)]*2# + [(self.clock_time,1)]
+        #dictionary:
+        #default_digi_dict = {"clock": 0, "blue": 1, "SRS": 2, "NIR":3, "gate1": 4, "gate2": 5, "gate3": 6, "laser": 7, "": None}
+        experiment.setDigital(self.channel_dict['clock'], patternClock)
+        #self.sequence.setDigital(0, patternClock)
+        #experiment.setDigital(self.channel_dict['NIR'], patternNIR)
+        experiment.setDigital(self.channel_dict['laser'], patternGreen)
+        experiment.setAnalog(0, patternAO0)
+        experiment.setAnalog(1, patternAO1)
+        self.total_time = ns_read_time * freq_ct * 2# + self.clock_time
+        #import pdb; pdb.set_trace()
+        return experiment
+    
+    def sidebandPattern(self, ns_pulse_time, frequency, IQ, sine = False):
+        freq_ns = frequency / 1e9
+        itty_bitty_time = 8
+        num_samples = ns_pulse_time/itty_bitty_time
+        endpoint = freq_ns * int(num_samples) * itty_bitty_time ##TIME ##set itty_bitty_time from here to nearest int
+        points = np.linspace(0., float(endpoint), num = int(num_samples))
+        analog_pts = np.cos(2*np.pi * points) if sine == False else np.sin(2*np.pi*points) ## freq_ns inside sinusoid
+        zip_seq = [(itty_bitty_time,) * int(num_samples), tuple(IQ * analog_pts)]
+        pattern = list(zip(*zip_seq))
+        return pattern
