@@ -341,7 +341,7 @@ class DAQCounter:
         #print("start line_scan")
         self.buffer_shape= (steps, pts_per_step + 1)
         step_voltages, remaining_buffer = self.linear_func(init_point, final_point, steps, ctr_buffer_size, buffer_allocation, hs=True)
-        step_voltages = np.repeat(step_voltages, pts_per_step + 1, axis=0)
+        #step_voltages = np.repeat(step_voltages, pts_per_step + 1, axis=0)
         # configure analog output task
         self.ao_motion_task.timing.cfg_samp_clk_timing(
             self.acq_rate,
@@ -387,20 +387,18 @@ class DAQCounter:
         self.ao_motion_task.start()
         return remaining_buffer
 
-    def start_line_scan(self):
+    def start_line_scan(self, timeout=10):
         # 9) read — match v1’s use of READ_ALL_AVAILABLE
         self.sample_reader_stream.read_many_sample_uint32(self.ni_ctr_sample_buffer,
                                         number_of_samples_per_channel=nidaqmx.constants.READ_ALL_AVAILABLE,
-                                        timeout=60)
+                                        timeout=timeout)
         
         # wait for motion to complete
         #time.sleep((1.1*step_voltages.shape[0] / self.acq_rate).to('s').m)
-        
+        self.ao_motion_task.wait_until_done()
         self.read_task.stop()
         self.ao_motion_task.stop()
-        scanned = self.ni_ctr_sample_buffer.reshape(self.buffer_shape)
-        averaged = np.diff(scanned).mean(axis=1)
-        self.position = self.final_point
+
         # print('what is my final point', final_point, self.position)
         return self.ni_ctr_sample_buffer
 

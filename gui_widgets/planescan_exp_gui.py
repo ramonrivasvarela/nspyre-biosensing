@@ -49,6 +49,9 @@ class PlaneScanWidget(ExperimentWidget):
         sleep_factor_sb = SpinBox(value=1)
         sleep_factor_sb.setMinimum(1)
 
+
+        xyz_pos_cb = QCheckBox()
+        xyz_pos_cb.setChecked(True)
         params_config = {
             'point_A': {'display_text': 'Point A',
                         'widget': unit_widgets.PointWidget(-50, 0, 50)},
@@ -75,7 +78,7 @@ class PlaneScanWidget(ExperimentWidget):
             'pts_per_step': {'display_text': 'Points Per Step',
                              'widget': pts_per_step_sb},
             'xyz_pos': {'display_text': 'XYZ Position',
-                        'widget': QCheckBox()},
+                        'widget': xyz_pos_cb},
 
             'snake_scan': {'display_text': 'Snake Scan',
                            'widget': QCheckBox()},

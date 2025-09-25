@@ -152,16 +152,16 @@ class TempTimeWidget(ExperimentWidget):
                 'widget': number_jump_avg_sb
             },
             'searchXYZ': {
-                'display_text': 'Search XYZ',
-                'widget': QLineEdit("[500, 500, 500]")
+                'display_text': 'Search XYZ (um)',
+                'widget': QLineEdit("[0.5, 0.5, 0.5]")
             },
             'max_search': {
-                'display_text': 'Max Search',
-                'widget': QLineEdit("[1000, 1000, 1000]")
+                'display_text': 'Max Search (um)',
+                'widget': QLineEdit("[1, 1, 1]")
             },
             'min_search': {
-                'display_text': 'Min Search',
-                'widget': QLineEdit("[100, 100, 100]")
+                'display_text': 'Min Search (um)',
+                'widget': QLineEdit("[0.1, 0.1, 0.1]")
             },
             'changing_search': {
                 'display_text': 'Changing Search',
@@ -188,8 +188,8 @@ class TempTimeWidget(ExperimentWidget):
                 'widget': QCheckBox()
             },
             'scan_distance': {
-                'display_text': 'Scan Distance',
-                'widget': QLineEdit("[30, 30, 50]")
+                'display_text': 'Scan Distance (um)',
+                'widget': QLineEdit("[0.03, 0.03, 0.05]")
             },
             'spot_size': {
                 'display_text': 'Spot Size',

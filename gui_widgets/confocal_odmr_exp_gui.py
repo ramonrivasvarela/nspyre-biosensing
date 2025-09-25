@@ -65,7 +65,7 @@ class ConfocalODMRWidget(ExperimentWidget):
         # sequence_cb.setCurrentText('odmr_no_wait')
         
         sweeps_til_fb_sb = QSpinBox()
-        sweeps_til_fb_sb.setMinimum(1)
+        sweeps_til_fb_sb.setMinimum(0)
         sweeps_til_fb_sb.setMaximum(MAXIMUM)
         sweeps_til_fb_sb.setValue(6)
         
@@ -90,8 +90,6 @@ class ConfocalODMRWidget(ExperimentWidget):
         rf_amplitude_sb.setMaximum(7)
         rf_amplitude_sb.setValue(-20)
 
-        feedback_cb=QCheckBox()
-        feedback_cb.setChecked(True)
 
         dozfb_cb=QCheckBox()
         dozfb_cb.setChecked(True)
@@ -174,10 +172,6 @@ class ConfocalODMRWidget(ExperimentWidget):
             #     'display_text': 'Sequence',
             #     'widget': sequence_cb
             # },
-            'feedback': {
-                'display_text': 'Feedback',
-                'widget': feedback_cb
-            },
             'dozfb': {
                 'display_text': 'Z Feedback',
                 'widget': dozfb_cb
@@ -193,7 +187,7 @@ class ConfocalODMRWidget(ExperimentWidget):
             
             'xyz_step': {
                 'display_text': 'XYZ Step',
-                'widget': unit_widgets.MLineEdit(45e-9)
+                'widget': unit_widgets.MLineEdit(0.050)
             },
             'count_step_shrink': {
                 'display_text': 'Count Step Shrink',

@@ -66,16 +66,16 @@ class SpatialFeedback():
         """Perform experiment teardown."""
         _logger.info('Destroyed PlaneScan instance.')
 
-    def spatial_feedback(self, ctr_ch, initial_position, do_z, sleep_time, xyz_step,
-            shrink_every_x_iter, starting_point):
-        self.n_points=10
+    def spatial_feedback(self, do_z, xyz_step,
+            shrink_every_x_iter, starting_point, probe_time=0.04, initial_position={'x': 0, 'y': 0, 'z': 10}, n_points=10, counter_already_exists=False):
+        self.n_points=n_points
         self.ns_clock_time = 10
-        
-        self.probe_time = sleep_time
+
+        self.probe_time = probe_time
         self.ns_probe_time = int(round(self.probe_time * 1e9))
         with InstrumentManager() as mgr:
             
-            self.initialize(mgr, initial_position, starting_point)
+            self.initialize(mgr, initial_position, starting_point, counter_already_exists)
             x_center = self.init_x
             y_center = self.init_y
             z_center = self.init_z
@@ -118,7 +118,7 @@ class SpatialFeedback():
                                 dataZBefore = dataZAfter
                             if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
                                 # the GUI has asked us nicely to exit
-                                self.finalize(mgr)
+                                self.finalize(mgr, counter_already_exists)
                                 return
                     print('\n z scanned:', x_center, y_center, z_center)
                         
@@ -143,7 +143,7 @@ class SpatialFeedback():
                             dataXBefore = dataXAfter
                         if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
                             # the GUI has asked us nicely to exit
-                            self.finalize(mgr)
+                            self.finalize(mgr, counter_already_exists)
                             return
                 print('\n x scanned:', x_center, y_center, z_center)
                 #######################################################################################
@@ -167,7 +167,7 @@ class SpatialFeedback():
                             dataYBefore = dataYAfter
                         if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
                             # the GUI has asked us nicely to exit
-                            self.finalize(mgr)
+                            self.finalize(mgr, counter_already_exists)
                             return
                 print('\n y scanned:', x_center, y_center, z_center)
                 counter += 1
@@ -176,12 +176,12 @@ class SpatialFeedback():
                     xyz_step = xyz_step / 2
                 if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
                     # the GUI has asked us nicely to exit
-                    self.finalize(mgr)
+                    self.finalize(mgr, counter_already_exists)
                     return
                 
             
             print("final position:", mgr.DAQcontrol.get_position())
-            self.finalize(mgr)
+            self.finalize(mgr, counter_already_exists)
 
 
     def read(self, mgr):
@@ -193,7 +193,7 @@ class SpatialFeedback():
         return data
         
         
-    def initialize(self, mgr, initial_position, starting_point):
+    def initialize(self, mgr, initial_position, starting_point, counter_already_exists):
         
         if starting_point == 'user_input':            
             mgr.DAQcontrol.move(initial_position)
@@ -203,14 +203,16 @@ class SpatialFeedback():
         self.init_z = current_position['z'] 
         # mgr.DAQcontrol.set_sampling_rate(2/self.probe_time) 
         # mgr.DAQcontrol.create_buffer(self.n_points+1) # +1 to account for signal being a difference of counts
-        mgr.DAQcontrol.create_counter()
+        if not counter_already_exists:
+            mgr.DAQcontrol.create_counter()
         mgr.DAQcontrol.prepare_counting(2/self.probe_time, self.n_points)
         self.pulse_sequence = self.create_sequence(mgr)
         # mgr.XYZcontrol.current_counter_task.start()
         return
 
-    def finalize(self, mgr):
-        mgr.DAQcontrol.finalize_counter()
+    def finalize(self, mgr, counter_already_exists):
+        if not counter_already_exists:
+            mgr.DAQcontrol.finalize_counter()
         mgr.Pulser.set_state_off()
     
         return

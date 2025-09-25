@@ -6,6 +6,7 @@ from math import sin, cos, radians, lcm
 import math
 #from threed.data_and_plot import save_excel
 import datetime as Dt
+import pandas as pd
 
 #REQUIRED IMPORT
 from pulsestreamer import PulseStreamer, OutputState, Sequence
@@ -144,7 +145,41 @@ class PulserClass():
         # Reset internal state after streaming
         self.change_state([], 0.0, 0.0)
 
+    def I1I2pulse(self,sideband_frequency, ns_read_time, ns_clock_time, runs):
+        # seq, self.new_pulse_time= mgr.Pulser.odmr_temp_calib_no_bg(sideband_frequency, ns_read_time, ns_clock_time)
+        IQleft = [0.355, 0.348]
+        IQright = [0.357, 0.350]
+        itty_bitty_time = 8
+        freq_ns = sideband_frequency/ 1e9
+        multiplier = math.lcm(round((1/freq_ns)),8)
+        new_pulse_time = multiplier * int(ns_read_time/multiplier)
+        print("New pulse time is " + str(new_pulse_time))
+        num_samples = new_pulse_time /  itty_bitty_time
+        print("num_samples is  " + str(num_samples))
+        endpoint = freq_ns * (num_samples - 1) * itty_bitty_time
 
+        pointsAO0 = np.linspace(0., float(endpoint), num = int(num_samples))
+        pointsAO1 = np.linspace(0., float(endpoint), num = int(num_samples))
+        seq_dict={'clock': [], 'laser': [], 'Q':[], 'I':[]}
+        # Note that we have different amplitudes of sine waves for left and right sideband modulations from calibration
+        for i in range(2):
+            if i == 0:
+                analog_ptsAO0, analog_ptsAO1 = np.cos(2*np.pi * pointsAO0), np.sin(2*np.pi * pointsAO1)
+                zip_seqAO0 = [(itty_bitty_time,) * (int(num_samples)), tuple((IQleft[0] * analog_ptsAO0))]
+                zip_seqAO1 = [(itty_bitty_time,) * (int(num_samples)), tuple((IQleft[1] * analog_ptsAO1))]
+
+            elif i == 1:
+                analog_ptsAO0, analog_ptsAO1 = np.sin(2*np.pi * pointsAO0), np.cos(2*np.pi * pointsAO1)
+                zip_seqAO0 = [(itty_bitty_time,) * (int(num_samples)), tuple((IQright[0] * analog_ptsAO0))]
+                zip_seqAO1 = [(itty_bitty_time,) * (int(num_samples)), tuple((IQright[1] * analog_ptsAO1))]
+
+            seq_dict['Q'] += list(zip(*zip_seqAO0))
+            seq_dict['I'] += list(zip(*zip_seqAO1))
+
+            seq_dict['clock'] += [(ns_clock_time, 1), (new_pulse_time - ns_clock_time, 0)]
+            seq_dict['laser'] += [(new_pulse_time, 1)]
+        seq= self.make_seq(**seq_dict)
+        return seq, new_pulse_time
 
 
     def stream_sequence(self, sequence:Sequence, n_runs:int=1, SWITCH:bool=False, AM:bool=False):
@@ -161,7 +196,31 @@ class PulserClass():
         analog_set = -1 if AM else 0
         self.Pulser.stream(sequence,n_runs, final = OutputState(digital_set, analog_set,0))
         self.change_state(digital_set, analog_set, 0)
-
+    def stream_converted_sequence(self, seqs, n_runs):
+        self.Pulser.stream(self.convert_sequence(seqs), n_runs)
+    def convert_sequence(self, seqs):
+         # 0-7 are the 8 digital channels
+         # 8-9 are the 2 analog channels
+        data = {}
+        time = -0.01
+        for seq in seqs:
+            col = np.zeros(10)
+            col[seq[1]] = 1
+            col[8] = seq[2]
+            col[9] = seq[3]
+            init_time = time + 0.01
+            data[init_time] = col
+            time = time + seq[0]
+            #data[prev_time_stamp + 0.01] = col
+            data[time] = col
+            #prev_time_stamp = seq[0]
+        dft = pd.DataFrame(data)
+        df = dft.T #transposes to have channels listed on vertical lines
+        rev_dict={0: "clock", 1: "blue", 2: "SRS", 3: "NIR", 4: "gate1", 5: "gate2", 6: "gate3", 7: "laser", 8: "I", 9: "Q"}
+        sub_df = df[list(rev_dict.keys())]
+        fin = sub_df.rename(columns = rev_dict)
+        return fin
+    
     def flip_mirror(self, output=[], i=0, q=0, n_runs=1):
         pulse = [(1000000, [5], 0, 0)]
         self.Pulser.stream(pulse, n_runs, final=OutputState(output, i, q))

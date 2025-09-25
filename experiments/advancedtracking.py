@@ -68,7 +68,7 @@ class AdvancedTracking():
         """Perform experiment teardown."""
         _logger.info('Destroyed AdvancedTracking instance.')
     def one_axis_measurement(self,
-                                buffer_size, index, search_PID, max_search, min_search, 
+                                buffer_size, index, XYZ_center, search_PID, max_search, min_search, 
                              sequence, search, scan_distance, num_freq, do_not_run_feedback, 
                              read_timeout, spot_size, advanced_tracking, changing_search, 
                              search_error_array, search_integral_history,
@@ -111,43 +111,42 @@ class AdvancedTracking():
 
             ## in this is 180 ms of lag
             self.sequence=sequence
-            self.XYZ_center= mgr.DAQcontrol.get_position()
-            for i in list(index):
-                if do_not_run_feedback:
-            
+            self.XYZ_center= XYZ_center
+            if do_not_run_feedback:
+        
 
-                    mgr.DAQcontrol.start_counting()
+                mgr.DAQcontrol.start_counter()
 
-                    mgr.Pulser.stream_sequence(self.sequence, run_ct)
+                mgr.Pulser.stream_sequence(self.sequence, run_ct)
 
-                    data=mgr.DAQcontrol.read_to_data_array(read_timeout)
+                data=mgr.DAQcontrol.read_to_data_array(read_timeout)
 
-                    # self.current_counter_task.clear()
-                    
+                # self.current_counter_task.clear()
+                
 
-                    buffer_allocation = None
-                    remaining_buffer = None
+                buffer_allocation = None
+                remaining_buffer = None
 
 
-                else:
-                    print("-------------------")
-                    print("\n\n\nWe are indeed running tracking code")
-                    data, buffer_allocation, remaining_buffer = self.read_stream_flee( mgr, i, search, buffer_size, scan_distance, num_freq, run_ct, read_timeout)
+            else:
+                print("-------------------")
+                print("\n\n\nWe are indeed running tracking code")
+                data, buffer_allocation, remaining_buffer = self.read_stream_flee( mgr, index, search, buffer_size, scan_distance, num_freq, run_ct, read_timeout)
 
-                # data = self.read_stream_flee( mgr, index, search, buffer_size, scan_distance, num_freq, read_timeout)
+            # data = self.read_stream_flee( mgr, index, search, buffer_size, scan_distance, num_freq, read_timeout)
 
-                ## confirmed, here I have 180-200 ms of lag
+            ## confirmed, here I have 180-200 ms of lag
 
-                ## after this is 70-130 ms of lag        
-                tracking_data, track_steps, temp_data, num_bins = self.process_data(data, buffer_allocation, remaining_buffer, index, search, do_not_run_feedback)
-                total_fluor=np.sum(tracking_data)
-                self.data_analysis(mgr, tracking_data, track_steps, index, search, do_not_run_feedback, spot_size, num_bins, advanced_tracking, 
-                 changing_search, search_error_array, search_integral_history)
-                mgr.DAQcontrol.move({'x': self.XYZ_center[0], 'y': self.XYZ_center[1], 'z': self.XYZ_center[2]})
-                print('\nHere is where the laser is currently pointing:', mgr.DAQcontrol.position)
-                for i, num in enumerate(search):
-                    search[i] *= 0.9 if abs(self.drift[i]) < (2 / 5 * search[i]) else 1.2 if abs(self.drift[i]) > (
-                            7 / 10 * search[i]) else 1
+            ## after this is 70-130 ms of lag        
+            tracking_data, track_steps, temp_data, num_bins = self.process_data(data, buffer_allocation, remaining_buffer, index, search, do_not_run_feedback)
+            total_fluor=np.sum(tracking_data)
+            self.data_analysis(mgr, tracking_data, track_steps, index, search, do_not_run_feedback, spot_size, num_bins, advanced_tracking, 
+                changing_search, search_error_array, search_integral_history)
+            mgr.DAQcontrol.move({'x': self.XYZ_center[0], 'y': self.XYZ_center[1], 'z': self.XYZ_center[2]})
+            print('\nHere is where the laser is currently pointing:', mgr.DAQcontrol.position)
+            for i, num in enumerate(search):
+                search[i] *= 0.9 if abs(self.drift[i]) < (2 / 5 * search[i]) else 1.2 if abs(self.drift[i]) > (
+                        7 / 10 * search[i]) else 1
             if advanced_tracking:
                 return search, temp_data, total_fluor, search_error_array, self.XYZ_center, self.drift, self.x_k, self.p_k, self.n_k
             return  search, temp_data, total_fluor, search_error_array, self.XYZ_center, self.drift
@@ -356,7 +355,7 @@ class AdvancedTracking():
                 # import pdb; pdb.set_trace()
 
                 # Target value for search radius is twice the drift
-                search_error = (-1) * (search[index] - np.abs(self.drift[index])) * 2
+                search_error = (-1) * (search[index] - np.abs(self.drift[index]) * 2)
 
                 print("drift is " + str(self.drift[index]))
                 print("search_error is " + str(search_error))

@@ -32,14 +32,13 @@ get_param_value_funs={
 
 class SpatialFeedbackWidget(ExperimentWidget):
     def __init__(self):
-        ctr_ch_le = QLineEdit('Dev1/ctr1')
         initial_position=unit_widgets.PointWidget(1, 0, 0)
         # x_initial_le = unit_widgets.MLineEdit(0)
         # y_initial_le = unit_widgets.MLineEdit(0)
         # z_initial_le = unit_widgets.MLineEdit(0)
         do_z_cb = QCheckBox()
         do_z_cb.setChecked(True)
-        sleep_time_le = unit_widgets.SecLineEdit(0.4)
+        probe_time_le = unit_widgets.SecLineEdit(0.4)
         xyz_step_le = unit_widgets.MLineEdit(0.05)
         shrink_every_x_iter_sb = QSpinBox()
         shrink_every_x_iter_sb.setMinimum(1)
@@ -47,12 +46,12 @@ class SpatialFeedbackWidget(ExperimentWidget):
         starting_point_cb = QtWidgets.QComboBox()
         starting_point_cb.addItems(['user_input', 'current_position (ignore input)'])
         starting_point_cb.setCurrentText('current_position (ignore input)')
+        n_points_sb = QSpinBox()
+        n_points_sb.setMinimum(1)
+        n_points_sb.setMaximum(1000)
+        n_points_sb.setValue(10)
 
         params_config = {
-            'ctr_ch': {
-                'display_text': 'Center Channel',
-                'widget': ctr_ch_le,
-            },
             'initial_position': {
                 'display_text': 'Initial position',
                 'widget': initial_position,
@@ -61,9 +60,13 @@ class SpatialFeedbackWidget(ExperimentWidget):
                 'display_text': 'Do Z',
                 'widget': do_z_cb,
             },
-            'sleep_time': {
-                'display_text': 'Sleep Time',
-                'widget': sleep_time_le,
+            'probe_time': {
+                'display_text': 'Probe Time',
+                'widget': probe_time_le,
+            },
+            'n_points': {
+                'display_text': 'Number of Points',
+                'widget': n_points_sb,
             },
             'xyz_step': {
                 'display_text': 'XYZ Step',

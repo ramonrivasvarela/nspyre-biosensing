@@ -8,17 +8,6 @@ from special_widgets import unit_widgets
 import pyqtgraph as pg
   
 
-get_param_value_funs={
-            unit_widgets.PointWidget: lambda w: w.get_position_as_tuple(),
-            unit_widgets.MLineEdit:   lambda w: w.umvalue,
-            unit_widgets.HzLineEdit:  lambda w: w.hzvalue,
-            unit_widgets.SecLineEdit:  lambda w: w.secvalue,
-            unit_widgets.NSLineEdit:  lambda w: w.nsvalue,
-            unit_widgets.HzIntervalWidget: lambda w: w.get_range(),
-            unit_widgets.ThreeValueWidget: lambda w: w.get_values(),
-            QSpinBox: lambda w: w.value(),
-            
-        }
 
 
 
@@ -71,7 +60,8 @@ class I1I2Widget(ExperimentWidget):
         sideband_frequency_cb.addItems(sideband_items)
         sideband_frequency_cb.setCurrentText("10.1010101")
         # New params_config dictionary using only display_text and widget:
-        
+        track_z_cb = QCheckBox()
+        track_z_cb.setChecked(True)
         params_config = {
             'sampling_rate': {
                 'display_text': 'Sampling Rate',
@@ -117,9 +107,13 @@ class I1I2Widget(ExperimentWidget):
                 'display_text': 'Sweeps Until Feedback',
                 'widget': sweeps_until_feedback_sb
             },
-            'z_feedback_every': {
+            'z_cycle': {
                 'display_text': 'Z Feedback Every',
                 'widget': z_feedback_every_sb
+            },
+            'track_z':{
+                'display_text': 'Track Z',
+                'widget': track_z_cb
             },
             'xyz_step_nm': {
                 'display_text': 'XYZ Step (nm)',
@@ -139,19 +133,19 @@ class I1I2Widget(ExperimentWidget):
             },
             'searchXYZ': {
                 'display_text': 'Search XYZ',
-                'widget': unit_widgets.PointWidget(0.5, 0.5, 0.5)
+                'widget': QLineEdit("[0.5, 0.5, 0.5]")
             },
             'max_search': {
                 'display_text': 'Max Search',
-                'widget': unit_widgets.PointWidget(1.0, 1.0, 1.0)
+                'widget': QLineEdit("[1.0, 1.0, 1.0]")
             },
             'min_search': {
                 'display_text': 'Min Search',
-                'widget': unit_widgets.PointWidget(0.1, 0.1, 0.1)
+                'widget': QLineEdit("[0.1, 0.1, 0.1]")
             },
             'scan_distance': {
                 'display_text': 'Scan Distance',
-                'widget': unit_widgets.PointWidget(0.03, 0.03, 0.05)
+                'widget': QLineEdit("[0.03, 0.03, 0.05]")
             },
             'changing_search': {
                 'display_text': 'Changing Search',
@@ -207,10 +201,6 @@ class I1I2Widget(ExperimentWidget):
                 unit_widgets.HzIntervalWidget: lambda w: w.get_range(),
                 unit_widgets.ThreeValueWidget: lambda w: w.get_values(),
                 QSpinBox: lambda w: w.value(),
-                QCheckBox: lambda w: w.isChecked(),
-                QLineEdit: lambda w: w.text(),
-                QComboBox: lambda w: w.currentText(),
-                SpinBox: lambda w: w.value(),
             }
         )
 
@@ -220,11 +210,49 @@ class I1I2PlotWidget(FlexLinePlotWidget):
         
         # create some default signal plots
         def processing_function(sink):
-            sink.datasets["I2-I1"]=np.array(sink.datasets["I2"])-np.array(sink.datasets["I1"])
+            """
+            Processing function to calculate I2-I1 difference from I1I2 experiment data.
+            
+            The I1I2 experiment returns data as StreamingList where each entry contains:
+            - I1: np.stack([frequencies, I1_values])  
+            - I2: np.stack([frequencies, I2_values])
+            
+            This function calculates I2-I1 for each frequency point.
+            """
+            if 'I1' in sink.datasets and 'I2' in sink.datasets:
+                I1_data = sink.datasets['I1']
+                I2_data = sink.datasets['I2']
+                
+                # Initialize I2-I1 dataset as numpy array
+                num_sweeps = len(I1_data)
+                I2_minus_I1 = np.empty(num_sweeps, dtype=object)
+                
+                # Process each sweep
+                for i in range(num_sweeps):
+                    # Extract frequency and value arrays from each sweep
+                    I1_sweep = I1_data[i]
+                    I2_sweep = I2_data[i]
+                    
+                    # Get frequencies (should be same for both I1 and I2)
+                    frequencies = I1_sweep[0]
+                    
+                    # Get I1 and I2 values
+                    I1_values = I1_sweep[1]
+                    I2_values = I2_sweep[1]
+                    
+                    # Calculate difference I2 - I1
+                    diff_values = I2_values - I1_values
+                    
+                    # Store sweep entry with frequencies and difference values
+                    I2_minus_I1[i] = np.stack([frequencies, diff_values])
+                
+                # Store the processed data
+                sink.datasets["I2-I1"] = I2_minus_I1
+                
         super().__init__(data_processing_func=processing_function) 
-        self.add_plot('I1',        series='I1',   scan_i='',     scan_j='',  processing='Append')
-        self.add_plot('I2',        series='I2',   scan_i='',     scan_j='',  processing='Append')
-        self.add_plot('I2-I1',      series='I2-I1', scan_i='',     scan_j='',  processing=processing_function)
+        # self.add_plot('I1',        series='I1',   scan_i='',     scan_j='',  processing='Append')
+        # self.add_plot('I2',        series='I2',   scan_i='',     scan_j='',  processing='Append')
+        self.add_plot('I2-I1',      series='I2-I1', scan_i='',     scan_j='',  processing='Append')
 
 
         # retrieve legend object
