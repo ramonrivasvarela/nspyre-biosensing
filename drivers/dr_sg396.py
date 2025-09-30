@@ -267,3 +267,10 @@ class SG396:
 
     def calibrate(self):
         logger.info("SG396 calibration succeeded.")
+
+    def continuous_sweep(self, freq_span, sweep_time):
+        self.device.write("TYPE 3")
+        self.device.write("SNFC 1")
+        self.device.write(f"SDEV {freq_span}")
+        self.device.write(f"SRAT {1/sweep_time}")
+        self.device.write("ENBR 1")

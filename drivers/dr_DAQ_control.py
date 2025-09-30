@@ -214,20 +214,20 @@ class DAQCounter:
         self.read_task.stop() 
         return 
     
-    def buffer_to_data(self, probe_time):
+    def buffer_to_data(self):
         if self.ctr_buffer is None:
             raise ValueError("Buffer is not initialized.")
         all_data = np.array(self.ctr_buffer[1:] - self.ctr_buffer[0:-1])
-        data = np.sum(all_data)/ ((self.n_samples+1)*probe_time )
+        data = np.sum(all_data)*self.sampling_rate/ (2*(self.n_samples+1) )
         return data
-    
-    def read_to_data(self,probe_time, timeout=10.0):
+
+    def read_to_data(self, timeout=10.0):
         """
         Read samples from the counter channel into the buffer and convert to data.
         Returns the data as a float.
         """
         self.read_counter(timeout)
-        return self.buffer_to_data(probe_time)
+        return self.buffer_to_data()
     
     def read_to_data_array(self, timeout=10.0):
         self.read_counter(timeout=timeout)
