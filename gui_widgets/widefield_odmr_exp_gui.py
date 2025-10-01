@@ -5,13 +5,11 @@ from nspyre import ExperimentWidget
 
 from pyqtgraph import SpinBox
 from pyqtgraph.Qt import QtWidgets
-from PyQt6.QtWidgets import QSpinBox, QLineEdit, QCheckBox
+from PyQt6.QtWidgets import QSpinBox, QLineEdit, QCheckBox, QComboBox
 
 from special_widgets import unit_widgets
 
 import experiments.WFODMR
-
-
 
 import pyqtgraph as pg
 
@@ -20,73 +18,81 @@ from special_widgets.heat_map_plot_widget import HeatMapPlotWidget
 cmap = pg.colormap.get('viridis')  
 
 get_param_value_funs={
-            unit_widgets.PointWidget: lambda w: w.get_point(),
-            unit_widgets.MLineEdit:   lambda w: w.umvalue,
-            unit_widgets.HzLineEdit:  lambda w: w.hzvalue,
-            unit_widgets.SecLineEdit:  lambda w: w.secvalue,
-            unit_widgets.NSLineEdit:  lambda w: w.nsvalue,
-            unit_widgets.HzIntervalWidget: lambda w: w.get_range(),
-            unit_widgets.ThreeValueWidget: lambda w: w.get_values(),
-            QSpinBox: lambda w: w.value(),
-        }
+    SpinBox: lambda w: w.value() if w.suffix() != 'm' else w.value()*1e6,
+    QSpinBox: lambda w: w.value(),
+    QLineEdit: lambda w: w.text(),
+    QCheckBox: lambda w: w.isChecked(),
+    QComboBox: lambda w: w.currentText(),
+}
 
 class WideFieldWidget(ExperimentWidget):
     def __init__(self):
-
 
         gain_sb = QSpinBox()
         gain_sb.setMinimum(1)
         gain_sb.setValue(2)
         gain_sb.setMaximum(272)
 
-        repeat_minutes_sb = SpinBox()
-        repeat_minutes_sb.setValue(0)
-        repeat_minutes_sb.setMinimum(0)
-        repeat_minutes_sb.setDecimals(3)
+        repeat_minutes_sb = SpinBox(
+            value=0,
+            suffix='min',
+            siPrefix=False,
+            dec=True,
+            bounds=(0, 1440),
+        )
 
-        rf_amplitude_sb = SpinBox()
-        rf_amplitude_sb.setValue(-15)
-        rf_amplitude_sb.setDecimals(2)
+        rf_amplitude_sb = SpinBox(
+            value=-15,
+            suffix='dBm',
+            siPrefix=False,
+            dec=True,
+            bounds=(-100, 10),
+        )
 
-        mw_duty_sb = SpinBox()
-        mw_duty_sb.setValue(1)
-        mw_duty_sb.setDecimals(3)
+        mw_duty_sb = SpinBox(
+            value=1,
+            siPrefix=False,
+            dec=True,
+            bounds=(0.001, 1),
+        )
 
-        mw_rep_sb = SpinBox()
-        mw_rep_sb.setValue(50)
-        mw_rep_sb.setMinimum(1)
+        mw_rep_sb = SpinBox(
+            value=50,
+            suffix='Hz',
+            siPrefix=True,
+            dec=True,
+            bounds=(1, 1e6),
+        )
 
-
-        cam_trigger_cb = QtWidgets.QComboBox()
+        cam_trigger_cb = QComboBox()
         cam_trigger_cb.addItems(['EXTERNAL_EXPOSURE', 'EXTERNAL_FT'])
         cam_trigger_cb.setCurrentText('EXTERNAL_FT')
 
         optimize_gain_cb = QCheckBox()
         optimize_gain_cb.setChecked(True)
 
-        runs_sb= QSpinBox()
+        runs_sb = QSpinBox()
         runs_sb.setMinimum(1)
+        runs_sb.setValue(1)
 
-        sweeps_sb= QSpinBox()
+        sweeps_sb = QSpinBox()
         sweeps_sb.setMinimum(1)
+        sweeps_sb.setValue(1)
 
-        reps_sb=QSpinBox()
+        reps_sb = QSpinBox()
         reps_sb.setMinimum(1)
-
-        # number_nds=QSpinBox()
-        # number_nds.setMinimum(1)
-        # number_nds.setMaximum(10)
-        # number_nds.setValue(1)
-        # number_nds.editingFinished.connect(lambda: nds.change_number(number_nds.value()))
-
-        # nds= unit_widgets.FlexiblePointWidget(number_nds.value())
-        # nds.change_number(number_nds.value())
+        reps_sb.setValue(1)
 
         params_config = {
-
             'exp_time': {
                 'display_text': 'Exposure Time',
-                'widget': unit_widgets.SecLineEdit(75e-3),
+                'widget': SpinBox(
+                    value=75e-3,
+                    suffix='s',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(1e-6, 1000),
+                )
             },
             'cam_trigger': {
                 'display_text': 'Camera Trigger',
@@ -94,7 +100,13 @@ class WideFieldWidget(ExperimentWidget):
             },
             'readout_time': {
                 'display_text': 'Readout Time',
-                'widget': unit_widgets.SecLineEdit(15e-3),
+                'widget': SpinBox(
+                    value=15e-3,
+                    suffix='s',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(1e-6, 1000),
+                )
             },
             'gain': {
                 'display_text': 'EM Gain',
@@ -102,7 +114,7 @@ class WideFieldWidget(ExperimentWidget):
             },
             'ROI_xyr': {
                 'display_text': 'ROI X/Y/R',
-                'widget': QLineEdit('[(512,512,16,7)]'),  # Example default value
+                'widget': QLineEdit('[(512,512,16,7)]'),
             },
             'repeat_every_x_minutes': {
                 'display_text': 'Repeat Every X Minutes',
@@ -110,11 +122,11 @@ class WideFieldWidget(ExperimentWidget):
             },
             'runs_sweeps_reps': {
                 'display_text': 'Runs, Sweeps, Reps',
-                'widget': QLineEdit('(1,1,1)'),  # Example default value
+                'widget': QLineEdit('(1,1,1)'),
             },
             'frequency': {
                 'display_text': 'Frequency',
-                'widget': QLineEdit('(2.85e9, 2.89e9, 30)'),  # Example default value
+                'widget': QLineEdit('(2.85e9, 2.89e9, 30)'),
             },
             'rf_amplitude': {
                 'display_text': 'RF Amplitude',
@@ -130,25 +142,35 @@ class WideFieldWidget(ExperimentWidget):
             },
             'probe_time': {
                 'display_text': 'Probe Time',
-                'widget': unit_widgets.SecLineEdit(160e-3),
+                'widget': SpinBox(
+                    value=160e-3,
+                    suffix='s',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(1e-6, 1000),
+                )
             },
             'optimize_gain': {
                 'display_text': 'Optimize Gain',
                 'widget': optimize_gain_cb,
             },
-
-            'trackpy':{
-
+            'trackpy': {
                 'display_text': 'Trackpy',
                 'widget': QCheckBox(),
             },
             'trackpy_params': {
                 'display_text': 'Trackpy Params',
-                'widget': QLineEdit("(False, 40, 800)"),  # Example default value
+                'widget': QLineEdit("(False, 40, 800)"),
             },
             'sleep_time': {
                 'display_text': 'Sleep Time',
-                'widget': unit_widgets.SecLineEdit(0),
+                'widget': SpinBox(
+                    value=0,
+                    suffix='s',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(0, 3600),
+                )
             },
             'data_path': {
                 'display_text': 'Data Path',
@@ -156,7 +178,7 @@ class WideFieldWidget(ExperimentWidget):
             },
             'dataset': {
                 'display_text': 'Wide Field ODMR',
-                'widget': QtWidgets.QLineEdit('wfodmr')
+                'widget': QLineEdit('wfodmr')
             }
         }
 
@@ -165,7 +187,8 @@ class WideFieldWidget(ExperimentWidget):
             experiments.WFODMR,
             'WideFieldODMR',
             'widefield',
-            title='Wide Field Imaging', get_param_value_funs=get_param_value_funs
+            title='Wide Field Imaging', 
+            get_param_value_funs=get_param_value_funs
         )
 
 class WFODMRPlotWidget(FlexLinePlotWidget):
@@ -175,7 +198,6 @@ class WFODMRPlotWidget(FlexLinePlotWidget):
         # create some default signal plots
         self.add_plot('Signal 1',        series='signal_1',   scan_i='',     scan_j='',  processing='Average')
         self.add_plot('Background 1',        series='background_1',   scan_i='',     scan_j='',  processing='Average')
-
 
         # retrieve legend object
         legend = self.line_plot.plot_widget.addLegend()

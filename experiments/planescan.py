@@ -59,7 +59,7 @@ class PlaneScan:
                     point_B : dict ={'x': 50, 'y': 0, 'z': 0},
                     point_C : dict ={'x': 50, 'y': 0, 'z': 60},
                     line_scan_steps: int=100, extent_steps: int=100,
-                    ctr_ch: str ='Dev1/ctr1', repetitions: int =1,
+                     repetitions: int =1,
                     stack_count: int = 1, stack_stepsize: int = 1,
                     stack_pospref: bool = False,
                     acq_rate: int =15000, pts_per_step: int =40, xyz_pos: bool = True, snake_scan :bool = False, sleep_factor : float=1):
@@ -158,7 +158,7 @@ class PlaneScan:
                 self.check_limit(mgr, origin+scan_vector+extent_vector, 'origin+scan_vector+extent_vector')
             if snake_scan:
                 scan_vals=scan_vals
-            self.initialize(mgr, ctr_ch, acq_rate)
+            self.initialize(mgr,  acq_rate)
             origin = origin - stack_vector * z_stack
             datasets={}
             for z in range(stack_count):
@@ -213,7 +213,6 @@ class PlaneScan:
                                 'point_C': point_C,
                                 'line_scan_steps': line_scan_steps,
                                 'extent_steps': extent_steps,
-                                'ctr_ch': ctr_ch,
                                 'repetitions': repetitions,
                                 'stack_count': stack_count,
                                 'stack_stepsize': stack_stepsize,
@@ -242,7 +241,7 @@ class PlaneScan:
             self.finalize(mgr)
             
 
-    def initialize(self, mgr, ctr_ch='Dev1/ctr1', acq_rate=15000):
+    def initialize(self, mgr, acq_rate=15000):
         #create control task, action task already created in app initizalization
         #mgr.XYZcontrol.initialize()   
         # mgr.DAQcontrol.n_samples=line_scan_steps+1        # (calls finalize internally if needed)

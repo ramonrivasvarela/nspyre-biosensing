@@ -4,7 +4,17 @@ from pyqtgraph import SpinBox
 from special_widgets import unit_widgets
 import experiments.temptime
 from nspyre import ExperimentWidget
+
 MAXIMUM=2147483647 
+
+get_param_value_funs={
+    SpinBox: lambda w: w.value() if w.suffix() != 'm' else w.value()*1e6,
+    QSpinBox: lambda w: w.value(),
+    QLineEdit: lambda w: w.text(),
+    QCheckBox: lambda w: w.isChecked(),
+    QComboBox: lambda w: w.currentText(),
+}
+
 class TempTimeWidget(ExperimentWidget):
     def __init__(self):
         # Pre-configured widgets for extra configuration:
@@ -23,11 +33,6 @@ class TempTimeWidget(ExperimentWidget):
         sb_MHz_2fq_cb.addItems(sb_MHz_2fq_items)
         sb_MHz_2fq_cb.setCurrentText("10.1010101")
 
-        rf_amplitude_sb = QSpinBox()
-        rf_amplitude_sb.setMinimum(-100)
-        rf_amplitude_sb.setMaximum(7)
-        rf_amplitude_sb.setValue(-20)
-        
         quasilinear_slope_sb = QSpinBox()
         quasilinear_slope_sb.setMinimum(0)
         quasilinear_slope_sb.setMaximum(MAXIMUM)
@@ -35,7 +40,6 @@ class TempTimeWidget(ExperimentWidget):
 
         is_center_modulation_qb = QCheckBox()
         is_center_modulation_qb.setChecked(True)
-
 
         number_jump_avg_sb = QSpinBox()
         number_jump_avg_sb.setMinimum(1)
@@ -55,11 +59,6 @@ class TempTimeWidget(ExperimentWidget):
         track_z_cb = QCheckBox()
         track_z_cb.setChecked(True)
 
-        diffusion_constant_sb = SpinBox()
-        diffusion_constant_sb.setMinimum(0)
-        diffusion_constant_sb.setMaximum(None)
-        diffusion_constant_sb.setValue(200)
-
         integral_history_sb=QSpinBox()
         integral_history_sb.setMinimum(1)
         integral_history_sb.setMaximum(100)
@@ -68,19 +67,43 @@ class TempTimeWidget(ExperimentWidget):
         params_config = {
             'sampling_rate': {
                 'display_text': 'Sampling Rate',
-                'widget': unit_widgets.HzLineEdit(50000)
+                'widget': SpinBox(
+                    value=50000,
+                    suffix='Hz',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(1, 1e9),
+                )
             },
             'timeout': {
                 'display_text': 'Timeout',
-                'widget': unit_widgets.SecLineEdit(12)
+                'widget': SpinBox(
+                    value=12,
+                    suffix='s',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(0.1, 1000),
+                )
             },
             'time_per_scan': {
                 'display_text': 'Time per Scan',
-                'widget': unit_widgets.SecLineEdit(0.25)
+                'widget': SpinBox(
+                    value=0.25,
+                    suffix='s',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(1e-6, 1000),
+                )
             },
             'starting_temp': {
                 'display_text': 'Starting Temperature',
-                'widget': unit_widgets.TemperatureLineEdit(25.0)
+                'widget': SpinBox(
+                    value=25.0,
+                    suffix='°C',
+                    siPrefix=False,
+                    dec=True,
+                    bounds=(-273, 1000),
+                )
             },
             'sb_MHz_2fq': {
                 'display_text': 'Sideband MHz (2fq)',
@@ -96,24 +119,53 @@ class TempTimeWidget(ExperimentWidget):
             },
             'odmr_frequency': {
                 'display_text': 'ODMR Frequency',
-                'widget': unit_widgets.HzLineEdit(2.87e9)
-
+                'widget': SpinBox(
+                    value=2.87e9,
+                    suffix='Hz',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(1e6, 1e12),
+                )
             },
             'rf_amplitude': {
                 'display_text': 'RF Amplitude',
-                'widget': rf_amplitude_sb
+                'widget': SpinBox(
+                    value=-20,
+                    suffix='dBm',
+                    siPrefix=False,
+                    dec=True,
+                    bounds=(-100, 10),
+                )
             },
             'clock_time': {
                 'display_text': 'Clock Time',
-                'widget': unit_widgets.SecLineEdit(10e-9)
+                'widget': SpinBox(
+                    value=10e-9,
+                    suffix='s',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(1e-12, 1),
+                )
             },
             'mwPulseTime': {
                 'display_text': 'MW Pulse Time',
-                'widget': unit_widgets.SecLineEdit(50e-6)
+                'widget': SpinBox(
+                    value=50e-6,
+                    suffix='s',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(1e-9, 1),
+                )
             },
             'cooling_delay': {
                 'display_text': 'Cooling Delay',
-                'widget': unit_widgets.SecLineEdit(0.0)
+                'widget': SpinBox(
+                    value=0.0,
+                    suffix='s',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(0, 1000),
+                )
             },
             'is_center_modulation': {
                 'display_text': 'Center Modulation',
@@ -145,7 +197,13 @@ class TempTimeWidget(ExperimentWidget):
             },
             'threshold_temp_jump': {
                 'display_text': 'Threshold Temp Jump',
-                'widget': unit_widgets.TemperatureLineEdit(2)
+                'widget': SpinBox(
+                    value=2,
+                    suffix='°C',
+                    siPrefix=False,
+                    dec=True,
+                    bounds=(-273, 1000),
+                )
             },
             'number_jump_avg': {
                 'display_text': 'Number Jump Average',
@@ -193,7 +251,13 @@ class TempTimeWidget(ExperimentWidget):
             },
             'spot_size': {
                 'display_text': 'Spot Size',
-                'widget': unit_widgets.MLineEdit(400e-9)
+                'widget': SpinBox(
+                    value=400e-9,
+                    suffix='m',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(1e-12, 1e-3),
+                )
             },
             'advanced_tracking': {
                 'display_text': 'Advanced Tracking',
@@ -201,7 +265,12 @@ class TempTimeWidget(ExperimentWidget):
             },
             'diffusion_constant': {
                 'display_text': 'Diffusion Constant',
-                'widget': diffusion_constant_sb
+                'widget': SpinBox(
+                    value=200,
+                    siPrefix=False,
+                    dec=True,
+                    bounds=(0.1, 10000),
+                )
             },
             'infrared_on': {
                 'display_text': 'Infrared On',
@@ -209,7 +278,13 @@ class TempTimeWidget(ExperimentWidget):
             },
             'infrared_power': {
                 'display_text': 'Infrared Power',
-                'widget': unit_widgets.WLineEdit(1e-4)
+                'widget': SpinBox(
+                    value=1e-4,
+                    suffix='W',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(1e-9, 1000),
+                )
             },
             'heat_on_off_cycle': {
                 'display_text': 'Heat On/Off Cycle',
@@ -231,15 +306,5 @@ class TempTimeWidget(ExperimentWidget):
             'TemperatureVsTime',
             'temptime',
             title='Temperature vs Time',
-            get_param_value_funs={
-                unit_widgets.HzLineEdit: lambda w: w.hzvalue,
-                unit_widgets.SecLineEdit: lambda w: w.secvalue,
-                QSpinBox: lambda w: w.value(),
-                QLineEdit: lambda w: w.text(),
-                QCheckBox: lambda w: w.isChecked(),
-                QComboBox: lambda w: w.currentText(),
-                unit_widgets.TemperatureLineEdit: lambda w: w.value,
-                unit_widgets.MLineEdit: lambda w: w.umvalue,
-                unit_widgets.WLineEdit: lambda w: w.value,
-            }
+            get_param_value_funs=get_param_value_funs
         )

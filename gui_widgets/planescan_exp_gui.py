@@ -17,14 +17,10 @@ from special_widgets.heat_map_plot_widget import HeatMapPlotWidget
 cmap = pg.colormap.get('viridis')  
 
 get_param_value_funs={
-            unit_widgets.PointWidget: lambda w: w.get_point(),
-            unit_widgets.MLineEdit:   lambda w: w.umvalue,
-            unit_widgets.HzLineEdit:  lambda w: w.hzvalue,
-            unit_widgets.SecLineEdit:  lambda w: w.secvalue,
-            unit_widgets.NSLineEdit:  lambda w: w.nsvalue,
-            unit_widgets.HzIntervalWidget: lambda w: w.get_range(),
-            unit_widgets.ThreeValueWidget: lambda w: w.get_values(),
+            SpinBox: lambda w: w.value() if w.suffix() != 'm' else w.value()*1e6,
             QSpinBox: lambda w: w.value(),
+            QLineEdit: lambda w: w.text(),
+            QCheckBox: lambda w: w.isChecked(),
         }
 
 class PlaneScanWidget(ExperimentWidget):
@@ -46,56 +42,96 @@ class PlaneScanWidget(ExperimentWidget):
         stack_count_sb.setMinimum(1)
         pts_per_step_sb = QSpinBox(value=40)
         pts_per_step_sb.setMinimum(1)
-        sleep_factor_sb = SpinBox(value=1)
-        sleep_factor_sb.setMinimum(1)
-
 
         xyz_pos_cb = QCheckBox()
         xyz_pos_cb.setChecked(True)
+        
         params_config = {
-            'point_A': {'display_text': 'Point A',
-                        'widget': unit_widgets.PointWidget(-50, 0, 50)},
-            'point_B': {'display_text': 'Point B',
-                        'widget': unit_widgets.PointWidget(50, 0, 50)},
-            'point_C': {'display_text': 'Point C',
-                        'widget': unit_widgets.PointWidget(50, 0, 80)},
-            'line_scan_steps': {'display_text': 'Line Scan Steps',
-                                'widget': line_scan_steps_sb},
-            'extent_steps': {'display_text': 'Extent Steps',
-                             'widget': extent_steps_sb},
-            'ctr_ch': {'display_text': 'Center Channel',
-                       'widget': QLineEdit("Dev1/ctr1")},
-            'repetitions': {'display_text': 'Repetitions',
-                            'widget': repetitions_sb},
-            'stack_count': {'display_text': 'Stack Count',
-                            'widget': stack_count_sb},
-            'stack_stepsize': {'display_text': 'Stack Stepsize',
-                               'widget': unit_widgets.MLineEdit(1)},
-            'stack_pospref': {'display_text': 'Stack Position Pref',
-                              'widget': QCheckBox()},
-            'acq_rate': {'display_text': 'Acquisition Rate',
-                         'widget': unit_widgets.HzLineEdit(15e3)},
-            'pts_per_step': {'display_text': 'Points Per Step',
-                             'widget': pts_per_step_sb},
-            'xyz_pos': {'display_text': 'XYZ Position',
-                        'widget': xyz_pos_cb},
-
-            'snake_scan': {'display_text': 'Snake Scan',
-                           'widget': QCheckBox()},
-            'sleep_factor': {'display_text': 'Sleep Factor',
-                             'widget': sleep_factor_sb},
+            'point_A': {
+                'display_text': 'Point A',
+                'widget': QLineEdit("(-50, 0, 50)")
+            },
+            'point_B': {
+                'display_text': 'Point B',
+                'widget': QLineEdit("(50, 0, 50)")
+            },
+            'point_C': {
+                'display_text': 'Point C',
+                'widget': QLineEdit("(50, 0, 80)")
+            },
+            'line_scan_steps': {
+                'display_text': 'Line Scan Steps',
+                'widget': line_scan_steps_sb
+            },
+            'extent_steps': {
+                'display_text': 'Extent Steps',
+                'widget': extent_steps_sb
+            },
+            'repetitions': {
+                'display_text': 'Repetitions',
+                'widget': repetitions_sb
+            },
+            'stack_count': {
+                'display_text': 'Stack Count',
+                'widget': stack_count_sb
+            },
+            'stack_stepsize': {
+                'display_text': 'Stack Stepsize',
+                'widget': SpinBox(
+                    value=1e-6,
+                    suffix='m',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(1e-12, 1e-3),
+                )
+            },
+            'stack_pospref': {
+                'display_text': 'Stack Position Pref',
+                'widget': QCheckBox()
+            },
+            'acq_rate': {
+                'display_text': 'Acquisition Rate',
+                'widget': SpinBox(
+                    value=15e3,
+                    suffix='Hz',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(1, 1e9),
+                )
+            },
+            'pts_per_step': {
+                'display_text': 'Points Per Step',
+                'widget': pts_per_step_sb
+            },
+            'xyz_pos': {
+                'display_text': 'XYZ Position',
+                'widget': xyz_pos_cb
+            },
+            'snake_scan': {
+                'display_text': 'Snake Scan',
+                'widget': QCheckBox()
+            },
+            'sleep_factor': {
+                'display_text': 'Sleep Factor',
+                'widget': SpinBox(
+                    value=1,
+                    siPrefix=False,
+                    dec=True,
+                    bounds=(0.1, 100),
+                )
+            },
             'dataset': {
                 'display_text': 'Data Set',
-                'widget': QtWidgets.QLineEdit('planescan'),
+                'widget': QLineEdit('planescan'),
             },
-        
         }
 
         super().__init__(params_config, 
                          experiments.planescan,
                          'PlaneScan',
                          'planescan',
-                         title='Plane Scan', get_param_value_funs=get_param_value_funs)
+                         title='Plane Scan', 
+                         get_param_value_funs=get_param_value_funs)
 
     
 

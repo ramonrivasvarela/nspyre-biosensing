@@ -16,7 +16,7 @@ _logger = logging.getLogger(__name__)
 
 
 
-class Experiment:
+class ODMRCenter:
     def __init__(self, queue_to_exp=None, queue_from_exp=None):
         """
         Args:
@@ -50,13 +50,13 @@ class Experiment:
         """Perform experiment teardown."""
         _logger.info('Destroyed Experiment instance.')
 
-    def main(self, runs, initial_odmr, odmr_span, sweep_time, PID, probe_time, clock_time, laser_pause, search, min_search, timeout_counter, dataset):
+    def main(self, runs, initial_odmr, odmr_span, sweep_time, PID, probe_time, clock_time, laser_pause, timeout_counter, dataset):
         kp, ki, kd=eval(PID)
         with InstrumentManager() as mgr, DataSource(dataset) as ds:
             counter=0
             odmr_freq=initial_odmr
             self.initialize(mgr, runs, odmr_span, sweep_time, probe_time, clock_time, laser_pause)
-            while search>min_search and counter<timeout_counter:
+            while counter<timeout_counter:
                 counter+=1
                 mgr.sg.set_frequency(odmr_freq-odmr_span/2)
                 mgr.DAQcontrol.start_counter()
@@ -117,8 +117,7 @@ class Experiment:
         background = np.average([np.sum(np.diff(row)) for row in background_raw])
         signal = np.average([np.sum(np.diff(row)) for row in signal_raw])
         return background, signal
-        
-        return background, signal
+
     def finalize(self):
         # Reset PID variables
         self.previous_error = 0

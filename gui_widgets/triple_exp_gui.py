@@ -4,16 +4,20 @@ from pyqtgraph import SpinBox
 from special_widgets import unit_widgets
 import experiments.triple_experiment
 from nspyre import ExperimentWidget
+
 MAXIMUM=2147483647 
+
+get_param_value_funs={
+    SpinBox: lambda w: w.value() if w.suffix() != 'm' else w.value()*1e6,
+    QSpinBox: lambda w: w.value(),
+    QLineEdit: lambda w: w.text(),
+    QCheckBox: lambda w: w.isChecked(),
+    QComboBox: lambda w: w.currentText(),
+}
+
 class TripleExperimentWidget(ExperimentWidget):
     def __init__(self):
         # Pre-configured widgets for extra configuration:
-        
-        # RF Amplitude widget (same as other GUIs)
-        rf_amplitude_sb = QSpinBox()
-        rf_amplitude_sb.setMinimum(-100)
-        rf_amplitude_sb.setMaximum(7)
-        rf_amplitude_sb.setValue(-13)
         
         # ODMR Sweeps widget
         odmr_sweeps_sb = QSpinBox()
@@ -60,7 +64,13 @@ class TripleExperimentWidget(ExperimentWidget):
         params_config = {
             'rf_amplitude': {
                 'display_text': 'RF Amplitude',
-                'widget': rf_amplitude_sb
+                'widget': SpinBox(
+                    value=-13,
+                    suffix='dBm',
+                    siPrefix=False,
+                    dec=True,
+                    bounds=(-100, 10),
+                )
             },
             'odmr_sweeps': {
                 'display_text': 'ODMR Sweeps',
@@ -72,7 +82,13 @@ class TripleExperimentWidget(ExperimentWidget):
             },
             'probe_time': {
                 'display_text': 'Probe Time',
-                'widget': unit_widgets.SecLineEdit(100e-6)
+                'widget': SpinBox(
+                    value=100e-6,
+                    suffix='s',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(1e-9, 1),
+                )
             },
             'sweeps_till_fb': {
                 'display_text': 'Sweeps Till Feedback',
@@ -80,7 +96,13 @@ class TripleExperimentWidget(ExperimentWidget):
             },
             'time_per_point': {
                 'display_text': 'Time Per Point',
-                'widget': unit_widgets.SecLineEdit(1)
+                'widget': SpinBox(
+                    value=1,
+                    suffix='s',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(0.001, 1000),
+                )
             },
             'odmr_frequency_range': {
                 'display_text': 'ODMR Frequencies',
@@ -155,15 +177,5 @@ class TripleExperimentWidget(ExperimentWidget):
             'TripleExperiment',
             'main',
             title='Triple Experiment',
-            get_param_value_funs={
-                unit_widgets.HzLineEdit: lambda w: w.hzvalue,
-                unit_widgets.SecLineEdit: lambda w: w.secvalue,
-                QSpinBox: lambda w: w.value(),
-                QLineEdit: lambda w: w.text(),
-                QCheckBox: lambda w: w.isChecked(),
-                QComboBox: lambda w: w.currentText(),
-                unit_widgets.TemperatureLineEdit: lambda w: w.value,
-                unit_widgets.MLineEdit: lambda w: w.umvalue,
-                unit_widgets.WLineEdit: lambda w: w.value,
-            }
+            get_param_value_funs=get_param_value_funs
         )

@@ -65,19 +65,43 @@ class I1I2Widget(ExperimentWidget):
         params_config = {
             'sampling_rate': {
                 'display_text': 'Sampling Rate',
-                'widget': unit_widgets.HzLineEdit(50000)
+                'widget': SpinBox(
+                    value=50000,
+                    suffix='Hz',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(1, 1e9),
+                )
             },
             'clockPulseTime': {
                 'display_text': 'Clock Pulse Time',
-                'widget': unit_widgets.SecLineEdit(10e-9)
+                'widget': SpinBox(
+                    value=10e-9,
+                    suffix='s',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(1e-12, 1),
+                )
             },
             'mwPulseTime': {
                 'display_text': 'MW Pulse Time',
-                'widget': unit_widgets.SecLineEdit(50e-6)
+                'widget': SpinBox(
+                    value=50e-6,
+                    suffix='s',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(1e-9, 1),
+                )
             },
             'time_per_sgpoint': {
                 'display_text': 'Time per SG Point',
-                'widget': unit_widgets.SecLineEdit(1)
+                'widget': SpinBox(
+                    value=1,
+                    suffix='s',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(0.001, 1000),
+                )
             },
             'sweeps': {
                 'display_text': 'Sweeps',
@@ -97,7 +121,13 @@ class I1I2Widget(ExperimentWidget):
             },
             'rf_amplitude': {
                 'display_text': 'RF Amplitude',
-                'widget': QLineEdit("-20")
+                'widget': SpinBox(
+                    value=-20,
+                    suffix='dBm',
+                    siPrefix=False,
+                    dec=True,
+                    bounds=(-50, 10),
+                )
             },
             'read_timeout': {
                 'display_text': 'Read Timeout',
@@ -116,8 +146,14 @@ class I1I2Widget(ExperimentWidget):
                 'widget': track_z_cb
             },
             'xyz_step_nm': {
-                'display_text': 'XYZ Step (nm)',
-                'widget': QLineEdit("0.5e-7")
+                'display_text': 'XYZ Step',
+                'widget': SpinBox(
+                    value=0.5e-7,
+                    suffix='m',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(1e-12, 1e-3),
+                )
             },
             'shrink_every_x_iter': {
                 'display_text': 'Shrink Every X Iter',
@@ -133,19 +169,19 @@ class I1I2Widget(ExperimentWidget):
             },
             'searchXYZ': {
                 'display_text': 'Search XYZ',
-                'widget': QLineEdit("[0.5, 0.5, 0.5]")
+                'widget': QLineEdit("(0.5, 0.5, 0.5)")
             },
             'max_search': {
                 'display_text': 'Max Search',
-                'widget': QLineEdit("[1.0, 1.0, 1.0]")
+                'widget': QLineEdit("(1.0, 1.0, 1.0)")
             },
             'min_search': {
                 'display_text': 'Min Search',
-                'widget': QLineEdit("[0.1, 0.1, 0.1]")
+                'widget': QLineEdit("(0.1, 0.1, 0.1)")
             },
             'scan_distance': {
                 'display_text': 'Scan Distance',
-                'widget': QLineEdit("[0.03, 0.03, 0.05]")
+                'widget': QLineEdit("(0.03, 0.03, 0.05)")
             },
             'changing_search': {
                 'display_text': 'Changing Search',
@@ -153,7 +189,7 @@ class I1I2Widget(ExperimentWidget):
             },
             'search_PID': {
                 'display_text': 'Search PID',
-                'widget': QLineEdit("[0.5,0.01,0]")
+                'widget': QLineEdit("(0.5,0.01,0)")
             },
             'search_integral_history': {
                 'display_text': 'Search Integral History',
@@ -161,7 +197,13 @@ class I1I2Widget(ExperimentWidget):
             },
             'spot_size': {
                 'display_text': 'Spot Size',
-                'widget': unit_widgets.MLineEdit(400e-9)
+                'widget': SpinBox(
+                    value=400e-9,
+                    suffix='m',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(1e-12, 1e-3),
+                )
             },
             'advanced_tracking': {
                 'display_text': 'Advanced Tracking',
@@ -169,7 +211,12 @@ class I1I2Widget(ExperimentWidget):
             },
             'diffusion_constant': {
                 'display_text': 'Diffusion Constant',
-                'widget': QLineEdit("200")
+                'widget': SpinBox(
+                    value=200,
+                    siPrefix=False,
+                    dec=True,
+                    bounds=(0.1, 10000),
+                )
             },
             'data_download': {
                 'display_text': 'Data Download',
@@ -193,14 +240,11 @@ class I1I2Widget(ExperimentWidget):
             title='I1I2 Experiment',
             get_param_value_funs={
                 # Insert the appropriate mapping functions here for each widget type.
-                unit_widgets.PointWidget: lambda w: w.get_point(),
-                unit_widgets.MLineEdit: lambda w: w.umvalue,
-                unit_widgets.HzLineEdit: lambda w: w.hzvalue,
-                unit_widgets.SecLineEdit: lambda w: w.secvalue,
-                unit_widgets.NSLineEdit: lambda w: w.nsvalue,
-                unit_widgets.HzIntervalWidget: lambda w: w.get_range(),
-                unit_widgets.ThreeValueWidget: lambda w: w.get_values(),
+                SpinBox: lambda w: w.value() if w.suffix() != 'm' else w.value()*1e6,
                 QSpinBox: lambda w: w.value(),
+                QLineEdit: lambda w: w.text(),
+                QCheckBox: lambda w: w.isChecked(),
+                QComboBox: lambda w: w.currentText(),
             }
         )
 

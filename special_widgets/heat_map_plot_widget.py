@@ -10,7 +10,7 @@ from pyqtgraph.Qt import QtWidgets
 from nspyre import DataSink
 from nspyre import QThreadSafeObject
 from nspyre.gui.widgets.layout import tree_layout
-from nspyre import HeatMapWidget
+from special_widgets.heatmap import HeatMapWidget
 
 from pyqtgraph.Qt import QtGui
 

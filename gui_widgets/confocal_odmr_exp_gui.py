@@ -4,7 +4,7 @@ from nspyre import FlexLinePlotWidget
 from nspyre import ExperimentWidget
 from nspyre import DataSink
 from pyqtgraph.Qt import QtWidgets
-from PyQt6.QtWidgets import QSpinBox, QLineEdit, QCheckBox
+from PyQt6.QtWidgets import QSpinBox, QLineEdit, QCheckBox, QComboBox
 from special_widgets import unit_widgets
 from pyqtgraph import SpinBox
 
@@ -26,7 +26,7 @@ get_param_value_funs={
             unit_widgets.HzIntervalWidget: lambda w: w.get_range(),
             unit_widgets.ThreeValueWidget: lambda w: w.get_values(),
             QSpinBox: lambda w: w.value(),
-            
+            SpinBox: lambda w: w.value() if w.suffix() != 'm' else w.value()*1e6,
         }
 
 MAXIMUM=2147483647 # There has to be a better way...
@@ -150,19 +150,39 @@ class ConfocalODMRWidget(ExperimentWidget):
             },
             'probe_time': {
                 'display_text': 'Probe Time',
-                'widget': unit_widgets.SecLineEdit(100e-6)
+                'widget': SpinBox(
+                    value=100e-6,
+                    suffix='s',
+                    siPrefix=True,
+                    dec=True,
+                )
             },
             'clock_duration': {
                 'display_text': 'Clock Duration',
-                'widget': unit_widgets.SecLineEdit(10e-9)
+                'widget': SpinBox(
+                    value=10e-9,
+                    suffix='s',
+                    siPrefix=True,
+                    dec=True,
+                )
             },
             'laser_lag': {
                 'display_text': 'Laser Lag',
-                'widget': unit_widgets.SecLineEdit(80e-9)
+                'widget': SpinBox(
+                    value=80e-9,
+                    suffix='s',
+                    siPrefix=True,
+                    dec=True,
+                )
             },
             'cooldown_time': {
                 'display_text': 'Cooldown Time',
-                'widget': unit_widgets.SecLineEdit(0)
+                'widget': SpinBox(
+                    value=0,
+                    suffix='s',
+                    siPrefix=True,
+                    dec=True,
+                )
             },
             'use_switch': {
                 'display_text': 'Switch',
@@ -187,7 +207,12 @@ class ConfocalODMRWidget(ExperimentWidget):
             
             'xyz_step': {
                 'display_text': 'XYZ Step',
-                'widget': unit_widgets.MLineEdit(0.050)
+                'widget': SpinBox(
+                    value=45e-9,
+                    suffix='m',
+                    siPrefix=True,
+                    dec=True,
+                )
             },
             'count_step_shrink': {
                 'display_text': 'Count Step Shrink',
