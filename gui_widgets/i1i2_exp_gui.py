@@ -169,7 +169,7 @@ class I1I2Widget(ExperimentWidget):
             },
             'searchXYZ': {
                 'display_text': 'Search XYZ',
-                'widget': QLineEdit("(0.5, 0.5, 0.5)")
+                'widget': QLineEdit("[0.5, 0.5, 0.5]")
             },
             'max_search': {
                 'display_text': 'Max Search',
@@ -240,7 +240,7 @@ class I1I2Widget(ExperimentWidget):
             title='I1I2 Experiment',
             get_param_value_funs={
                 # Insert the appropriate mapping functions here for each widget type.
-                SpinBox: lambda w: w.value() if w.suffix() != 'm' else w.value()*1e6,
+                SpinBox: lambda w: w.value() if w.opts.get('suffix', '') != 'm' else w.value()*1e6,
                 QSpinBox: lambda w: w.value(),
                 QLineEdit: lambda w: w.text(),
                 QCheckBox: lambda w: w.isChecked(),
@@ -257,9 +257,8 @@ class I1I2PlotWidget(FlexLinePlotWidget):
             """
             Processing function to calculate I2-I1 difference from I1I2 experiment data.
             
-            The I1I2 experiment returns data as StreamingList where each entry contains:
-            - I1: np.stack([frequencies, I1_values])  
-            - I2: np.stack([frequencies, I2_values])
+            The I1I2 experiment returns data where I1 and I2 are lists containing:
+            - Each entry is a list with [frequencies_array, values_array]
             
             This function calculates I2-I1 for each frequency point.
             """
@@ -267,36 +266,40 @@ class I1I2PlotWidget(FlexLinePlotWidget):
                 I1_data = sink.datasets['I1']
                 I2_data = sink.datasets['I2']
                 
-                # Initialize I2-I1 dataset as numpy array
-                num_sweeps = len(I1_data)
-                I2_minus_I1 = np.empty(num_sweeps, dtype=object)
+                # Check if we have data
+                if len(I1_data) == 0 or len(I2_data) == 0:
+                    return
                 
-                # Process each sweep
-                for i in range(num_sweeps):
+                # Initialize I2-I1 dataset
+                I2_minus_I1 = []
+                
+                # Process each sweep (assuming I1 and I2 have same number of sweeps)
+                min_sweeps = min(len(I1_data), len(I2_data))
+                
+                for i in range(min_sweeps):
                     # Extract frequency and value arrays from each sweep
                     I1_sweep = I1_data[i]
                     I2_sweep = I2_data[i]
                     
-                    # Get frequencies (should be same for both I1 and I2)
-                    frequencies = I1_sweep[0]
-                    
-                    # Get I1 and I2 values
-                    I1_values = I1_sweep[1]
-                    I2_values = I2_sweep[1]
-                    
-                    # Calculate difference I2 - I1
-                    diff_values = I2_values - I1_values
-                    
-                    # Store sweep entry with frequencies and difference values
-                    I2_minus_I1[i] = np.stack([frequencies, diff_values])
+                    # Each sweep is [frequencies, values]
+                    if len(I1_sweep) >= 2 and len(I2_sweep) >= 2:
+                        frequencies = np.array(I1_sweep[0])
+                        I1_values = np.array(I1_sweep[1])
+                        I2_values = np.array(I2_sweep[1])
+                        
+                        # Calculate difference I2 - I1
+                        diff_values = I2_values - I1_values
+                        
+                        # Store sweep entry with frequencies and difference values as numpy arrays
+                        I2_minus_I1.append(np.stack([frequencies, diff_values]))
                 
                 # Store the processed data
-                sink.datasets["I2-I1"] = I2_minus_I1
+                sink.datasets["I2_I1"] = I2_minus_I1
                 
         super().__init__(data_processing_func=processing_function) 
-        # self.add_plot('I1',        series='I1',   scan_i='',     scan_j='',  processing='Append')
-        # self.add_plot('I2',        series='I2',   scan_i='',     scan_j='',  processing='Append')
-        self.add_plot('I2-I1',      series='I2-I1', scan_i='',     scan_j='',  processing='Append')
+        self.add_plot('I1',        series='I1',   scan_i='',     scan_j='',  processing='Append')
+        self.add_plot('I2',        series='I2',   scan_i='',     scan_j='',  processing='Append')
+        self.add_plot('I2_I1',      series='I2_I1', scan_i='',     scan_j='',  processing='Append')
 
 
         # retrieve legend object

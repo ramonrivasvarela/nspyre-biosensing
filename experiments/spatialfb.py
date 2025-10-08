@@ -189,7 +189,7 @@ class SpatialFeedback():
         time.sleep(0.01)
         mgr.Pulser.stream_sequence(self.pulse_sequence, 1)
         # mgr.DAQcontrol.read()
-        data = mgr.DAQcontrol.read_to_data(self.probe_time)
+        data = mgr.DAQcontrol.read_to_data()
         return data
         
         

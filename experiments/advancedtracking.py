@@ -140,16 +140,15 @@ class AdvancedTracking():
             ## after this is 70-130 ms of lag        
             tracking_data, track_steps, temp_data, num_bins = self.process_data(data, buffer_allocation, remaining_buffer, index, search, do_not_run_feedback)
             total_fluor=np.sum(tracking_data)
-            self.data_analysis(mgr, tracking_data, track_steps, index, search, do_not_run_feedback, spot_size, num_bins, advanced_tracking, 
+            self.data_analysis(mgr, self.XYZ_center, tracking_data, track_steps, index, search, do_not_run_feedback, spot_size, num_bins, advanced_tracking,
                 changing_search, search_error_array, search_integral_history)
             mgr.DAQcontrol.move({'x': self.XYZ_center[0], 'y': self.XYZ_center[1], 'z': self.XYZ_center[2]})
             print('\nHere is where the laser is currently pointing:', mgr.DAQcontrol.position)
             for i, num in enumerate(search):
                 search[i] *= 0.9 if abs(self.drift[i]) < (2 / 5 * search[i]) else 1.2 if abs(self.drift[i]) > (
                         7 / 10 * search[i]) else 1
-            if advanced_tracking:
-                return search, temp_data, total_fluor, search_error_array, self.XYZ_center, self.drift, self.x_k, self.p_k, self.n_k
-            return  search, temp_data, total_fluor, search_error_array, self.XYZ_center, self.drift
+            
+            return  search, temp_data, total_fluor, search_error_array
     def process_data(self, input_buffer, buffer_allocation, remaining_buffer, index, search, do_not_run_feedback):
         # Shivam: We are removing the last value of I2 from the buffer to not have the last photon count
         # This is because we do not have a clock at the last time period and so would only have 1 out of 2 relevant counts for that segment when subtracting

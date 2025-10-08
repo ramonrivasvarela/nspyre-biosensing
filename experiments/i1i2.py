@@ -254,6 +254,8 @@ class I1I2():
                                 feed_params['x_k']=self.x_k
 
                             self.search, temp_data, total_fluor, search_error_array = self.AdvancedTracking.one_axis_measurement(**feed_params)
+                            self.XYZ_center=self.AdvancedTracking.XYZ_center
+                            self.drift=self.AdvancedTracking.drift
                             data_I1=temp_data[0]
                             data_I2=temp_data[1]
                             # Shivam: Use self.current_temp to continually use the latest temperature from the initial setting onwards.
@@ -261,13 +263,13 @@ class I1I2():
                             I1_sweeps.updated_item(-1)
                             I2_sweeps[-1][1][f] = data_I2
                             I2_sweeps.updated_item(-1)
-                            x_tracking.append(np.array([np.array(time.time()-start_t), np.array([self.XYZ_center[0]])]))
+                            x_tracking.append(np.array([np.array([time.time()-start_t]), np.array([self.XYZ_center[0]])]))
                             x_tracking.updated_item(-1)
-                            y_tracking.append(np.array([np.array(time.time()-start_t), np.array([self.XYZ_center[1]])]))
+                            y_tracking.append(np.array([np.array([time.time()-start_t]), np.array([self.XYZ_center[1]])]))
                             y_tracking.updated_item(-1)
-                            z_tracking.append(np.array([np.array(time.time()-start_t), np.array([self.XYZ_center[2]])]))
+                            z_tracking.append(np.array([np.array([time.time()-start_t]), np.array([self.XYZ_center[2]])]))
                             z_tracking.updated_item(-1)
-                            total_fluor_tracking.append(np.array([np.array(time.time()-start_t), np.array([total_fluor])]))
+                            total_fluor_tracking.append(np.array([np.array([time.time()-start_t]), np.array([total_fluor])]))
                             total_fluor_tracking.updated_item(-1)
 
                             print("Main search_error_array is " + str(search_error_array))
