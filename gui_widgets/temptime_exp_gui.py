@@ -8,7 +8,7 @@ from nspyre import ExperimentWidget
 MAXIMUM=2147483647 
 
 get_param_value_funs={
-    SpinBox: lambda w: w.value() if w.suffix() != 'm' else w.value()*1e6,
+    SpinBox: lambda w: w.value() if w.opts.get('suffix', '') != 'm' else w.value()*1e6,
     QSpinBox: lambda w: w.value(),
     QLineEdit: lambda w: w.text(),
     QCheckBox: lambda w: w.isChecked(),
