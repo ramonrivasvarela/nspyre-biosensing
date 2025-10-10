@@ -552,6 +552,185 @@ class PulserClass():
         experiment.setDigital(self.channel_dict['laser'], patternGreen)
 
         return experiment, new_pulse_time
+    
+    def setup_no_wait(self, ns_laser_lag, ns_probe_time, ns_clock_duration, runs, mode, switch):
+        '''
+        Sets up the pulse sequence for ODMR without wait time. Returns the relevant instrument sequences as a dictionary
+        '''
+        IQ0 = [-0.0025,-0.0025]
+        IQpx = [0.4461,-.0025]
+        
+        if self.VERBOSE: 
+            print('\n using sequence without wait time')
+            print('self.read_time:', ns_probe_time)
+            print('self.clock_time:',  ns_clock_duration)       
+            print('self.laser_lag:', ns_laser_lag) 
+
+        #### LASER LAG
+        laser = [(ns_laser_lag, 1)]
+        clock = [(ns_laser_lag, 0)]
+        if mode == 'QAM': 
+            mwQ = [(ns_laser_lag, IQ0[0])]
+            mwI = [(ns_laser_lag, IQ0[1])]
+        elif mode == 'AM':
+            mwQ = [(ns_laser_lag, -1)]
+        elif mode == 'NoMod':
+            if not switch:
+                raise ValueError('NoMod mode requires switch to be True')
+
+        if switch:
+            if self.VERBOSE: print('using switch')
+            switch = [(ns_laser_lag, 1)]
+
+
+        #### (mwOnOff repeating sequence defn)
+        mwOnOff_laser = [(ns_probe_time, 1), (ns_probe_time, 1)]
+        if mode == 'QAM':
+            mwOnOff_mwQ = [(ns_probe_time, IQpx[0]), (ns_probe_time, IQ0[0])]
+            mwOnOff_mwI = [(ns_probe_time, IQpx[1]), (ns_probe_time, IQ0[1])]
+        elif mode == 'AM':
+            mwOnOff_mwQ = [(ns_probe_time, 0), (ns_probe_time, -1)]
+        elif mode == 'NoMod':
+            pass
+        mwOnOff_clock = [(ns_clock_duration,1),(ns_probe_time-ns_clock_duration,0),(ns_clock_duration,1),(ns_probe_time-ns_clock_duration,0)]
+        if switch:
+            mwOnOff_switch = [(ns_probe_time, 0), (ns_probe_time, 1)]
+
+        #### REPEATING MICROWAVE ON/OFF SEQUENCE
+        for i in range(runs):        
+            laser += mwOnOff_laser
+            clock += mwOnOff_clock
+            mwQ += mwOnOff_mwQ
+            if mode == 'QAM':
+                mwI += mwOnOff_mwI
+            if switch:
+                switch += mwOnOff_switch
+        
+        #### Last clock to collect for the last point in the run        
+        laser += [(ns_clock_duration, 0)]
+        clock += [(ns_clock_duration, 1)]
+        if mode == 'QAM':
+            mwQ += [(ns_clock_duration, IQ0[0])]
+            mwI += [(ns_clock_duration, IQ0[1])]
+        elif mode == 'AM':
+            mwQ += [(ns_clock_duration, -1)] 
+        elif mode == 'NoMod':
+            pass
+        if switch:
+            switch += [(ns_clock_duration, 1)]
+        
+        #### FINALIZE
+        if self.VERBOSE:
+            print('Finished setting up pulse sequence')
+
+        seq_dict = {'clock': clock,'laser': laser}
+        if mode == 'QAM':
+            seq_dict['Q'] = mwQ
+            seq_dict['I'] = mwI
+        elif mode == 'AM':
+            seq_dict['Q'] = mwQ
+        elif mode == 'NoMod':
+            pass
+
+        if switch:
+            seq_dict['switch'] = switch
+
+        return seq_dict
+        
+    ## still need to change this to new method
+    def setup_ODMR_wait(self, ns_laser_lag, ns_probe_time, ns_clock_duration, ns_cooldown_time, ns_pulsewait_time ,runs, mode, switch):
+        '''
+        Sets up the pulse sequence for ODMR without wait time. Returns the relevant instrument sequences as a dictionary
+        '''
+        
+        IQ0 = [-0.0025,-0.0025]
+        IQpx = [0.4461,-.0025]
+        
+        if self.VERBOSE: 
+            print('\n using sequence with wait time')
+            print('self.read_time:', ns_probe_time)
+            print('self.clock_time:',  ns_clock_duration)     
+            print('self.cooldown_time:', ns_cooldown_time)  
+            print('self.laser_lag:', ns_laser_lag) 
+            print('self.pulsewait_time:', ns_pulsewait_time)
+
+        #### LASER LAG
+        laser = [(ns_laser_lag, 1)]
+        clock = [(ns_laser_lag, 0)]
+        if mode == 'QAM': 
+            mwQ = [(ns_laser_lag, IQ0[0])]
+            mwI = [(ns_laser_lag, IQ0[1])]
+        elif mode == 'AM':
+            mwQ = [(ns_laser_lag, -1)]
+        elif mode == 'NoMod':
+            if not switch:
+                raise ValueError('NoMod mode requires switch to be True')
+
+        if switch:
+            if self.VERBOSE: print('using switch')
+            switch = [(ns_laser_lag, 1)]
+
+
+        #### (mwOnOff repeating sequence defn)
+        mwOnOff_laser = [(ns_probe_time, 1), (ns_cooldown_time,0),
+                          (ns_probe_time, 1), (ns_cooldown_time,0), (ns_pulsewait_time, 0)]
+        if mode == 'QAM':
+            mwOnOff_mwQ = [(ns_probe_time, IQpx[0]), 
+                            (ns_probe_time + 2 * ns_cooldown_time + ns_pulsewait_time, IQ0[0])]
+            mwOnOff_mwI = [(ns_probe_time, IQpx[1]), 
+                           (ns_probe_time + 2 * ns_cooldown_time + ns_pulsewait_time, IQ0[1])]
+        elif mode == 'AM':
+            mwOnOff_mwQ = [(ns_probe_time, 0), 
+                            (ns_probe_time + 2 * ns_cooldown_time + ns_pulsewait_time, -1)]
+        elif mode == 'NoMod':
+            pass
+        mwOnOff_clock = [(ns_clock_duration,1),(ns_probe_time-2*ns_clock_duration,0),(ns_clock_duration,1), (ns_cooldown_time + ns_pulsewait_time, 0),
+                         (ns_clock_duration,1),(ns_probe_time-2*ns_clock_duration,0),(ns_clock_duration,1), (ns_cooldown_time + ns_pulsewait_time, 0)]
+        if switch:
+            mwOnOff_switch = [(ns_probe_time, 0),
+                               (ns_probe_time + 2 * ns_cooldown_time + ns_pulsewait_time, 1)]
+
+        #### REPEATING MICROWAVE ON/OFF SEQUENCE
+        for i in range(runs):        
+            laser += mwOnOff_laser
+            clock += mwOnOff_clock
+            mwQ += mwOnOff_mwQ
+            if mode == 'QAM':
+                mwI += mwOnOff_mwI
+            if switch:
+                switch += mwOnOff_switch
+        
+        #### Last clock to collect for the last point in the run        
+        laser += [(ns_clock_duration, 0)]
+        clock += [(ns_clock_duration, 1)]
+        if mode == 'QAM':
+            mwQ += [(ns_clock_duration, IQ0[0])]
+            mwI += [(ns_clock_duration, IQ0[1])]
+        elif mode == 'AM':
+            mwQ += [(ns_clock_duration, -1)] 
+        elif mode == 'NoMod':
+            pass
+        if switch:
+            switch += [(ns_clock_duration, 1)]
+        
+        #### FINALIZE
+        if self.VERBOSE:
+            print('Finished setting up pulse sequence')
+
+        seq_dict = {'clock': clock,'laser': laser}
+        if mode == 'QAM':
+            seq_dict['Q'] = mwQ
+            seq_dict['I'] = mwI
+        elif mode == 'AM':
+            seq_dict['Q'] = mwQ
+        elif mode == 'NoMod':
+            pass
+
+        if switch:
+            seq_dict['switch'] = switch
+
+        return seq_dict
+
 
     def setup_LPvT(self, ns_read_time, ns_clock_time, freq_array, num_freq = 4):
         freq_ct = len(freq_array)

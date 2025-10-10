@@ -1,3 +1,4 @@
+
 #### BASIC IMPORTS
 from nspyre import nspyre_init_logger
 import logging
@@ -209,11 +210,11 @@ class ConfocalODMR():
         if self.ns_cooldown_time == 0 and self.ns_pulsewait_time == 0:
             self.ODMR_label = [1, 0] # sig, bg
             if self.VERBOSE: print('ODMR, no wait time')
-            seq_dict = self.setup_no_wait(self.ns_laser_lag, self.ns_probe_time, self.ns_clock_duration, runs, mode, use_switch)
+            seq_dict = mgr.Pulser.setup_no_wait(self.ns_laser_lag, self.ns_probe_time, self.ns_clock_duration, runs, mode, use_switch)
         else:
             self.ODMR_label = [1, 'x', 0, 'x'] # sig, discard, bg, discard
             if self.VERBOSE: print('ODMR, with wait time')
-            seq_dict = self.setup_ODMR_wait(self.ns_laser_lag, self.ns_probe_time, self.ns_clock_duration, self.ns_cooldown_time, runs, mode, use_switch)
+            seq_dict = mgr.Pulser.setup_ODMR_wait(self.ns_laser_lag, self.ns_probe_time, self.ns_clock_duration, self.ns_cooldown_time, runs, mode, use_switch)
         print(seq_dict)
         self.seq = mgr.Pulser.make_seq(**seq_dict)
         if self.VERBOSE:
@@ -228,17 +229,12 @@ class ConfocalODMR():
         if mode == 'QAM':
             mgr.sg.set_mod_type('QAM')
             mgr.sg.set_mod_function('QAM', 'external')
-        elif mode == 'AM':
+        elif mode == 'AM' or mode == 'NoMod':
             mgr.sg.set_mod_type('AM')
             mgr.sg.set_mod_function('AM', 'external')
             mgr.sg.set_AM_mod_depth(100)
-        elif mode == 'NoMod':
-            # For NoMod, we rely on the switch to control MW on/off
-            mgr.sg.set_mod_toggle(False)
         mgr.sg.set_rf_toggle(True)
-        
-        # Add a small delay to ensure SG settings are applied
-        time.sleep(0.1)
+
 
         ## Prepare DAQ counter
 
@@ -258,9 +254,8 @@ class ConfocalODMR():
         '''
         Sets up the pulse sequence for ODMR without wait time. Returns the relevant instrument sequences as a dictionary
         '''
-        # Updated IQ values for better MW on/off contrast
-        IQ0 = [0.0, 0.0]  # MW off - zero amplitude
-        IQpx = [0.5, 0.0]  # MW on - higher amplitude for better contrast
+        IQ0 = [-0.0025,-0.0025]
+        IQpx = [0.4461,-.0025]
         
         if self.VERBOSE: 
             print('\n using sequence without wait time')
@@ -275,14 +270,14 @@ class ConfocalODMR():
             mwQ = [(ns_laser_lag, IQ0[0])]
             mwI = [(ns_laser_lag, IQ0[1])]
         elif mode == 'AM':
-            mwQ = [(ns_laser_lag, 0)]  # MW off during lag
+            mwQ = [(ns_laser_lag, -1)]
         elif mode == 'NoMod':
             if not switch:
                 raise ValueError('NoMod mode requires switch to be True')
 
         if switch:
             if self.VERBOSE: print('using switch')
-            switch_seq = [(ns_laser_lag, 0)]  # Switch off during lag
+            switch = [(ns_laser_lag, 1)]
 
 
         #### (mwOnOff repeating sequence defn)
@@ -291,24 +286,22 @@ class ConfocalODMR():
             mwOnOff_mwQ = [(ns_probe_time, IQpx[0]), (ns_probe_time, IQ0[0])]
             mwOnOff_mwI = [(ns_probe_time, IQpx[1]), (ns_probe_time, IQ0[1])]
         elif mode == 'AM':
-            mwOnOff_mwQ = [(ns_probe_time, 1), (ns_probe_time, 0)]  # 1 for MW on, 0 for MW off
+            mwOnOff_mwQ = [(ns_probe_time, 0), (ns_probe_time, -1)]
         elif mode == 'NoMod':
             pass
         mwOnOff_clock = [(ns_clock_duration,1),(ns_probe_time-ns_clock_duration,0),(ns_clock_duration,1),(ns_probe_time-ns_clock_duration,0)]
         if switch:
-            mwOnOff_switch = [(ns_probe_time, 1), (ns_probe_time, 0)]  # Switch on for MW, off for background
+            mwOnOff_switch = [(ns_probe_time, 0), (ns_probe_time, 1)]
 
         #### REPEATING MICROWAVE ON/OFF SEQUENCE
         for i in range(runs):        
             laser += mwOnOff_laser
             clock += mwOnOff_clock
+            mwQ += mwOnOff_mwQ
             if mode == 'QAM':
-                mwQ += mwOnOff_mwQ
                 mwI += mwOnOff_mwI
-            elif mode == 'AM':
-                mwQ += mwOnOff_mwQ
             if switch:
-                switch_seq += mwOnOff_switch
+                switch += mwOnOff_switch
         
         #### Last clock to collect for the last point in the run        
         laser += [(ns_clock_duration, 0)]
@@ -317,11 +310,11 @@ class ConfocalODMR():
             mwQ += [(ns_clock_duration, IQ0[0])]
             mwI += [(ns_clock_duration, IQ0[1])]
         elif mode == 'AM':
-            mwQ += [(ns_clock_duration, 0)]  # MW off for final clock
+            mwQ += [(ns_clock_duration, -1)] 
         elif mode == 'NoMod':
             pass
         if switch:
-            switch_seq += [(ns_clock_duration, 0)]
+            switch += [(ns_clock_duration, 1)]
         
         #### FINALIZE
         if self.VERBOSE:
@@ -337,19 +330,18 @@ class ConfocalODMR():
             pass
 
         if switch:
-            seq_dict['switch'] = switch_seq
+            seq_dict['switch'] = switch
 
         return seq_dict
         
     ## still need to change this to new method
     def setup_ODMR_wait(self, ns_laser_lag, ns_probe_time, ns_clock_duration, ns_cooldown_time, ns_pulsewait_time ,runs, mode, switch):
         '''
-        Sets up the pulse sequence for ODMR with wait time. Returns the relevant instrument sequences as a dictionary
+        Sets up the pulse sequence for ODMR without wait time. Returns the relevant instrument sequences as a dictionary
         '''
         
-        # Updated IQ values for better MW on/off contrast
-        IQ0 = [0.0, 0.0]  # MW off - zero amplitude
-        IQpx = [0.5, 0.0]  # MW on - higher amplitude for better contrast
+        IQ0 = [-0.0025,-0.0025]
+        IQpx = [0.4461,-.0025]
         
         if self.VERBOSE: 
             print('\n using sequence with wait time')
@@ -366,14 +358,14 @@ class ConfocalODMR():
             mwQ = [(ns_laser_lag, IQ0[0])]
             mwI = [(ns_laser_lag, IQ0[1])]
         elif mode == 'AM':
-            mwQ = [(ns_laser_lag, 0)]  # MW off during lag
+            mwQ = [(ns_laser_lag, -1)]
         elif mode == 'NoMod':
             if not switch:
                 raise ValueError('NoMod mode requires switch to be True')
 
         if switch:
             if self.VERBOSE: print('using switch')
-            switch_seq = [(ns_laser_lag, 0)]  # Switch off during lag
+            switch = [(ns_laser_lag, 1)]
 
 
         #### (mwOnOff repeating sequence defn)
@@ -385,27 +377,25 @@ class ConfocalODMR():
             mwOnOff_mwI = [(ns_probe_time, IQpx[1]), 
                            (ns_probe_time + 2 * ns_cooldown_time + ns_pulsewait_time, IQ0[1])]
         elif mode == 'AM':
-            mwOnOff_mwQ = [(ns_probe_time, 1), 
-                            (ns_probe_time + 2 * ns_cooldown_time + ns_pulsewait_time, 0)]  # 1 for MW on, 0 for MW off
+            mwOnOff_mwQ = [(ns_probe_time, 0), 
+                            (ns_probe_time + 2 * ns_cooldown_time + ns_pulsewait_time, -1)]
         elif mode == 'NoMod':
             pass
         mwOnOff_clock = [(ns_clock_duration,1),(ns_probe_time-2*ns_clock_duration,0),(ns_clock_duration,1), (ns_cooldown_time + ns_pulsewait_time, 0),
                          (ns_clock_duration,1),(ns_probe_time-2*ns_clock_duration,0),(ns_clock_duration,1), (ns_cooldown_time + ns_pulsewait_time, 0)]
         if switch:
-            mwOnOff_switch = [(ns_probe_time, 1),
-                               (ns_probe_time + 2 * ns_cooldown_time + ns_pulsewait_time, 0)]  # Switch on for MW, off for background
+            mwOnOff_switch = [(ns_probe_time, 0),
+                               (ns_probe_time + 2 * ns_cooldown_time + ns_pulsewait_time, 1)]
 
         #### REPEATING MICROWAVE ON/OFF SEQUENCE
         for i in range(runs):        
             laser += mwOnOff_laser
             clock += mwOnOff_clock
+            mwQ += mwOnOff_mwQ
             if mode == 'QAM':
-                mwQ += mwOnOff_mwQ
                 mwI += mwOnOff_mwI
-            elif mode == 'AM':
-                mwQ += mwOnOff_mwQ
             if switch:
-                switch_seq += mwOnOff_switch
+                switch += mwOnOff_switch
         
         #### Last clock to collect for the last point in the run        
         laser += [(ns_clock_duration, 0)]
@@ -414,11 +404,11 @@ class ConfocalODMR():
             mwQ += [(ns_clock_duration, IQ0[0])]
             mwI += [(ns_clock_duration, IQ0[1])]
         elif mode == 'AM':
-            mwQ += [(ns_clock_duration, 0)]  # MW off for final clock
+            mwQ += [(ns_clock_duration, -1)] 
         elif mode == 'NoMod':
             pass
         if switch:
-            switch_seq += [(ns_clock_duration, 0)]
+            switch += [(ns_clock_duration, 1)]
         
         #### FINALIZE
         if self.VERBOSE:
@@ -434,7 +424,7 @@ class ConfocalODMR():
             pass
 
         if switch:
-            seq_dict['switch'] = switch_seq
+            seq_dict['switch'] = switch
 
         return seq_dict
 
@@ -689,7 +679,7 @@ class ConfocalODMR():
         return fit_results
 
 
-
-
-
-
+        
+        
+        
+    
