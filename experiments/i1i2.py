@@ -137,14 +137,19 @@ class I1I2():
             start_t= time.time()
             I1_data=np.empty(n_freqs)
             I2_data=np.empty(n_freqs)
-            I1_sweeps.append(np.stack([freqs, I1_data]))
-            I2_sweeps.append(np.stack([freqs, I2_data]))
+            # I1_sweeps.append(np.stack([freqs, I1_data]))
+            # I2_sweeps.append(np.stack([freqs, I2_data]))
             if not continuous_tracking:
                 
                 for sweep in range(sweeps):
-
+                    I1_empty=np.empty(n_freqs)
+                    I1_empty[:]=np.nan
+                    I2_empty=np.empty(n_freqs)
+                    I2_empty[:]=np.nan
+                    I1_sweeps.append(np.stack([freqs, I1_empty]))
+                    I2_sweeps.append(np.stack([freqs, I2_empty]))
                     print('before feedback')
-                    self.feedback(mgr, sweep, sweeps_until_feedback, z_cycle, xyz_step_nm, shrink_every_x_iter,starting_point)
+                    self.feedback(mgr, sweep, sweeps_until_feedback, z_cycle, xyz_step_nm, shrink_every_x_iter,starting_point, sampling_rate)
                     for f, freq in enumerate(freqs):
                         print("Frequency value is " + str(f))
                         # time_start = time.time()
@@ -153,7 +158,7 @@ class I1I2():
                         mgr.sg.set_frequency(freq)
                         print('frequency:', freq)
                         # import pdb; pdb.set_trace()
-
+                        
                         output_buffer = self.odmr_read(mgr, self.sequence, read_timeout)
                         data_I1, data_I2 = self.odmr_math(output_buffer)
                         I1_sweeps[-1][1][f] = data_I1
@@ -205,110 +210,113 @@ class I1I2():
                 # Counts every time we measure a certain frequency value
                 self.counter = 0
                 for sweep in range(sweeps):
+                    I1_empty=np.empty(n_freqs)
+                    I1_empty[:]=np.nan
+                    I2_empty=np.empty(n_freqs)
+                    I2_empty[:]=np.nan
+                    I1_sweeps.append(np.stack([freqs, I1_empty]))
+                    I2_sweeps.append(np.stack([freqs, I2_empty]))
                     for f, freq in enumerate(freqs):
-                        for index in [2, 0, 1]:
-                            # Shivam: If track_z is true, then z axis is scanned every z_cycle iterations.
-                            # Shivam: Not sure why this is here, but we should just assert that z_cycle is greater than 0 if track_z is true.
-                            # if z_cycle == 0:
-                            #     continue
-                            if (not track_z) and (index == 2):
-                                continue
-                            elif (index == 2) and (index % z_cycle != 0):
-                                continue
+                        index=(index+1)%3
+                        if (not track_z) and (index == 2):
+                            continue
+                        elif (index == 2) and (index % z_cycle != 0):
+                            continue
                         # time_start = time.time()
                         #import pdb; pdb.set_trace()
-                            mgr.sg.set_frequency(freq)
-                            print('frequency:', freq)
-                            # import pdb; pdb.set_trace()
+                        mgr.sg.set_frequency(freq)
+                        print('frequency:', freq)
+                        # import pdb; pdb.set_trace()
 
-                            self.AdvancedTracking=AdvancedTracking(self.queue_to_exp, self.queue_from_exp)
-                            feed_params={
-                                'XYZ_center':self.XYZ_center,
-                                'buffer_size':self.bufsize,
-                                'index':index,
-                                'search': self.search,
-                                'scan_distance':self.scan_distance,
-                                'read_timeout':read_timeout,
-                                'spot_size':self.spot_size, 
-                                'do_not_run_feedback': False,
-                                'advanced_tracking':advanced_tracking, 
-                                'changing_search':changing_search, 
-                                'search_error_array':search_error_array, 
-                                'search_integral_history':search_integral_history,
-                                # 'sampling_rate':sampling_rate,
-                                'drift':self.drift,
-                                'run_ct':self.run_ct,
-                                'search_PID':search_PID,
-                                'max_search':self.max_search,
-                                'min_search':self.min_search,
-                                'sequence':self.sequence,
-                                'num_freq':n_freqs,
-                                
+                        self.AdvancedTracking=AdvancedTracking(self.queue_to_exp, self.queue_from_exp)
+                        feed_params={
+                            'XYZ_center':self.XYZ_center,
+                            'buffer_size':self.bufsize,
+                            'index':index,
+                            'search': self.search,
+                            'scan_distance':self.scan_distance,
+                            'read_timeout':read_timeout,
+                            'spot_size':self.spot_size, 
+                            'do_not_run_feedback': False,
+                            'advanced_tracking':advanced_tracking, 
+                            'changing_search':changing_search, 
+                            'search_error_array':search_error_array, 
+                            'search_integral_history':search_integral_history,
+                            # 'sampling_rate':sampling_rate,
+                            'drift':self.drift,
+                            'run_ct':self.run_ct,
+                            'search_PID':search_PID,
+                            'max_search':self.max_search,
+                            'min_search':self.min_search,
+                            'sequence':self.sequence,
+                            'num_freq':n_freqs,
+                            
+                        }
+                        if advanced_tracking:
+                            feed_params['diffusion_constant']=self.diffusion_constant
+                            feed_params['time_elapsed']=self.time_elapsed
+                            feed_params['w']=self.w
+                            feed_params['n_k']=self.n_k
+                            feed_params['p_k']=self.p_k
+                            feed_params['x_k']=self.x_k
+
+                        self.search, temp_data, total_fluor, search_error_array = self.AdvancedTracking.one_axis_measurement(**feed_params)
+                        self.XYZ_center=self.AdvancedTracking.XYZ_center
+                        self.drift=self.AdvancedTracking.drift
+                        data_I1=temp_data[0]
+                        data_I2=temp_data[1]
+                        
+                        # Shivam: Use self.current_temp to continually use the latest temperature from the initial setting onwards.
+                        I1_sweeps[-1][1][f] = data_I1
+                        I1_sweeps.updated_item(-1)
+                        I2_sweeps[-1][1][f] = data_I2
+                        I2_sweeps.updated_item(-1)
+                        x_tracking.append(np.array([np.array([time.time()-start_t]), np.array([self.XYZ_center[0]])]))
+                        x_tracking.updated_item(-1)
+                        y_tracking.append(np.array([np.array([time.time()-start_t]), np.array([self.XYZ_center[1]])]))
+                        y_tracking.updated_item(-1)
+                        z_tracking.append(np.array([np.array([time.time()-start_t]), np.array([self.XYZ_center[2]])]))
+                        z_tracking.updated_item(-1)
+                        total_fluor_tracking.append(np.array([np.array([time.time()-start_t]), np.array([total_fluor])]))
+                        total_fluor_tracking.updated_item(-1)
+
+                        print("Main search_error_array is " + str(search_error_array))
+                        print(data_I1, data_I2)
+                        # Shivam: equivalent of return statement, since acquired into mongo database
+
+                        
+                        
+                        # Push all arguments of i1i2 plus measurement results to the DataSource
+                        data_source.push({
+                            'params':params,
+                            
+                            'datasets':{
+                                'I1': I1_sweeps,
+                                'I2': I2_sweeps
                             }
-                            if advanced_tracking:
-                                feed_params['diffusion_constant']=self.diffusion_constant
-                                feed_params['time_elapsed']=self.time_elapsed
-                                feed_params['w']=self.w
-                                feed_params['n_k']=self.n_k
-                                feed_params['p_k']=self.p_k
-                                feed_params['x_k']=self.x_k
+                        })
+                        tracking_data_source.push({
+                            'title': 'Tracking Data',
+                            'xlabel': 'Time (s)',
+                            'datasets': {
 
-                            self.search, temp_data, total_fluor, search_error_array = self.AdvancedTracking.one_axis_measurement(**feed_params)
-                            self.XYZ_center=self.AdvancedTracking.XYZ_center
-                            self.drift=self.AdvancedTracking.drift
-                            data_I1=temp_data[0]
-                            data_I2=temp_data[1]
-                            # Shivam: Use self.current_temp to continually use the latest temperature from the initial setting onwards.
-                            I1_sweeps[-1][1][f] = data_I1
-                            I1_sweeps.updated_item(-1)
-                            I2_sweeps[-1][1][f] = data_I2
-                            I2_sweeps.updated_item(-1)
-                            x_tracking.append(np.array([np.array([time.time()-start_t]), np.array([self.XYZ_center[0]])]))
-                            x_tracking.updated_item(-1)
-                            y_tracking.append(np.array([np.array([time.time()-start_t]), np.array([self.XYZ_center[1]])]))
-                            y_tracking.updated_item(-1)
-                            z_tracking.append(np.array([np.array([time.time()-start_t]), np.array([self.XYZ_center[2]])]))
-                            z_tracking.updated_item(-1)
-                            total_fluor_tracking.append(np.array([np.array([time.time()-start_t]), np.array([total_fluor])]))
-                            total_fluor_tracking.updated_item(-1)
+                                'x_pos': x_tracking,
+                                'y_pos': y_tracking,
+                                'z_pos': z_tracking,
+                                'total_fluor': total_fluor_tracking,
+                            }
+                        })
 
-                            print("Main search_error_array is " + str(search_error_array))
-                            print(data_I1, data_I2)
-                            # Shivam: equivalent of return statement, since acquired into mongo database
+                        self.counter += 1
 
-                            
-                            
-                            # Push all arguments of i1i2 plus measurement results to the DataSource
-                            data_source.push({
-                                'params':params,
+                        # # Updating the index to loop search axis through 0, 1, 2 = x, y, z
+                        # index = (index + 1) % 3
+
+                        if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
+                                # the GUI has asked us nicely to exit
+                                return self.finalize(mgr, data_download, I1_sweeps, I2_sweeps)
                                 
-                                'datasets':{
-                                    'I1': I1_sweeps,
-                                    'I2': I2_sweeps
-                                }
-                            })
-                            tracking_data_source.push({
-                                'title': 'Tracking Data',
-                                'xlabel': 'Time (s)',
-                                'datasets': {
-
-                                    'x_pos': x_tracking,
-                                    'y_pos': y_tracking,
-                                    'z_pos': z_tracking,
-                                    'total_fluor': total_fluor_tracking,
-                                }
-                            })
-
-                            self.counter += 1
-
-                            # # Updating the index to loop search axis through 0, 1, 2 = x, y, z
-                            # index = (index + 1) % 3
-
-                            if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
-                                    # the GUI has asked us nicely to exit
-                                    return self.finalize(mgr, data_download, I1_sweeps, I2_sweeps)
-                                    
-                
+            
                 # Finalize the experiment after all sweeps are complete  
                 return self.finalize(mgr, data_download, I1_sweeps, I2_sweeps)
 
@@ -471,7 +479,7 @@ class I1I2():
         print('end of read')
         return buffer
 
-    def feedback(self, mgr, sweep, sweeps_until_feedback, z_cycle, xyz_step_nm, shrink_every_x_iter,starting_point):
+    def feedback(self, mgr, sweep, sweeps_until_feedback, z_cycle, xyz_step_nm, shrink_every_x_iter,starting_point, sampling_rate):
         # \consider taking away sweep>0, allows you to avoid running spatial feedback before experiment
 
         if (sweep > 0) and (sweep % sweeps_until_feedback == 0):
@@ -485,25 +493,28 @@ class I1I2():
                 'do_z': dozfb,
                 'xyz_step': xyz_step_nm,
                 'shrink_every_x_iter': shrink_every_x_iter,
+                'counter_already_exists':True
             }
             ## we make sure the laser is turned on.
             self.SpatialFB = SpatialFeedback(self.queue_to_exp, self.queue_from_exp)
             self.SpatialFB.spatial_feedback(**feed_params)
+            mgr.DAQcontrol.prepare_counting(sampling_rate, self.bufsize-1)
+            
 
-            ##space_data is the last line of data from spatialfeedbackxyz
-            space_data = self.SpatialFB.data.tail(1)
-            x_initial = space_data['x_center'].values[0]
-            y_initial = space_data['y_center'].values[0]
-            if dozfb:
-                z_initial = space_data['z_center'].values[0]
+        #     ##space_data is the last line of data from spatialfeedbackxyz
+        #     space_data = self.SpatialFB.data.tail(1)
+        #     x_initial = space_data['x_center'].values[0]
+        #     y_initial = space_data['y_center'].values[0]
+        #     if dozfb:
+        #         z_initial = space_data['z_center'].values[0]
 
-                mgr.DAQcontrol.move({'x': x_initial, 'y': y_initial, 'z': z_initial})
-                return
-            # Shivam: Is there supposed to be an else over here?
-            mgr.DAQcontrol.move({'x': x_initial, 'y': y_initial, 'z': self.XYZ_center[2]})
-            return
-        else:
-            return
+        #         mgr.DAQcontrol.move({'x': x_initial, 'y': y_initial, 'z': z_initial})
+        #         return
+        #     # Shivam: Is there supposed to be an else over here?
+        #     mgr.DAQcontrol.move({'x': x_initial, 'y': y_initial, 'z': self.XYZ_center[2]})
+        #     return
+        # else:
+        #     return
 
 
     def ready_pulse_sequence(self, mgr,  mwPulseTime, clockPulse, sideband_frequency, rf_amplitude):

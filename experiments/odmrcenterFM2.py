@@ -50,7 +50,7 @@ class ODMRCenter:
         """Perform experiment teardown."""
         _logger.info('Destroyed Experiment instance.')
 
-    def main(self, runs, initial_odmr, odmr_span, sweep_time, PID, probe_time, clock_time, laser_pause, timeout_counter, rf_amplitude, mode, dataset):
+    def main(self, runs, initial_odmr, odmr_span, sweep_time, PID, probe_time, clock_time, laser_pause, timeout_counter, rf_amplitude, mode, drift, xy_pid, z_pid, dataset):
         params={'runs':runs, 
                 'initial_odmr':initial_odmr, 
                 'odmr_span':odmr_span, 
@@ -64,42 +64,100 @@ class ODMRCenter:
                 'mode':mode,
                 'dataset':dataset}
         kp, ki, kd=eval(PID)
+
+        drift=eval(drift)
+        xy_pid=eval(xy_pid)
+        z_pid=eval(z_pid)
         with InstrumentManager() as mgr, DataSource(dataset) as ds:
             counter=0
             odmr_freq=initial_odmr
             self.initialize(mgr, runs, odmr_span, sweep_time, probe_time, clock_time, laser_pause, mode, rf_amplitude)
-            while counter<timeout_counter:
-                counter+=1
-                mgr.sg.set_frequency(odmr_freq)
-                mgr.DAQcontrol.start_counter()
-                mgr.Pulser.stream_sequence(self.sequence, 1)
-                mgr.Pulser.set_state_off()
-                # data = rpyc.utils.classic.obtain(mgr.DAQcontrol.read_to_data_array())
+            current_pos=mgr.DAQcontrol.position
+            x=current_pos['x']
+            y=current_pos['y']
+            z=current_pos['z']
+            pos=[x, y, z]
+            count_array=np.zeros(8)
+            x_counts_error_last=0
+            y_counts_error_last=0
+            z_counts_error_last=0
+            x_counts_sum=0
+            y_counts_sum=0
+            z_counts_sum=0
+            left_background_t=0
+            left_signal_t=0
+            right_background_t=0
+            right_signal_t=0
 
-                try:
-                    left_background, left_signal, right_background, right_signal = rpyc.utils.classic.obtain(mgr.DAQcontrol.odmr_center_read_process_data(self.n_points, runs))
-                except Exception as e:
-                    print("Error during data acquisition or processing:", e)
-                    print(mgr.DAQcontrol.ctr_buffer)
-                    self.finalize(mgr)
-                    return
-                left_contrast=(left_background-left_signal)/left_background
-                right_contrast=(right_background-right_signal)/right_background
-                print(f"Left contrast: {left_contrast}, Right contrast: {right_contrast}")
+            mgr.sg.set_frequency(odmr_freq)
+            while counter<timeout_counter:
                 
-                # PID control to adjust ODMR frequency
-                frequency_adjustment = self.pid_control(left_contrast, right_contrast, kp, ki, kd)
-                odmr_freq += frequency_adjustment
-                search = abs(frequency_adjustment)  # Update search value based on adjustment magnitude
+                if counter%8<4:
+                    pos[0]=x+drift[0]/2
+                else:
+                    pos[0]=x-drift[0]/2
+                if counter%4<2:
+                    pos[1]=y+drift[1]/2
+                else:
+                    pos[1]=y-drift[1]/2
+                if counter%2<1:
+                    pos[2]=z+drift[2]/2
+                else:
+                    pos[2]=z-drift[2]/2
+                mgr.DAQcontrol.move({'x':pos[0],'y':pos[1],'z':pos[2]})
+                mgr.DAQcontrol.start_counter()
+                mgr.Pulser.stream_sequence(self.sequence, runs)
+                data = rpyc.utils.classic.obtain(mgr.DAQcontrol.read_to_data_array())
+
                 
-                print(f"Frequency adjustment: {frequency_adjustment:.6f} Hz, New ODMR freq: {odmr_freq:.6f} Hz")
-                ds.push({'params': params,
-                         'left_contrast': left_contrast,
-                         'right_contrast': right_contrast,
-                         'odmr_freq': odmr_freq
-                })
+                left_background, left_signal, right_background, right_signal = self.process_data(runs, data)
+                count_array[counter%8]=left_background+right_background
+
+                left_background_t+=left_background
+                left_signal_t+=left_signal
+                right_background_t+=right_background
+                right_signal_t+=right_signal
+                 # Update search value based on adjustment magnitude
+                
+                
                 if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
                     return self.finalize(mgr)
+                if counter!=0 and counter%8==0:
+                    x_counts_up=np.sum(count_array[:4])
+                    x_counts_down=np.sum(count_array[4:])
+                    x_counts_diff=(x_counts_up - x_counts_down)/(x_counts_up + x_counts_down)
+                    x_change, x_counts_error_last, x_counts_sum=self.xyz_pid(xy_pid, x_counts_diff, x_counts_error_last, x_counts_sum)
+                    x+=x_change
+                    y_counts_up=count_array[0]+count_array[1]+count_array[4]+count_array[5]
+                    y_counts_down=count_array[2]+count_array[3]+count_array[6]+count_array[7]
+                    y_counts_diff=(y_counts_up - y_counts_down)/(y_counts_up + y_counts_down)
+                    y_change, y_counts_error_last, y_counts_sum=self.xyz_pid(xy_pid, y_counts_diff, y_counts_error_last, y_counts_sum) 
+                    y+=y_change
+                    z_counts_up=count_array[::2]
+                    z_counts_down=count_array[1::2]
+                    z_counts_diff=(np.sum(z_counts_up) - np.sum(z_counts_down))/(np.sum(z_counts_up) + np.sum(z_counts_down))
+                    z_change, z_counts_error_last, z_counts_sum=self.xyz_pid(z_pid, z_counts_diff, z_counts_error_last, z_counts_sum)
+                    z+=z_change
+
+                    left_contrast=(left_background_t-left_signal_t)/left_background_t
+                    right_contrast=(right_background_t-right_signal_t)/right_background_t
+                    left_background_t=0
+                    left_signal_t=0
+                    right_background_t=0
+                    right_signal_t=0
+                    print(f"Left contrast: {left_contrast}, Right contrast: {right_contrast}")
+                    
+                    # PID control to adjust ODMR frequency
+                    frequency_adjustment = self.pid_control(left_contrast, right_contrast, kp, ki, kd)
+                    odmr_freq += frequency_adjustment
+                    mgr.sg.set_frequency(odmr_freq)
+                    print(f"Frequency adjustment: {frequency_adjustment:.6f} Hz, New ODMR freq: {odmr_freq:.6f} Hz")
+                    ds.push({'params': params,
+                            'left_contrast': left_contrast,
+                            'right_contrast': right_contrast,
+                            'odmr_freq': odmr_freq
+                    })
+                counter+=1
             return self.finalize(mgr)
 
     def initialize(self, mgr, runs,odmr_span, sweep_time, probe_time, clock_time, laser_pause, mode, rf_amplitude):
@@ -107,18 +165,14 @@ class ODMRCenter:
         # odmr_span=int(odmr_span/probe_time)*probe_time
         # sg_span=(odmr_span/sweep_time)*(sweep_time+laser_pause)
         
-        print("Creating sequence")
-        self.sequence, self.n_points=mgr.Pulser.odmr_center_create_sequence( odmr_span,sweep_time, clock_time, probe_time, laser_pause)
+
+        self.sequence=self.create_sequence(mgr, odmr_span,sweep_time, clock_time, probe_time, laser_pause)
         import pickle, os
         print(f'saving sequence to seq.pkl in {os.getcwd()}')
         pickle.dump(self.sequence, open('seq.pkl', 'wb'))
-        print("sequence created")
-        # import pickle, os
-        # print(f'saving sequence to seq.pkl in {os.getcwd()}')
-        # pickle.dump(self.sequence, open('seq.pkl', 'wb'))
         mgr.DAQcontrol.create_counter()
-        print("buffer size:", (4*self.n_points+4)*runs)
-        mgr.DAQcontrol.prepare_counting(2/probe_time, (4*self.n_points+4)*runs-1)
+        print("buffer size:", (2*self.n_points+2)*runs)
+        mgr.DAQcontrol.prepare_counting(2/probe_time, (2*self.n_points+2)*runs-1)
         print(len(mgr.DAQcontrol.ctr_buffer))
 
         # SG settings: 
@@ -158,8 +212,6 @@ class ODMRCenter:
         self.previous_error = 0
         self.integral = 0
         mgr.DAQcontrol.finalize_counter()
-        mgr.sg.set_mod_toggle(False)
-        mgr.sg.set_rf_toggle(False)
         return
 
     def create_sequence(self, mgr, odmr_span,sweep_time, clock_time, probe_time, laser_pause):
@@ -230,3 +282,13 @@ class ODMRCenter:
         self.previous_error = error
         
         return output
+    
+    def xyz_pid(self, pid, error, last, sum):
+        kp, ki, kd=pid
+        proportional=kp*error
+        sum+=error
+        integral=ki*sum
+        derivative=kd*(error - last)
+        output=proportional+integral+derivative
+        last=error
+        return output, last, sum

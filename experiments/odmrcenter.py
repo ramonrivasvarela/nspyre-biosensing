@@ -93,9 +93,9 @@ class ODMRCenter:
         n_points=int(sweep_time*1.1/probe_time)
         odmr_span=int(odmr_span/probe_time)*probe_time
         sg_span=(odmr_span/sweep_time)*(sweep_time+laser_pause)
-        self.sequence_left=self.create_sequence(mgr, clock_time, probe_time, laser_pause, n_points, left=True)
+        self.sequence_left=mgr.Pulser.odmr_center.create_sequence(mgr, clock_time, probe_time, laser_pause, n_points, left=True)
 
-        self.sequence_right=self.create_sequence(mgr, clock_time, probe_time, laser_pause, n_points, left=False)
+        self.sequence_right=mgr.Pulser.odmr_center_create_sequence(mgr, clock_time, probe_time, laser_pause, n_points, left=False)
         mgr.sg.continuous_sweep(sg_span, (sweep_time+laser_pause))
         mgr.DAQcontrol.create_counter()
         print("buffer size:", (2*n_points+2)*runs)

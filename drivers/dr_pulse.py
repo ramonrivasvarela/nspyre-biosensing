@@ -560,11 +560,11 @@ class PulserClass():
         IQ0 = [-0.0025,-0.0025]
         IQpx = [0.4461,-.0025]
         
-        if self.VERBOSE: 
-            print('\n using sequence without wait time')
-            print('self.read_time:', ns_probe_time)
-            print('self.clock_time:',  ns_clock_duration)       
-            print('self.laser_lag:', ns_laser_lag) 
+        #if self.VERBOSE: 
+        #    print('\n using sequence without wait time')
+        #    print('self.read_time:', ns_probe_time)
+        #    print('self.clock_time:',  ns_clock_duration)       
+        #    print('self.laser_lag:', ns_laser_lag) 
 
         #### LASER LAG
         laser = [(ns_laser_lag, 1)]
@@ -579,7 +579,7 @@ class PulserClass():
                 raise ValueError('NoMod mode requires switch to be True')
 
         if switch:
-            if self.VERBOSE: print('using switch')
+            #if self.VERBOSE: print('using switch')
             switch = [(ns_laser_lag, 1)]
 
 
@@ -620,8 +620,8 @@ class PulserClass():
             switch += [(ns_clock_duration, 1)]
         
         #### FINALIZE
-        if self.VERBOSE:
-            print('Finished setting up pulse sequence')
+        #if self.VERBOSE:
+        #    print('Finished setting up pulse sequence')
 
         seq_dict = {'clock': clock,'laser': laser}
         if mode == 'QAM':
@@ -646,13 +646,13 @@ class PulserClass():
         IQ0 = [-0.0025,-0.0025]
         IQpx = [0.4461,-.0025]
         
-        if self.VERBOSE: 
-            print('\n using sequence with wait time')
-            print('self.read_time:', ns_probe_time)
-            print('self.clock_time:',  ns_clock_duration)     
-            print('self.cooldown_time:', ns_cooldown_time)  
-            print('self.laser_lag:', ns_laser_lag) 
-            print('self.pulsewait_time:', ns_pulsewait_time)
+        #if self.VERBOSE: 
+        #    print('\n using sequence with wait time')
+        #    print('self.read_time:', ns_probe_time)
+        #    print('self.clock_time:',  ns_clock_duration)     
+        #    print('self.cooldown_time:', ns_cooldown_time)  
+        #    print('self.laser_lag:', ns_laser_lag) 
+        #    print('self.pulsewait_time:', ns_pulsewait_time)
 
         #### LASER LAG
         laser = [(ns_laser_lag, 1)]
@@ -666,8 +666,8 @@ class PulserClass():
             if not switch:
                 raise ValueError('NoMod mode requires switch to be True')
 
-        if switch:
-            if self.VERBOSE: print('using switch')
+        #if switch:
+            #if self.VERBOSE: print('using switch')
             switch = [(ns_laser_lag, 1)]
 
 
@@ -714,8 +714,8 @@ class PulserClass():
             switch += [(ns_clock_duration, 1)]
         
         #### FINALIZE
-        if self.VERBOSE:
-            print('Finished setting up pulse sequence')
+        #if self.VERBOSE:
+        #    print('Finished setting up pulse sequence')
 
         seq_dict = {'clock': clock,'laser': laser}
         if mode == 'QAM':
@@ -777,3 +777,88 @@ class PulserClass():
         zip_seq = [(itty_bitty_time,) * int(num_samples), tuple(IQ * analog_pts)]
         pattern = list(zip(*zip_seq))
         return pattern
+
+    def odmr_center_create_sequence(self, odmr_span,sweep_time, clock_time, probe_time, laser_pause):
+                # constants
+        DT_NS = max(8, (int(sweep_time *1e4)//8)*8)
+        print("DT_NS:", DT_NS)
+
+        clock_time_ns = int(round(clock_time * 1e9))
+        IQleft  = [0.355, 0.348]
+        IQright = [0.357, 0.350]
+
+        # probe_time rounded to a multiple of 8 ns
+        number_bins   = max(1, int(round((probe_time * 1e9) / DT_NS)))
+        probe_time_ns = number_bins * DT_NS
+
+        # total points
+        n_points = int(sweep_time // (probe_time_ns * 1e-9))
+        sweep_time_ns = probe_time_ns * n_points
+
+        # frequency values (GHz if odmr_span is in Hz; GHz*ns is unitless for phase)
+        f_values = np.linspace(0.0, odmr_span * 1e-9, n_points * number_bins, dtype=np.float64)
+
+        laser_pause_ns = int(round(laser_pause * 1e9))
+        if laser_pause_ns < (probe_time_ns - clock_time_ns):
+            # keep the warning but avoid printing in performance-critical paths if not needed
+            print("Warning: laser pause time is less than probe_time - clock_time. "
+                "Setting laser pause time to probe_time - clock_time")
+            laser_pause_ns = probe_time_ns - clock_time_ns
+
+        # ----- digital channels (lightweight list multiplications are fine) -----
+        clock_pulse = [(clock_time_ns, 1), (probe_time_ns - clock_time_ns, 0)]  # one probe block
+        laser = 4 * [(sweep_time_ns + clock_time_ns, 1), (laser_pause_ns, 0)]
+        clock = 4 * (clock_pulse * n_points + [(clock_time_ns, 1), (laser_pause_ns, 0)])
+        switch = 2 * [
+            (sweep_time_ns + clock_time_ns, 1), (laser_pause_ns, 0),
+            (sweep_time_ns + clock_time_ns, 0), (laser_pause_ns, 0)
+        ]
+
+        # ----- analog channels (vectorised) -----
+        # Phase accumulates: phi_k = sum_{j<=k} 2π * f_j * DT_NS
+        phi = (2.0 * np.pi * DT_NS) * np.cumsum(f_values)  # shape (N,)
+
+        cos_phi = np.cos(phi)
+        sin_phi = np.sin(phi)
+
+        # Precompute amplitude arrays
+        i_left_vals  = IQleft[1]  * cos_phi
+        i_right_vals = IQright[1] * cos_phi
+        q_left_vals  = -IQleft[0] * sin_phi
+        q_right_vals =  IQright[0] * sin_phi
+
+        # Convert to lists of (duration, value) tuples efficiently
+        dur8 = np.full(phi.size, DT_NS, dtype=np.int64)
+
+        # Using column_stack + map(tuple) is faster than Python loops for large N
+        i_left  = list(map(tuple, np.column_stack((dur8, i_left_vals))))
+        i_right = list(map(tuple, np.column_stack((dur8, i_right_vals))))
+        q_left  = list(map(tuple, np.column_stack((dur8, q_left_vals))))
+        q_right = list(map(tuple, np.column_stack((dur8, q_right_vals))))
+
+        # Headers/tail segments unchanged
+        i = (
+            [(laser_pause_ns + clock_time_ns + sweep_time_ns, IQleft[1])]
+            + i_left
+            + [(2 * laser_pause_ns + 2 * clock_time_ns + sweep_time_ns, IQright[1])]
+            + i_right
+            + [(laser_pause_ns + clock_time_ns, IQright[1])]
+        )
+
+        q = (
+            [(laser_pause_ns + clock_time_ns + sweep_time_ns, 0.0)]
+            + q_left
+            + [(2 * laser_pause_ns + 2 * clock_time_ns + sweep_time_ns, 0.0)]
+            + q_right
+            + [(laser_pause_ns + clock_time_ns, 0.0)]
+        )
+
+        # ----- build sequence -----
+        seq = self.create_sequence()
+        seq.setDigital(self.channel_dict['clock'], clock)
+        seq.setDigital(self.channel_dict['laser'], laser)
+        seq.setDigital(self.channel_dict['switch'], switch)
+        seq.setAnalog(0, q)
+        seq.setAnalog(1, i)
+
+        return seq, n_points

@@ -5,7 +5,6 @@ from nspyre import InstrumentManager
 from special_widgets.unit_widgets import SecLineEdit, TemperatureLineEdit
 import time
 import numpy as np
-from experiments.initializecamera import InitializeCamera
 
 class CameraWidget(QWidget):
     """

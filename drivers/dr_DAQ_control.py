@@ -12,7 +12,7 @@ import time
 import numpy as np
 from collections import OrderedDict
 from nidaqmx.stream_writers import AnalogMultiChannelWriter
-import rpyc.utils.classic
+from rpyc.utils.classic import obtain
 
 class NIDAQAxis:
     def __init__(self, ao_ch, cal, limits=(None, None)):
@@ -236,6 +236,7 @@ class DAQCounter:
     ### MOTION TASKS SECTION ###
     
     def move(self, target: dict):
+        target=obtain(target)
         for name, axis in self.axes.items():
             if target[name] < axis.limits[0] or target[name] > axis.limits[1]:
                 raise ValueError(f"{name} position {target[name]} is out of bounds {axis.limits}")
@@ -263,12 +264,40 @@ class DAQCounter:
         self.ao_motion_task.wait_until_done()
         self.ao_motion_task.stop()
 
-        self.position = dict(target)
+        self.position = target
+
+    def move_new(self, target: dict):
+        for name, axis in self.axes.items():
+            if target[name] < axis.limits[0] or target[name] > axis.limits[1]:
+                raise ValueError(f"{name} position {target[name]} is out of bounds {axis.limits}")
+        
+        stop_v = np.array([
+            axis.units_to_volts(target[name]) for name, axis in self.axes.items()
+        ])
+        voltages = stop_v.reshape(-1, 1)
+
+        # Ensure voltages array is C-contiguous
+        voltages = np.ascontiguousarray(voltages)
+
+        self.ao_motion_task.timing.cfg_samp_clk_timing(
+            self.acq_rate,
+            sample_mode=nidaqmx.constants.AcquisitionType.FINITE,
+            samps_per_chan=1,
+        )
+
+        writer = AnalogMultiChannelWriter(self.ao_motion_task.out_stream, auto_start=False)
+        writer.write_many_sample(voltages)
+        self.ao_motion_task.start()
+        self.ao_motion_task.wait_until_done()
+        self.ao_motion_task.stop()
+
+        self.position = target
 
     def line_scan(self, init_point, final_point, steps, pts_per_step=1):
         """1-axis line scan while acquiring counter data"""
         #print(init_point)
         #print('self.sleep_factor in line scan right before calling move():', self.sleep_factor)
+        final_point=obtain(final_point)
         self.move(init_point)
         #print("start line_scan")
         step_voltages = self.linear_func(init_point, final_point, steps)
@@ -336,8 +365,8 @@ class DAQCounter:
         """1-axis line scan while acquiring counter data"""
         #print(init_point)
         #print('self.sleep_factor in line scan right before calling move():', self.sleep_factor)
-        self.move(init_point)
-        self.final_point = final_point
+        self.move(obtain(init_point))
+        self.final_point = obtain(final_point)
         #print("start line_scan")
         self.buffer_shape= (steps, pts_per_step + 1)
         step_voltages, remaining_buffer = self.linear_func(init_point, final_point, steps, ctr_buffer_size, buffer_allocation, hs=True)
@@ -438,3 +467,20 @@ class DAQCounter:
 
     def get_position(self):
         return self.position
+
+    def odmr_center_read_process_data(self, n_points, runs):
+        data=self.read_to_data_array()
+        points_per_run = 4 * n_points + 4  # (n_points+1) background + n_points signal
+        data_reshaped = data.reshape(runs, points_per_run)
+        # Separate background and signal for each run
+        background_left_raw = data_reshaped[:, :n_points+1]  # First n_points+1 are background
+        signal_left_raw = data_reshaped[:, n_points+1:2*n_points+2]  # Next n_points are signal
+        background_right_raw = data_reshaped[:, 2*n_points+2:3*n_points+3]  # Next n_points are background
+        signal_right_raw = data_reshaped[:, 3*n_points+3:4*n_points+4]  # Next n_points are signal
+
+        # Apply buffer_to_data logic to each row and sum the differences
+        background_left = np.average([np.sum(np.diff(row)) for row in background_left_raw])
+        signal_left = np.average([np.sum(np.diff(row)) for row in signal_left_raw])
+        background_right = np.average([np.sum(np.diff(row)) for row in background_right_raw])
+        signal_right = np.average([np.sum(np.diff(row)) for row in signal_right_raw])
+        return background_left, signal_left, background_right, signal_right

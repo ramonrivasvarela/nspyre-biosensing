@@ -297,9 +297,9 @@ class I1I2PlotWidget(FlexLinePlotWidget):
                 sink.datasets["I2_I1"] = I2_minus_I1
                 
         super().__init__(data_processing_func=processing_function) 
-        self.add_plot('I1',        series='I1',   scan_i='',     scan_j='',  processing='Append')
-        self.add_plot('I2',        series='I2',   scan_i='',     scan_j='',  processing='Append')
-        self.add_plot('I2_I1',      series='I2_I1', scan_i='',     scan_j='',  processing='Append')
+        self.add_plot('I1',        series='I1',   scan_i='',     scan_j='',  processing='Average')
+        self.add_plot('I2',        series='I2',   scan_i='',     scan_j='',  processing='Average')
+        self.add_plot('I2_I1',      series='I2_I1', scan_i='',     scan_j='',  processing='Average')
 
 
         # retrieve legend object

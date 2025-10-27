@@ -18,6 +18,7 @@ from nspyre import nspyre_init_logger
 from nspyre import experiment_widget_process_queue
 import collections
 import math
+from rpyc.utils.classic import obtain
 
 
 # nidaqmx
@@ -78,7 +79,8 @@ class AdvancedTracking():
 
         self.max_search = max_search
         self.min_search = min_search
-        self.drift=drift
+        self.drift=obtain(drift)
+        self.XYZ_center= obtain(XYZ_center)
         if advanced_tracking:
             if x_k is None:
                 print("Advanced tracking is enabled but no initial value for x_k was provided.")
@@ -111,7 +113,7 @@ class AdvancedTracking():
 
             ## in this is 180 ms of lag
             self.sequence=sequence
-            self.XYZ_center= XYZ_center
+            
             if do_not_run_feedback:
         
 
@@ -449,7 +451,7 @@ class AdvancedTracking():
                     print("debugging, XYZ center is " + str(XYZ_center))
                     print("debugging, max count position is ", max_count_position, 'um')
                     #import pdb; pdb.set_trace()
-                    self.drift[index] = max_count_position - XYZ_center[index].m
+                    self.drift[index] = max_count_position - XYZ_center[index]
                     
                     print("debugging, drift is " + str(self.drift[index]))
 
@@ -462,7 +464,13 @@ class AdvancedTracking():
             except:
                 print('no Gaussian fit')
                 max_count_position = track_steps[np.argmax(tracking_data)]
-                self.drift[index] = max_count_position - XYZ_center[index].m
+                try:
+                    self.drift[index] = max_count_position - XYZ_center[index]
+                except Exception as e:
+                    print("type self.drift", type(self.drift))
+                    print('type xyz_center', type(XYZ_center))
+                    print('xyz_center', XYZ_center)
+                    raise e
                 print("drift is " + str(self.drift[index]))
                 XYZ_center[index] = max_count_position
 

@@ -58,7 +58,7 @@ class SpatialFeedbackWidget(ExperimentWidget):
             'probe_time': {
                 'display_text': 'Probe Time',
                 'widget': SpinBox(
-                    value=0.4,
+                    value=0.04,
                     suffix='s',
                     siPrefix=True,
                     dec=True,

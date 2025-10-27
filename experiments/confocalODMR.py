@@ -146,10 +146,11 @@ class ConfocalODMR():
                 for i in range(n_freq):
                     #### Acquire
                     mgr.sg.set_frequency(self.frequencies[i])
-                    mgr.DAQcontrol.start_counter()      
-                    mgr.Pulser.stream_sequence(self.seq, 1) # number of runs accounted for in construction of the sequence.
-                    data = np.array(mgr.DAQcontrol.read_to_data_array( timeout = self.timeout)) # Collect ODMR point
-                    mgr.Pulser.set_state_off()
+                    data=self.acquire(mgr, self.seq)
+                    #mgr.DAQcontrol.start_counter()      
+                    #mgr.Pulser.stream_sequence(self.seq, 1) # number of runs accounted for in construction of the sequence.
+                    #data = np.array(mgr.DAQcontrol.read_to_data_array( timeout = self.timeout)) # Collect ODMR point
+                    #mgr.Pulser.set_state_off()
                     #### Format
                     sig_point, bg_point = self.format_data(data, self.ODMR_label)
                     sig_point/= (probe_time * runs) # cts/s
@@ -471,7 +472,7 @@ class ConfocalODMR():
 
     ## ODMR spyrelets reads point by point, so for each read point: start task, start pulse streaming, 
     ## and read samples to buffer, then stop the task and reset the pulse streaming 
-    def acquire(self, mgr, seq, probe_time):
+    def acquire(self, mgr, seq):
         '''
         Acquires a single ODMR point, returns the RAW data
         '''

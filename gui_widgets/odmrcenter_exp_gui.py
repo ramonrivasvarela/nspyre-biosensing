@@ -4,10 +4,10 @@ from nspyre import FlexLinePlotWidget
 from nspyre import ExperimentWidget
 from pyqtgraph import SpinBox
 from pyqtgraph.Qt import QtWidgets
-from PyQt6.QtWidgets import QSpinBox, QLineEdit
+from PyQt6.QtWidgets import QSpinBox, QLineEdit, QComboBox
 from special_widgets import unit_widgets
 
-import experiments.odmrcenter
+import experiments.odmrcenterFM
 
 
 import pyqtgraph as pg
@@ -30,6 +30,15 @@ class ODMRCenterWidget(ExperimentWidget):
         runs_sb.setMinimum(1)
         runs_sb.setMaximum(MAXIMUM)
         runs_sb.setValue(1)
+
+        rf_amplitude_sb = QSpinBox()
+        rf_amplitude_sb.setMinimum(-100)
+        rf_amplitude_sb.setMaximum(7)
+        rf_amplitude_sb.setValue(-20)
+
+        mode_cb = QComboBox()
+        mode_cb.addItems(['QAM', 'AM'])
+        mode_cb.setCurrentText('QAM')
         
         params_config = {
             'runs': {
@@ -105,7 +114,14 @@ class ODMRCenterWidget(ExperimentWidget):
                 'widget': QLineEdit("(1.0, 0.0, 0.0)"),
             
             },
-
+            'rf_amplitude': {
+                'display_text': 'RF Amplitude',
+                'widget': rf_amplitude_sb
+            },
+            'mode': {
+                'display_text': 'Modulation Mode',
+                'widget': mode_cb
+            },
             'dataset': {
                 'display_text': 'Data Set',
                 'widget': QtWidgets.QLineEdit('odmrcenter'),
@@ -113,7 +129,7 @@ class ODMRCenterWidget(ExperimentWidget):
         }
 
         super().__init__(params_config, 
-                        experiments.odmrcenter,
+                        experiments.odmrcenterFM,
                         'ODMRCenter',
                         'main',
                         title='odmr center', get_param_value_funs=get_param_value_funs)
