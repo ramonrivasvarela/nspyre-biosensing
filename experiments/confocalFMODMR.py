@@ -109,69 +109,58 @@ class ConfocalFMODMR():
             #### EXPERIMENTAL LOOP ####
             ###########################
             for sweep in range(sweeps):
-                # #### Prepare Sweep Data Structure
-                # # photon counts corresponding to each frequency
-                # # initialize to NaN
-                # sig_counts = np.empty(n_freq)
-                # sig_counts[:] = np.nan
-                # signal.append(np.stack([self.frequencies, sig_counts]))
-                # bg_counts = np.empty(n_freq)
-                # bg_counts[:] = np.nan
-                # background.append(np.stack([self.frequencies, bg_counts]))
 
-                for i in range(n_freq):
-                    #### Acquire
-                    mgr.sg.set_frequency(self.frequencies[i])
-                    mgr.DAQcontrol.start_counter()      
-                    mgr.Pulser.stream_sequence(self.seq, 1) # number of runs accounted for in construction of the sequence.
-                    data = np.array(mgr.DAQcontrol.read_to_data_array( timeout = self.timeout)) # Collect ODMR point
-                    mgr.Pulser.set_state_off()
-                    #### Format
-                    sig_point, bg_point = self.format_data(data, self.ODMR_label, n_freq)
-                    sig_point/= (probe_time * runs) # cts/s
-                    bg_point/= (probe_time * runs) # cts/s
-                    signal[-1][1][i] = sig_point
-                    signal.updated_item(-1) # notify the streaminglist that this entry has updated so it will be pushed to the data server
-                    background[-1][1][i] = bg_point
-                    background.updated_item(-1)
-                    #### Send
-                    if self.VERBOSE: print(signal[-1][1], background[-1][1])
-                    datasource.push({
-                        'params':{
-                            'runs': runs,
-                            'sweeps': sweeps,
-                            'mode': mode,
-                            'frequencies': frequencies,
-                            'rf_amplitude': rf_amplitude,
-                            'laser_lag': laser_lag,
-                            'cooldown_time': cooldown_time,
-                            'probe_time': probe_time,
-                            'clock_duration': clock_duration,
-                            'timeout': timeout,
-                            'use_switch': use_switch,
-                            'feedback': feedback,
-                            'dozfb': dozfb,
-                            'sweeps_til_fb': sweeps_til_fb,
-                            'xyz_step': xyz_step,
-                            'count_step_shrink': count_step_shrink,
-                            'starting_point': starting_point,
-                            'dataset': dataset
+                #### Acquire
+                mgr.sg.set_frequency(self.frequencies[i])
+                mgr.DAQcontrol.start_counter()      
+                mgr.Pulser.stream_sequence(self.seq, 1) # number of runs accounted for in construction of the sequence.
+                data = np.array(mgr.DAQcontrol.read_to_data_array( timeout = self.timeout)) # Collect ODMR point
+                mgr.Pulser.set_state_off()
+                #### Format
+                sig_sweep, bg_sweep = self.format_data(data, self.ODMR_label, n_freq)
+                sig_sweep = np.divide(sig_sweep, (probe_time * runs)) # cts/s
+                bg_sweep = np.divide(bg_sweep, (probe_time * runs)) # cts/s
+                signal.append(np.stack([self.frequencies, sig_sweep]))
+                signal.updated_item(-1) # notify the streaminglist that this entry has updated so it will be pushed to the data server
+                background.append(np.stack([self.frequencies, bg_sweep]))
+                background.updated_item(-1)
+                #### Send
+                if self.VERBOSE: print(signal[-1][1], background[-1][1])
+                datasource.push({
+                    'params':{
+                        'runs': runs,
+                        'sweeps': sweeps,
+                        'frequencies': frequencies,
+                        'rf_amplitude': rf_amplitude,
+                        'laser_lag': laser_lag,
+                        'cooldown_time': cooldown_time,
+                        'probe_time': probe_time,
+                        'clock_duration': clock_duration,
+                        'timeout': timeout,
+                        'feedback': feedback,
+                        'dozfb': dozfb,
+                        'sweeps_til_fb': sweeps_til_fb,
+                        'xyz_step': xyz_step,
+                        'count_step_shrink': count_step_shrink,
+                        'starting_point': starting_point,
+                        'dataset': dataset
 
-                        },
-                        'x_label': 'Frequency (Hz)',
-                        'y_label': 'Fluorescence',
-                        'datasets': {
-                            'signal': signal,       
-                            'background': background,
-                        }
-                    })
-                    if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
-                        # the GUI has asked us nicely to exit
-                        self.finalize(mgr)
-                        return
-                #### Feedback
-                if feedback and (sweep % sweeps_til_fb == 0) and (sweep > 0):
-                    self.run_feedback(mgr, starting_point, dozfb, xyz_step, count_step_shrink) 
+                    },
+                    'x_label': 'Frequency (Hz)',
+                    'y_label': 'Fluorescence',
+                    'datasets': {
+                        'signal': signal,       
+                        'background': background,
+                    }
+                })
+                if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
+                    # the GUI has asked us nicely to exit
+                    self.finalize(mgr)
+                    return
+                time.sleep(cooldown_time) # cooldown time between sweeps
+            #### Feedback
+            if feedback and (sweep % sweeps_til_fb == 0) and (sweep > 0):
+                self.run_feedback(mgr, starting_point, dozfb, xyz_step, count_step_shrink) 
 
 
     #### INITIALIZATION METHODS
@@ -188,6 +177,24 @@ class ConfocalFMODMR():
         self.freq_range = (self.frequencies[-1] - self.frequencies[0])/2
         if self.freq_range > 32e6:
             print('Error, frequency ranges larger than +/- 32 MHz are not supported by FM modulation.')
+            '''
+            Here's an implementation:
+
+            frequency = np.linspace(2.83e9, 2.9e9, 30)
+            ## parse apart frequencies, prepare pulse seqeunce
+            n_freq = len(frequency)
+            freq_range = (frequency[-1] - frequency[0])
+            n_fc = int(freq_range // 64e6 + 1) # number of carrier frequencies
+            # Divide frequency into n_fc segments:
+            n_freq_subdivided = n_freq / n_fc
+            freq_arr = [[] for _ in range(n_fc)]
+            print(n_fc, n_freq_subdivided)
+            for i,f in enumerate(frequency):
+                freq_arr[int(i // n_freq_subdivided)].append(f)
+            carrier_freqs = [int(np.mean(freq)) for freq in freq_arr]
+            freq_sb_arr = [int(np.abs(freq[-1]-freq[0])/2) for freq in freq_arr]
+            mod_arr = [np.divide(np.subtract(freq,carrier_freq),sb) for freq,carrier_freq,sb in zip(freq_arr,carrier_freqs,freq_sb_arr)]    
+            '''
             print('Variation of carrier frequency not yet implemented. Triggering finalization.')
             self.finalize(mgr)
 
@@ -251,7 +258,7 @@ class ConfocalFMODMR():
         clock = [(ns_laser_lag, 0)]
         switch = [(ns_laser_lag, 1)]
 
-        mwQ = [(ns_laser_lag, 0)]
+        mwQ = [(ns_laser_lag, 0.0)]
 
 
         #### REPEATING SINGLE PULSE SEQUENCE
@@ -266,7 +273,7 @@ class ConfocalFMODMR():
         #### CONSTRUCT SEQUENCE
         for pulse in label:
             if pulse > 0:
-                pulse_mwQ = [(ns_probe_time, mod_arr[pulse-1])]
+                pulse_mwQ = [(ns_probe_time, float(mod_arr[pulse-1]))]
                 switch += sig_switch
             elif pulse == 0:
                 switch += bg_switch
@@ -278,7 +285,7 @@ class ConfocalFMODMR():
         laser += [(ns_clock_duration, 0)]
         clock += [(ns_clock_duration, 1)]
         switch += [(ns_clock_duration, 1)]
-        mwQ += [(ns_clock_duration, 0)] 
+        mwQ += [(ns_clock_duration, 0.0)] 
         
         #### FINALIZE
         if self.VERBOSE:
