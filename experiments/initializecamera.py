@@ -49,13 +49,13 @@ class CameraInitialization:
 
     def initialize_camera(self, optimize_gain: bool = True, 
                           cam_trigger: str = 'EXTERNAL_EXPOSURE', 
-                          ns_probe_time: float = 0.1e9,
-                          ns_exp_time: float = 0.1e9, 
+                          ns_probe_time: float = 1e8,
+                          ns_exp_time: float = 1e8, 
                           ns_readout_time: float = 0.05e9, 
                           ns_laser_lag: float = 0.02e9, 
                           gain: int = 1, 
                           mode: str = 'AM',
-                          runs: int = 10):
+                          runs: int = 1):
         """
         Initialize the camera and optionally optimize gain.
 

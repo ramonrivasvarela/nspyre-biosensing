@@ -449,7 +449,7 @@ class FloatLineEdit(QLineEdit):
         self.update_text()
      
 class TemperatureLineEdit(QLineEdit):
-    def __init__(self, value=20, prefix='', max=20, min=-20, asinteger=False):
+    def __init__(self, value=20, prefix='', max=100, min=-100, asinteger=False):
         super().__init__()
         self.max=max
         self.min=min
@@ -544,79 +544,40 @@ class ThreeValueWidget(QWidget):
         self.value2_edit.update_text()
         self.value3_edit.update_text()
 
-class FlexiblePointWidget(QWidget):
-    def __init__(self, number=1):
+class WLineEdit(QLineEdit):
+        # Line Edit with flexible length units (um, nm) depending on value
+    def __init__(self, value=0, prefix='', conversion=True):
         super().__init__()
+        self.value = value
+        self.setFont(QFont("Sanserif", 15))
+        self.setFixedWidth(160)
+        self.prefix=prefix 
+        self.conversion=conversion
+        self.update_text()  # Initialize the text based on the value
+        self.editingFinished.connect(self.edit_value)
+         # Connect signal to update value
+                
+    def edit_value(self):
+        """Update the value based on the text entered by the user."""
+        text = self.text().strip()
+        try:
+            if text.lower().endswith("mW"):
+                val_text = text[:-2].strip()
+                self.value = float(val_text) * 1e-3
+            elif text.lower().endswith("W"):
+                val_text = text[:-1].strip()
+                self.value = float(val_text)
+            else:
+                self.value = float(text)
+        except ValueError as e:
+            raise ValueError(f"Invalid input '{text}': cannot convert to float. Please enter a number with an optional unit 'mW' or 'W'.") from e
 
-        self.list_of_widgets=[]
+        self.update_text()
 
-        self.number=number
-        self.layout=QVBoxLayout()
+    def update_text(self):
+        """Update the displayed text based on the current value."""
 
-        self.change_number(self.number)
-
-        
-        
-
-    def add_point(self, x=0, y=0, R=0, r=0):
-        """Add a point with the given x, y, R, and r values."""
-        point_widget = MFourWidget(x, y, R, r)
-        self.list_of_widgets.append(point_widget)
-        self.layout.addWidget(point_widget)
-
-    def get_points(self):
-        """Return a list of the current values for x, y, R, and r."""
-        ret=[]
-        for widget in self.list_of_widgets:
-            ret.append(widget.get_position())
-        return ret
-
-    def change_number(self, number):
-        current_size= len(self.list_of_widgets)
-        if number > current_size:
-            for i in range(current_size, number):
-                self.add_point()
-        elif number < current_size:
-            for i in range(current_size, number, -1):
-                self.layout.removeWidget(self.list_of_widgets[i-1])
-        self.setLayout(self.layout)
-
-class FourValueWidget(QWidget):
-    def __init__(self, x=0, y=0, R=0, r=0):
-        super().__init__()
-        
-        # Create four MLineEdit fields initialized with given values
-        self.x_edit = MLineEdit(x, "", conversion=False)  # No conversion for x
-        self.y_edit = MLineEdit(y, "", conversion=False)  # No conversion for y
-        self.R_edit = MLineEdit(R, "", conversion=False)  # No conversion for R
-        self.r_edit = MLineEdit(r, "", conversion=False)  # No conversion for w
-        
-        # Set fixed width for each edit field
-        self.x_edit.setFixedWidth(120)
-        self.y_edit.setFixedWidth(120)
-        self.z_edit.setFixedWidth(120)
-        self.r_edit.setFixedWidth(120)
-
-        # Create a horizontal layout and add labels and the MLineEdits
-        layout = QHBoxLayout()
-        layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        layout.addWidget(self.x_edit)
-        layout.addWidget(self.y_edit)
-        layout.addWidget(self.z_edit)
-        layout.addWidget(self.r_edit)
-
-        self.setLayout(layout)
-
-    def get_position(self):
-        return (self.x_edit.umvalue, self.y_edit.umvalue, self.z_edit.umvalue, self.r_edit.umvalue)
-
-    def set_point(self, x, y, z, r):
-        """Set the values for x, y, z, and r and update the displayed text."""
-        self.x_edit.umvalue = x
-        self.y_edit.umvalue = y
-        self.z_edit.umvalue = z
-        self.r_edit.umvalue = r
-        self.x_edit.update_text()
-        self.y_edit.update_text()
-        self.z_edit.update_text()
-        self.r_edit.update_text()
+        if abs(self.value) < 1 and self.conversion:
+            self.setText(f"{self.prefix}{self.value * 1e3:.1f} nW")
+        else:
+            self.setText(f"{self.prefix}{self.value:.3f} W")

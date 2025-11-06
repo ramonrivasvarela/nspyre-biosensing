@@ -19,15 +19,7 @@ from special_widgets.heat_map_plot_widget import HeatMapPlotWidget
 cmap = pg.colormap.get('viridis')  
 
 get_param_value_funs={
-            unit_widgets.PointWidget: lambda w: w.get_point(),
-            unit_widgets.MLineEdit:   lambda w: w.umvalue,
-            unit_widgets.HzLineEdit:  lambda w: w.hzvalue,
-            unit_widgets.SecLineEdit:  lambda w: w.secvalue,
-            unit_widgets.NSLineEdit:  lambda w: w.nsvalue,
-            unit_widgets.HzIntervalWidget: lambda w: w.get_range(),
-            unit_widgets.ThreeValueWidget: lambda w: w.get_values(),
             QSpinBox: lambda w: w.value(),
-            unit_widgets.FlexiblePointWidget: lambda w: w.get_points(),
         }
 
 class CountsWidget(ExperimentWidget):

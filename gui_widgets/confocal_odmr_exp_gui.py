@@ -4,7 +4,7 @@ from nspyre import FlexLinePlotWidget
 from nspyre import ExperimentWidget
 from nspyre import DataSink
 from pyqtgraph.Qt import QtWidgets
-from PyQt6.QtWidgets import QSpinBox, QLineEdit, QCheckBox
+from PyQt6.QtWidgets import QSpinBox, QLineEdit, QCheckBox, QComboBox
 from special_widgets import unit_widgets
 from pyqtgraph import SpinBox
 
@@ -18,15 +18,8 @@ from special_widgets.heat_map_plot_widget import HeatMapPlotWidget
 cmap = pg.colormap.get('viridis')  
 
 get_param_value_funs={
-            unit_widgets.PointWidget: lambda w: w.get_point(),
-            unit_widgets.MLineEdit:   lambda w: w.umvalue,
-            unit_widgets.HzLineEdit:  lambda w: w.hzvalue,
-            unit_widgets.SecLineEdit:  lambda w: w.secvalue,
-            unit_widgets.NSLineEdit:  lambda w: w.nsvalue,
-            unit_widgets.HzIntervalWidget: lambda w: w.get_range(),
-            unit_widgets.ThreeValueWidget: lambda w: w.get_values(),
             QSpinBox: lambda w: w.value(),
-            unit_widgets.FlexiblePointWidget: lambda w: w.get_points(),
+            SpinBox: lambda w: w.value() if w.opts.get('suffix', '') != 'm' else w.value()*1e6,
         }
 
 MAXIMUM=2147483647 # There has to be a better way...
@@ -65,7 +58,7 @@ class ConfocalODMRWidget(ExperimentWidget):
         # sequence_cb.setCurrentText('odmr_no_wait')
         
         sweeps_til_fb_sb = QSpinBox()
-        sweeps_til_fb_sb.setMinimum(1)
+        sweeps_til_fb_sb.setMinimum(0)
         sweeps_til_fb_sb.setMaximum(MAXIMUM)
         sweeps_til_fb_sb.setValue(6)
         
@@ -90,8 +83,6 @@ class ConfocalODMRWidget(ExperimentWidget):
         rf_amplitude_sb.setMaximum(7)
         rf_amplitude_sb.setValue(-20)
 
-        feedback_cb=QCheckBox()
-        feedback_cb.setChecked(True)
 
         dozfb_cb=QCheckBox()
         dozfb_cb.setChecked(True)
@@ -152,19 +143,39 @@ class ConfocalODMRWidget(ExperimentWidget):
             },
             'probe_time': {
                 'display_text': 'Probe Time',
-                'widget': unit_widgets.SecLineEdit(100e-6)
+                'widget': SpinBox(
+                    value=100e-6,
+                    suffix='s',
+                    siPrefix=True,
+                    dec=True,
+                )
             },
             'clock_duration': {
                 'display_text': 'Clock Duration',
-                'widget': unit_widgets.SecLineEdit(10e-9)
+                'widget': SpinBox(
+                    value=10e-9,
+                    suffix='s',
+                    siPrefix=True,
+                    dec=True,
+                )
             },
             'laser_lag': {
                 'display_text': 'Laser Lag',
-                'widget': unit_widgets.SecLineEdit(80e-9)
+                'widget': SpinBox(
+                    value=80e-9,
+                    suffix='s',
+                    siPrefix=True,
+                    dec=True,
+                )
             },
             'cooldown_time': {
                 'display_text': 'Cooldown Time',
-                'widget': unit_widgets.SecLineEdit(0)
+                'widget': SpinBox(
+                    value=0,
+                    suffix='s',
+                    siPrefix=True,
+                    dec=True,
+                )
             },
             'use_switch': {
                 'display_text': 'Switch',
@@ -174,10 +185,6 @@ class ConfocalODMRWidget(ExperimentWidget):
             #     'display_text': 'Sequence',
             #     'widget': sequence_cb
             # },
-            'feedback': {
-                'display_text': 'Feedback',
-                'widget': feedback_cb
-            },
             'dozfb': {
                 'display_text': 'Z Feedback',
                 'widget': dozfb_cb
@@ -193,7 +200,12 @@ class ConfocalODMRWidget(ExperimentWidget):
             
             'xyz_step': {
                 'display_text': 'XYZ Step',
-                'widget': unit_widgets.MLineEdit(45e-9)
+                'widget': SpinBox(
+                    value=45e-9,
+                    suffix='m',
+                    siPrefix=True,
+                    dec=True,
+                )
             },
             'count_step_shrink': {
                 'display_text': 'Count Step Shrink',

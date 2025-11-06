@@ -91,7 +91,7 @@ class CountsTime:
                 time.sleep(0.01)
                 mgr.Pulser.stream_sequence(seq, 1)
                 # mgr.DAQcontrol.read()
-                data = mgr.DAQcontrol.read_to_data(self.probe_time)
+                data = mgr.DAQcontrol.read_to_data()
 
 
                 APD_counts.append(np.array([np.array([time.time()-start_t]),np.array([data])]))

@@ -11,6 +11,8 @@ import time
 import datetime as Dt
 import numpy as np
 import rpyc.utils.classic
+from scipy import optimize
+from scipy import signal
 
 import nidaqmx
 from nidaqmx.constants import (AcquisitionType, CountDirection, Edge,
@@ -70,9 +72,9 @@ class ConfocalODMR():
     def confocal_odmr(
         self,
         runs: int = 1000,
-        sweeps: int = 100,
+        sweeps: int = 10,
         mode: str = "QAM",
-        frequencies: str ="( 2.82e9, 2.92e9, 30)",
+        frequencies: str ="(2.82e9, 2.92e9, 30)",
         rf_amplitude: float = -20, 
         laser_lag: float = 80e-9,
         cooldown_time: float = 5e-6,
@@ -96,6 +98,28 @@ class ConfocalODMR():
                         probe_time, clock_duration, use_switch, timeout]
         signal=StreamingList()
         background=StreamingList()
+
+        params={
+            'runs': runs,
+            'sweeps': sweeps,
+            'mode': mode,
+            'frequencies': frequencies,
+            'rf_amplitude': rf_amplitude,
+            'laser_lag': laser_lag,
+            'cooldown_time': cooldown_time,
+            'probe_time': probe_time,
+            'clock_duration': clock_duration,
+            'timeout': timeout,
+            'use_switch': use_switch,
+            'feedback': feedback,
+            'dozfb': dozfb,
+            'sweeps_til_fb': sweeps_til_fb,
+            'xyz_step': xyz_step,
+            'count_step_shrink': count_step_shrink,
+            'starting_point': starting_point,
+            'dataset': dataset
+
+        }
 
         ## Connect tof the instrument server, data server.
         with InstrumentManager() as mgr, DataSource(dataset) as datasource:
@@ -122,10 +146,11 @@ class ConfocalODMR():
                 for i in range(n_freq):
                     #### Acquire
                     mgr.sg.set_frequency(self.frequencies[i])
-                    mgr.DAQcontrol.start_counter()      
-                    mgr.Pulser.stream_sequence(self.seq, 1) # number of runs accounted for in construction of the sequence.
-                    data = np.array(mgr.DAQcontrol.read_to_data_array( timeout = self.timeout)) # Collect ODMR point
-                    mgr.Pulser.set_state_off()
+                    data=self.acquire(mgr, self.seq)
+                    #mgr.DAQcontrol.start_counter()      
+                    #mgr.Pulser.stream_sequence(self.seq, 1) # number of runs accounted for in construction of the sequence.
+                    #data = np.array(mgr.DAQcontrol.read_to_data_array( timeout = self.timeout)) # Collect ODMR point
+                    #mgr.Pulser.set_state_off()
                     #### Format
                     sig_point, bg_point = self.format_data(data, self.ODMR_label)
                     sig_point/= (probe_time * runs) # cts/s
@@ -137,27 +162,7 @@ class ConfocalODMR():
                     #### Send
                     if self.VERBOSE: print(signal[-1][1], background[-1][1])
                     datasource.push({
-                        'params':{
-                            'runs': runs,
-                            'sweeps': sweeps,
-                            'mode': mode,
-                            'frequencies': frequencies,
-                            'rf_amplitude': rf_amplitude,
-                            'laser_lag': laser_lag,
-                            'cooldown_time': cooldown_time,
-                            'probe_time': probe_time,
-                            'clock_duration': clock_duration,
-                            'timeout': timeout,
-                            'use_switch': use_switch,
-                            'feedback': feedback,
-                            'dozfb': dozfb,
-                            'sweeps_til_fb': sweeps_til_fb,
-                            'xyz_step': xyz_step,
-                            'count_step_shrink': count_step_shrink,
-                            'starting_point': starting_point,
-                            'dataset': dataset
-
-                        },
+                        'params': params,
                         'x_label': 'Frequency (Hz)',
                         'y_label': 'Fluorescence',
                         'datasets': {
@@ -167,12 +172,20 @@ class ConfocalODMR():
                     })
                     if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
                         # the GUI has asked us nicely to exit
-                        self.finalize(mgr)
-                        return
-                #### Feedback
-                if feedback and (sweep % sweeps_til_fb == 0) and (sweep > 0):
-                    self.run_feedback(mgr, starting_point, dozfb, xyz_step, count_step_shrink) 
+                        return self.finalize(mgr, params, signal, background, datasource)
 
+                #### Feedback
+                if (sweeps_til_fb!=0) and (sweep % sweeps_til_fb == 0) and (sweep > 0):
+                    
+                    self.run_feedback(mgr, starting_point, dozfb, xyz_step, count_step_shrink) 
+                    '''Make sure the counter is reinitialized after each spatial feedback. Ways to make this process more straightforwars?'''
+                    mgr.DAQcontrol.prepare_counting(self.sample_rate, runs * len(self.ODMR_label)) 
+            
+            # Calculate fit before finalization
+            
+            
+            return self.finalize(mgr, params, signal, background, datasource)
+            
 
     #### INITIALIZATION METHODS
 
@@ -198,12 +211,12 @@ class ConfocalODMR():
         if self.ns_cooldown_time == 0 and self.ns_pulsewait_time == 0:
             self.ODMR_label = [1, 0] # sig, bg
             if self.VERBOSE: print('ODMR, no wait time')
-            seq_dict = self.setup_no_wait(self.ns_laser_lag, self.ns_probe_time, self.ns_clock_duration, runs, mode, use_switch)
+            seq_dict = mgr.Pulser.setup_no_wait(self.ns_laser_lag, self.ns_probe_time, self.ns_clock_duration, runs, mode, use_switch)
         else:
             self.ODMR_label = [1, 'x', 0, 'x'] # sig, discard, bg, discard
             if self.VERBOSE: print('ODMR, with wait time')
-            seq_dict = self.setup_ODMR_wait(self.ns_laser_lag, self.ns_probe_time, self.ns_clock_duration, self.ns_cooldown_time, runs, mode, use_switch)
-
+            seq_dict = mgr.Pulser.setup_ODMR_wait(self.ns_laser_lag, self.ns_probe_time, self.ns_clock_duration, self.ns_cooldown_time, runs, mode, use_switch)
+        print(seq_dict)
         self.seq = mgr.Pulser.make_seq(**seq_dict)
         if self.VERBOSE:
             import pickle, os
@@ -227,11 +240,11 @@ class ConfocalODMR():
         ## Prepare DAQ counter
 
         if cooldown_time != 0:
-            sample_rate = max(2/probe_time, 2/cooldown_time)
+            self.sample_rate = max(2/probe_time, 2/cooldown_time)
         else:
-            sample_rate = 2/probe_time
+            self.sample_rate = 2/probe_time
         mgr.DAQcontrol.create_counter()
-        mgr.DAQcontrol.prepare_counting(sample_rate, runs * len(self.ODMR_label)) # +1 to account for signal being a difference of counts
+        mgr.DAQcontrol.prepare_counting(self.sample_rate, runs * len(self.ODMR_label)) # +1 to account for signal being a difference of counts
         # mgr.DAQCounter.set_sampling_rate(sample_rate)  # Automatically determined by 2/probe_time
         # mgr.DAQCounter.create_buffer(runs*len(self.ODMR_label)+1) # +1 to account for signal being a difference of counts
         # mgr.DAQCounter.initialize()
@@ -242,8 +255,8 @@ class ConfocalODMR():
         '''
         Sets up the pulse sequence for ODMR without wait time. Returns the relevant instrument sequences as a dictionary
         '''
-        self.IQ0 = [-0.0025,-0.0025]
-        self.IQpx = [0.4461,-.0025]
+        IQ0 = [-0.0025,-0.0025]
+        IQpx = [0.4461,-.0025]
         
         if self.VERBOSE: 
             print('\n using sequence without wait time')
@@ -255,8 +268,8 @@ class ConfocalODMR():
         laser = [(ns_laser_lag, 1)]
         clock = [(ns_laser_lag, 0)]
         if mode == 'QAM': 
-            mwQ = [(ns_laser_lag, self.IQ0[0])]
-            mwI = [(ns_laser_lag, self.IQ0[1])]
+            mwQ = [(ns_laser_lag, IQ0[0])]
+            mwI = [(ns_laser_lag, IQ0[1])]
         elif mode == 'AM':
             mwQ = [(ns_laser_lag, -1)]
         elif mode == 'NoMod':
@@ -271,8 +284,8 @@ class ConfocalODMR():
         #### (mwOnOff repeating sequence defn)
         mwOnOff_laser = [(ns_probe_time, 1), (ns_probe_time, 1)]
         if mode == 'QAM':
-            mwOnOff_mwQ = [(ns_probe_time, self.IQpx[0]), (ns_probe_time, self.IQ0[0])]
-            mwOnOff_mwI = [(ns_probe_time, self.IQpx[1]), (ns_probe_time, self.IQ0[1])]
+            mwOnOff_mwQ = [(ns_probe_time, IQpx[0]), (ns_probe_time, IQ0[0])]
+            mwOnOff_mwI = [(ns_probe_time, IQpx[1]), (ns_probe_time, IQ0[1])]
         elif mode == 'AM':
             mwOnOff_mwQ = [(ns_probe_time, 0), (ns_probe_time, -1)]
         elif mode == 'NoMod':
@@ -295,8 +308,8 @@ class ConfocalODMR():
         laser += [(ns_clock_duration, 0)]
         clock += [(ns_clock_duration, 1)]
         if mode == 'QAM':
-            mwQ += [(ns_clock_duration, self.IQ0[0])]
-            mwI += [(ns_clock_duration, self.IQ0[1])]
+            mwQ += [(ns_clock_duration, IQ0[0])]
+            mwI += [(ns_clock_duration, IQ0[1])]
         elif mode == 'AM':
             mwQ += [(ns_clock_duration, -1)] 
         elif mode == 'NoMod':
@@ -328,8 +341,8 @@ class ConfocalODMR():
         Sets up the pulse sequence for ODMR without wait time. Returns the relevant instrument sequences as a dictionary
         '''
         
-        self.IQ0 = [-0.0025,-0.0025]
-        self.IQpx = [0.4461,-.0025]
+        IQ0 = [-0.0025,-0.0025]
+        IQpx = [0.4461,-.0025]
         
         if self.VERBOSE: 
             print('\n using sequence with wait time')
@@ -343,8 +356,8 @@ class ConfocalODMR():
         laser = [(ns_laser_lag, 1)]
         clock = [(ns_laser_lag, 0)]
         if mode == 'QAM': 
-            mwQ = [(ns_laser_lag, self.IQ0[0])]
-            mwI = [(ns_laser_lag, self.IQ0[1])]
+            mwQ = [(ns_laser_lag, IQ0[0])]
+            mwI = [(ns_laser_lag, IQ0[1])]
         elif mode == 'AM':
             mwQ = [(ns_laser_lag, -1)]
         elif mode == 'NoMod':
@@ -360,10 +373,10 @@ class ConfocalODMR():
         mwOnOff_laser = [(ns_probe_time, 1), (ns_cooldown_time,0),
                           (ns_probe_time, 1), (ns_cooldown_time,0), (ns_pulsewait_time, 0)]
         if mode == 'QAM':
-            mwOnOff_mwQ = [(ns_probe_time, self.IQpx[0]), 
-                            (ns_probe_time + 2 * ns_cooldown_time + ns_pulsewait_time, self.IQ0[0])]
-            mwOnOff_mwI = [(ns_probe_time, self.IQpx[1]), 
-                           (ns_probe_time + 2 * ns_cooldown_time + ns_pulsewait_time, self.IQ0[1])]
+            mwOnOff_mwQ = [(ns_probe_time, IQpx[0]), 
+                            (ns_probe_time + 2 * ns_cooldown_time + ns_pulsewait_time, IQ0[0])]
+            mwOnOff_mwI = [(ns_probe_time, IQpx[1]), 
+                           (ns_probe_time + 2 * ns_cooldown_time + ns_pulsewait_time, IQ0[1])]
         elif mode == 'AM':
             mwOnOff_mwQ = [(ns_probe_time, 0), 
                             (ns_probe_time + 2 * ns_cooldown_time + ns_pulsewait_time, -1)]
@@ -389,8 +402,8 @@ class ConfocalODMR():
         laser += [(ns_clock_duration, 0)]
         clock += [(ns_clock_duration, 1)]
         if mode == 'QAM':
-            mwQ += [(ns_clock_duration, self.IQ0[0])]
-            mwI += [(ns_clock_duration, self.IQ0[1])]
+            mwQ += [(ns_clock_duration, IQ0[0])]
+            mwI += [(ns_clock_duration, IQ0[1])]
         elif mode == 'AM':
             mwQ += [(ns_clock_duration, -1)] 
         elif mode == 'NoMod':
@@ -432,6 +445,7 @@ class ConfocalODMR():
             'do_z': dozfb,
             'xyz_step': xyz_step,
             'shrink_every_x_iter': count_step_shrink,
+            'counter_already_exists': True
         }
         ## we make sure the laser is turned on.
         mgr.Pulser.set_state([7],0.0,0.0)
@@ -458,7 +472,7 @@ class ConfocalODMR():
 
     ## ODMR spyrelets reads point by point, so for each read point: start task, start pulse streaming, 
     ## and read samples to buffer, then stop the task and reset the pulse streaming 
-    def acquire(self, mgr, seq, probe_time):
+    def acquire(self, mgr, seq):
         '''
         Acquires a single ODMR point, returns the RAW data
         '''
@@ -498,8 +512,145 @@ class ConfocalODMR():
 
     #### FINALIZATION METHODS
 
-    def finalize(self, mgr):
+    def double_lorentzian(self, x, A1, x1, w1, A2, x2, w2, offset):
+        """
+        Double Lorentzian function for fitting.
         
+        Parameters:
+        x: frequency array
+        A1, A2: amplitudes of the two peaks
+        x1, x2: center frequencies of the two peaks
+        w1, w2: widths (FWHM) of the two peaks
+        offset: baseline offset
+        """
+        L1 = A1 * (w1**2 / 4) / ((x - x1)**2 + (w1**2 / 4))
+        L2 = A2 * (w2**2 / 4) / ((x - x2)**2 + (w2**2 / 4))
+        return L1 + L2 + offset
+
+    def double_lorentzian_fit(self, signal, background, w1_guess=4e8, w2_guess=4e8):
+        '''RAMON: Fit a double lorentzian to the normalized signal. We must first find the guess values.'''
+        # Process data if provided
+        if signal is not None and background is not None and len(signal) > 0 and len(background) > 0:
+            try:
+                # Convert StreamingList to numpy arrays
+                signal_data = np.array([np.array(entry) for entry in signal])
+                background_data = np.array([np.array(entry) for entry in background])
+                
+                # Extract frequencies (assuming they're the same for all sweeps)
+                frequencies = signal_data[0][0]  # First row is frequencies
+                d_freq = frequencies[1] - frequencies[0]
+                n_freq = len(frequencies)
+                n_sweeps = len(signal_data)
+                
+                # Initialize arrays for signal/background ratios
+                ratios_per_sweep = np.zeros((n_sweeps, n_freq))
+                
+                # Calculate signal/background ratio for each sweep and frequency
+                for sweep in range(n_sweeps):
+                    sig_counts = signal_data[sweep][1]  # Second row is counts
+                    bg_counts = background_data[sweep][1]
+                    
+                    # Direct division since background is always > 0
+                    ratios_per_sweep[sweep] = sig_counts / bg_counts
+                
+                # Average the ratios across sweeps for each frequency
+                avg_ratios = np.mean(ratios_per_sweep, axis=0)
+                
+                # Check for valid data points
+                valid_points = np.isfinite(avg_ratios)
+                if np.sum(valid_points) < 6:  # Need at least 6 points for double Lorentzian (7 parameters)
+                    print("Not enough valid data points for fitting")
+                    return None
+                
+                freq_fit = frequencies[valid_points]
+                ratio_fit = avg_ratios[valid_points]
+                
+                # Initial parameter guesses for double Lorentzian
+                # Find approximate peak positions
+                min_ratio = np.min(ratio_fit)
+                max_ratio = np.max(ratio_fit)
+
+                min_arg=np.argmin(ratio_fit)
+                x1_guess=freq_fit[min_arg]
+                diff=int(w1_guess/d_freq)
+                n_radio_fit=ratio_fit[:min_arg-diff]+ratio_fit[min_arg+diff:]
+                n_freq_fit=freq_fit[:min_arg-diff]+freq_fit[min_arg+diff:]
+                min_arg2=np.argmin(n_radio_fit)
+                x2_guess=n_freq_fit[min_arg2]
+
+                # Initial guesses (assuming dips in the spectrum)
+                offset_guess = max_ratio
+                A1_guess = A2_guess = min_ratio - max_ratio  # negative amplitude for dips
+                
+            
+                
+                # Width guesses (fraction of frequency range)
+                freq_range = np.max(freq_fit) - np.min(freq_fit)
+                w1_guess = w2_guess = freq_range / 10
+                
+                initial_guess = [A1_guess, x1_guess, w1_guess, A2_guess, x2_guess, w2_guess, offset_guess]
+                
+                # Parameter bounds (optional, helps with convergence)
+                bounds = (
+                    [-np.inf, np.min(freq_fit), 0, -np.inf, np.min(freq_fit), 0, -np.inf],  # lower bounds
+                    [0, np.max(freq_fit), freq_range, 0, np.max(freq_fit), freq_range, np.inf]   # upper bounds
+                )
+                
+                # Perform the fit
+                try:
+                    popt, pcov = optimize.curve_fit(
+                        self.double_lorentzian, 
+                        freq_fit, 
+                        ratio_fit, 
+                        p0=initial_guess,
+                        bounds=bounds,
+                        maxfev=10000
+                    )
+                    
+                    # Calculate fit quality metrics
+                    fitted_curve = self.double_lorentzian(freq_fit, *popt)
+                    residuals = ratio_fit - fitted_curve
+                    ss_res = np.sum(residuals ** 2)
+                    ss_tot = np.sum((ratio_fit - np.mean(ratio_fit)) ** 2)
+                    r_squared = 1 - (ss_res / ss_tot)
+                    
+                    # Extract parameter names and values
+                    param_names = ['A1', 'x1', 'w1', 'A2', 'x2', 'w2', 'offset']
+                    param_errors = np.sqrt(np.diag(pcov))
+                    
+                    fit_results = {
+                        'parameters': dict(zip(param_names, popt)),
+                        'parameter_errors': dict(zip(param_names, param_errors)),
+                        'r_squared': r_squared,
+                        'frequencies': freq_fit,
+                        'avg_ratios': ratio_fit,
+                        'fitted_curve': fitted_curve,
+                        'residuals': residuals
+                    }
+                    
+                    print("Double Lorentzian Fit Results:")
+                    print(f"R² = {r_squared:.4f}")
+                    for name, value, error in zip(param_names, popt, param_errors):
+                        if 'x' in name:  # Frequency parameters
+                            print(f"{name}: {value:.2e} ± {error:.2e} Hz")
+                        elif 'w' in name:  # Width parameters
+                            print(f"{name}: {value:.2e} ± {error:.2e} Hz")
+                        else:  # Amplitude and offset
+                            print(f"{name}: {value:.4f} ± {error:.4f}")
+                    print(f"FWHM: {abs(popt[1]-popt[4])+popt[2]+popt[5]:.2e} Hz")
+                    
+                    return fit_results
+                    
+                except RuntimeError as e:
+                    print(f"Fitting failed: {e}")
+                    return None
+                    
+            except Exception as e:
+                print(f"Error processing data: {e}")
+                return None
+
+    def finalize(self, mgr, params, signal, background, datasource):
+
         ## stop and close all tasks
         mgr.Pulser.set_state_off()
         mgr.DAQcontrol.finalize_counter()
@@ -508,5 +659,28 @@ class ConfocalODMR():
         mgr.sg.set_rf_toggle(False)
         mgr.sg.set_mod_toggle(False)
 
-        print("FINALIZE")           
-        return
+        fit_results = self.double_lorentzian_fit(signal, background)
+        if fit_results is not None:
+            # Add fit dataset to the final data push
+            fit_data = StreamingList()
+            fit_data.append(np.stack([self.frequencies, fit_results['fitted_curve']]))
+            
+            datasource.push({
+                'params': params,
+                'x_label': 'Frequency (Hz)',
+                'y_label': 'Fluorescence',
+                'datasets': {
+                    'signal': signal,       
+                    'background': background,
+                    'fit': fit_data,
+                }
+            })
+        print("FINALIZE")
+
+        return fit_results
+
+
+        
+        
+        
+    

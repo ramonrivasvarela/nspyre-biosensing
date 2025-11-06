@@ -10,7 +10,6 @@ import logging
 import scipy.optimize as sciOP
 import scipy.interpolate as sciIP
 from math import ceil
-from nspyre import InstrumentManager
 from pathlib import Path
 from nspyre import nspyre_init_logger
 from nspyre import experiment_widget_process_queue
@@ -21,9 +20,7 @@ import collections
 import nidaqmx
 from nidaqmx.constants import (AcquisitionType, CountDirection, Edge,
     READ_ALL_AVAILABLE, TaskMode, TriggerType)
-from nidaqmx.stream_readers import CounterReader
-from experiments.spatialfb import SpatialFeedback
-from nspyre import InstrumentManager, DataSource
+from nspyre import InstrumentManager, DataSource, StreamingList
 import math
 import rpyc.utils.classic
 
@@ -326,15 +323,6 @@ class TemperatureVsTime():
         """Perform experiment teardown."""
         _logger.info('Destroyed TemperatureVsTime instance.')
 
-    ''' 
-    Shivam: Not needed anymore as done in hs_prepare and hs_linescan
-    def create_buffer(self, time_per_scan, mwPulseTime):
-        # Shivam: Make sure that mwPulseTime matches the read_time in dr_pulsesequences_Sideband.py
-        self.bufsize = math.floor(time_per_scan/mwPulseTime)
-        buffer = np.ascontiguousarray(np.zeros(self.bufsize, dtype=np.uint32))
-        return buffer
-    '''
-
     
     #Shivam: This is reinstated because we need for the no feedback/tracking case measurement
     def create_channels(self, device, PS_clk_channel, APD_channel):
@@ -342,52 +330,31 @@ class TemperatureVsTime():
         clock_channel = '/' + device + '/' + PS_clk_channel
         return data_channel, clock_channel
 
-    
-    ''' 
-    Shivam: Not needed anymore as done in hs_prepare and hs_linescan
-    def create_ctr_reader(self, data_channel, sampling_rate, clock_channel, buffer_size):
-        APD_task = nidaqmx.Task('temperature reading task')
-        APD_task.ci_channels.add_ci_count_edges_chan(
-            data_channel,
-            edge=Edge.RISING,
-            initial_count=0,
-            count_direction=CountDirection.COUNT_UP
-        )
-        APD_task.timing.cfg_samp_clk_timing(
-            sampling_rate.to('Hz').m,
-            source=clock_channel,
-            sample_mode=AcquisitionType.FINITE,
-            samps_per_chan=buffer_size,
-        )
-        APD_reader = CounterReader(APD_task.in_stream)
-        return APD_task, APD_reader
-    '''
 
-    def initialize(self, mgr, sampling_rate, 
-                   timeout,time_per_scan, starting_temp, sb_MHz_2fq, quasilinear_slope, 
-                   two_freq, odmr_frequency, rf_amplitude, clock_time, mwPulseTime, 
-                   cooling_delay, is_center_modulation, data_download, 
-                   activate_PID, activate_PID_no_sg_change, PID, PID_recurrence, 
-                   integral_history, threshold_temp_jump, number_jump_avg, 
-                   searchXYZ, max_search, min_search, changing_search, search_PID, 
-                   search_integral_history, z_cycle, track_z, 
-                   do_not_run_feedback, scan_distance, spot_size, advanced_tracking, 
+    def initialize(self, mgr, sampling_rate,
+                   timeout, time_per_scan, starting_temp, sb_MHz_2fq,
+                   two_freq, odmr_frequency, rf_amplitude, clock_time, mwPulseTime,
+                   cooling_delay, is_center_modulation,
+                   activate_PID, activate_PID_no_sg_change, PID,
+                   integral_history, number_jump_avg,
+                   searchXYZ, max_search, min_search, search_PID,  
+                   do_not_run_feedback, scan_distance, spot_size, 
                    diffusion_constant, infrared_on, infrared_power, heat_on_off_cycle,
-                   warm_and_cool_scans, iterations = 0):
+                   warm_and_cool_scans):
         print("Cooling delay below:")
-        print(cooling_delay.m)
-
+        print(cooling_delay)
+        
         if infrared_on:
         
             ### Setup heating infrared laser
-            self.infrared.modulation_power = Q_(infrared_power, 'mW')
+            self.infrared.modulation_power = infrared_power*1e3
 
             self.infrared.digital_modulation = True
 
             self.heating_scans, self.cooling_scans = eval(warm_and_cool_scans)
 
             # Shivam: CHECK IF THIS IS THE RIGHT CHANNEL CODE
-            laser_channel = device + '/port0/line3'
+            laser_channel = 'Dev1' + '/port0/line3'
             # Shivam: Corresponds to the minimum time window of a True or False, generally do lower frequency if switching between True and False regularly
             # Current setting of 2e5 corresponds to 5 us windows
             laser_update_freq = 2e5 #Hz
@@ -409,7 +376,7 @@ class TemperatureVsTime():
 
         
         # Shivam: WRITE WHAT SAMPLING RATE DOES   
-        if sampling_rate.to('Hz').m <= 1 / mwPulseTime.to('s').m:
+        if sampling_rate <= 1 / mwPulseTime:
             print('sampling rate must be equal or larger than 1/probe_time')
             pass
         print('please initialize')
@@ -473,9 +440,10 @@ class TemperatureVsTime():
 
             # Shivam: Parameters for tracking
             self.drift = [0, 0, 0]
-            self.XYZ_center = [self.urixyz.daq_controller.position['x'],
-                                self.urixyz.daq_controller.position['y'],
-                                self.urixyz.daq_controller.position['z']]
+            current_position=mgr.DAQcontrol.position
+            self.XYZ_center = [current_position['x'],
+                                current_position['y'],
+                                current_position['z']]
 
         else: 
             self.search = None
@@ -485,36 +453,10 @@ class TemperatureVsTime():
             self.spot_size = 0
             #Indices correspond to x, y, and z
             self.tracking_data = None
+            mgr.DAQcontrol.create_counter()
+            mgr.DAQcontrol.acq_rate = sampling_rate
+            mgr.DAQcontrol.prepare_counting(sampling_rate, self.bufsize-1)
 
-            data_channel, clock_channel = self.create_channels(device, PS_clk_channel, APD_channel)
-
-            self.counter_buffer = np.ascontiguousarray(np.zeros(self.bufsize), dtype = np.uint32)
-
-            self.current_counter_task = nidaqmx.Task("counter_no_tracking")
-
-            self.current_counter_task.ci_channels.add_ci_count_edges_chan(
-                data_channel, 
-                edge = Edge.RISING, 
-                initial_count=0, 
-                count_direction=nidaqmx.constants.CountDirection.COUNT_UP)
-
-            self.current_counter_task.timing.cfg_samp_clk_timing(
-                            sampling_rate.to('Hz').m, # must be equal or larger than max rate expected by PS
-                            source= clock_channel,
-                            sample_mode=nidaqmx.constants.AcquisitionType.FINITE, #CONTINUOUS, # can also limit the number of points-
-                            samps_per_chan= self.bufsize
-            )
-
-            self.sample_reader_stream = CounterReader(self.current_counter_task.in_stream)
-
-
-        # self.buffer = self.create_buffer(time_per_scan, mwPulseTime)
-
-        # data_channel, clock_channel = self.create_channels(device, PS_clk_channel, APD_channel)
-
-        # self.APD_task, self.APD_reader = self.create_ctr_reader(data_channel, sampling_rate, clock_channel,
-        #                                                         len(self.buffer))
-        # Initialize starting temperature of sample before temperature versus time
         self.starting_temp = starting_temp
         self.current_temp = starting_temp
       
@@ -560,9 +502,10 @@ class TemperatureVsTime():
                 # Setting all advanced tracking variables into a vector array for x,y,z
                 self.n_k = [0,0,0]
                 self.p_k = [2 * diffusion_constant * self.time_elapsed] * 3
-                self.x_k = [self.urixyz.daq_controller.position['x'].to('um').m,
-                            self.urixyz.daq_controller.position['y'].to('um').m,
-                            self.urixyz.daq_controller.position['z'].to('um').m]
+                current_position=mgr.DAQcontrol.get_position()
+                self.x_k = [current_position['x'],
+                            current_position['y'],
+                            current_position['z']]
                 print("x_k is " + str(self.x_k))
 
                 # CHECK THE TUNING OF w
@@ -570,10 +513,10 @@ class TemperatureVsTime():
 
             else:
                 self.frequencies = [(odmr_frequency - sb_MHz_2fq), (odmr_frequency + sb_MHz_2fq)]
-                sg_frequency = (odmr_frequency - (sb_MHz_2fq + Q_(5, 'MHz'))).to('Hz').m
-                self.ps_frequencies = [freq.to('Hz').m - sg_frequency for freq in
+                sg_frequency = (odmr_frequency - (sb_MHz_2fq + 5000))
+                self.ps_frequencies = [freq - sg_frequency for freq in
                                     self.frequencies]  # (frequencies.to('Hz').m - sg_frequency)
-                self.sg.frequency = sg_frequency
+                mgr.sg.set_frequency(sg_frequency)
 
                 self.sequence = self.setup_LPvT(self.ps_frequencies, mwPulseTime, clock_time, time_per_scan, num_freq, rf_amplitude)
     
@@ -584,8 +527,8 @@ class TemperatureVsTime():
         # This function checks whether the scan distance is too small to cover the entire search range
         for i in range(3):
             # Multiplying self.search by 2 because the search range is from XYZ_center -self.search to XYZ_center + self.search
-            if self.scan_distance[i].to('nm').m < 2 * self.search[i].to('nm').m / self.bufsize:
-                print("ERROR: scan distance for index " + str(i) + " is too small, please decrease scan distance to at least " + str(self.search[i].to('nm').m / self.bufsize) + " nm.")
+            if self.scan_distance[i] < 2 * self.search[i] / self.bufsize:
+                print("ERROR: scan distance for index " + str(i) + " is too small, please decrease scan distance to at least " + str(self.search[i] / self.bufsize) + " nm.")
                 raise ValueError('Scan distance too small')
 
 
@@ -807,20 +750,65 @@ class TemperatureVsTime():
 
 
 
-    
-    
-    def main(self, device, PS_clk_channel, APD_channel, sampling_rate, 
-                   timeout,time_per_scan, starting_temp, sb_MHz_2fq, quasilinear_slope, 
-                   two_freq, odmr_frequency, rf_amplitude, clock_time, mwPulseTime, 
-                   cooling_delay, is_center_modulation, data_download, 
-                   activate_PID, activate_PID_no_sg_change, PID, PID_recurrence, 
-                   integral_history, threshold_temp_jump, number_jump_avg, 
-                   searchXYZ, max_search, min_search, changing_search, search_PID, 
-                   search_integral_history, z_cycle, track_z, 
-                   do_not_run_feedback, scan_distance, spot_size, advanced_tracking, 
+
+
+    def temptime(self, sampling_rate=50000, 
+                   timeout=12, time_per_scan=1, starting_temp=25.0, sb_MHz_2fq='10.1010101', quasilinear_slope=0, 
+                   two_freq=False, odmr_frequency=2.87e9, rf_amplitude=-20, clock_time=10e-9, mwPulseTime=50e-6, 
+                   cooling_delay=0.0, is_center_modulation=True, data_download=False, 
+                   activate_PID=False, activate_PID_no_sg_change=False, PID="[0.1,0.01,0]", PID_recurrence="[1,1,0]", 
+                   integral_history=1, threshold_temp_jump=2, number_jump_avg=1,
+                   searchXYZ="[0.5, 0.5, 0.5]", max_search="[1, 1, 1]", min_search="[0.1, 0.1, 0.1]", changing_search=False, search_PID="[0.5,0.01,0]",
+                   search_integral_history=1, z_cycle=1, track_z=True,
+                   do_not_run_feedback=False, scan_distance="[0.03, 0.03, 0.05]", spot_size=400e-9, advanced_tracking=False,
+                   diffusion_constant=200, infrared_on=False, infrared_power=1e-4, heat_on_off_cycle="[True] + [False]*2",
+                   warm_and_cool_scans="[30, 30]", dataset="temp_time", iterations=0):
+        params={'quasilinear_slope': quasilinear_slope,
+                'two_freq': two_freq,
+                'odmr_frequency': odmr_frequency,
+                'rf_amplitude': rf_amplitude,
+                'clock_time': clock_time,
+                'mwPulseTime': mwPulseTime,
+                'cooling_delay': cooling_delay,
+                'is_center_modulation': is_center_modulation,
+                'data_download': data_download,
+                'activate_PID': activate_PID,
+                'activate_PID_no_sg_change': activate_PID_no_sg_change,
+                'PID': PID,
+                'PID_recurrence': PID_recurrence,
+                'integral_history': integral_history,
+                'threshold_temp_jump': threshold_temp_jump,
+                'number_jump_avg': number_jump_avg,
+                'searchXYZ': searchXYZ,
+                'max_search': max_search,
+                'min_search': min_search,
+                'changing_search': changing_search,
+                'search_PID': search_PID,
+                'search_integral_history': search_integral_history,
+                'z_cycle': z_cycle,
+                'track_z': track_z,
+                'do_not_run_feedback': do_not_run_feedback,
+                'scan_distance': scan_distance,
+                'spot_size': spot_size,
+                'advanced_tracking': advanced_tracking,
+                'diffusion_constant': diffusion_constant,
+                'infrared_on': infrared_on,
+                'infrared_power': infrared_power,
+                'heat_on_off_cycle': heat_on_off_cycle,
+                'warm_and_cool_scans': warm_and_cool_scans,
+                'dataset': dataset,
+                'iterations': iterations}
+        with InstrumentManager() as mgr, DataSource(dataset) as data_source:
+            self.initialize( mgr, sampling_rate,
+                   timeout, time_per_scan, starting_temp, sb_MHz_2fq,
+                   two_freq, odmr_frequency, rf_amplitude, clock_time, mwPulseTime,
+                   cooling_delay, is_center_modulation,
+                   activate_PID, activate_PID_no_sg_change, PID,
+                   integral_history, number_jump_avg,
+                   searchXYZ, max_search, min_search, search_PID,  
+                   do_not_run_feedback, scan_distance, spot_size, 
                    diffusion_constant, infrared_on, infrared_power, heat_on_off_cycle,
-                   warm_and_cool_scans, iterations = 0):
-        with InstrumentManager() as mgr:
+                   warm_and_cool_scans)
             if two_freq:
                 num_freq = 2
                 error_array = np.zeros(integral_history)  # Shivam: Array of PID error values from latest to oldest (integral_history number of latest errors)
@@ -834,7 +822,15 @@ class TemperatureVsTime():
                 time_elapsed = 0
                 threshold_index = 0
                 laser_on = False
-                for i in self.progress(iterator):
+                I1_dataset=StreamingList()
+                I2_dataset=StreamingList()
+                x_position=StreamingList()
+                y_position=StreamingList()
+                z_position=StreamingList()
+                total_fluor_dataset=StreamingList()
+                start_t=time.time()
+                odmr_freq_dataset=StreamingList()
+                for i in iterator:
                     if infrared_on:
                         # Shivam: Code to alternate between infrared laser on scans and off scans
                         if i == threshold_index:
@@ -863,7 +859,7 @@ class TemperatureVsTime():
                                 elif (index == 2) and (i % z_cycle != 0):
                                     continue
                                 
-                                time_elapsed = time.time() - start_t
+                                # time_elapsed = time.time() - start_t
                                 # import pdb; pdb.set_trace()
                                 feed_params={
                                     'buffer_size':self.bufsize,
@@ -885,6 +881,7 @@ class TemperatureVsTime():
                                     'sampling_rate':sampling_rate,
                                     'drift':self.drift,
                                     'previous_fluors':self.previous_fluors,
+                                    'run_ct':self.run_ct,
                                     'x_k':self.x_k, 
                                     'p_k':self.p_k, 
                                     'n_k':self.n_k,
@@ -894,11 +891,28 @@ class TemperatureVsTime():
 
                                 }
                                 self.AdvancedTracking=AdvancedTracking(self.queue_to_exp, self.queue_from_exp)
+                                current_time = time.time()
                                 if advanced_tracking:
-                                    self.search, temp_data, search_error_array, self.XYZ_center, self.drift, self.previous_fluors, self.x_k, self.p_k, self.n_k = self.AdvancedTracking.one_axis_measurement(**feed_params)
-                                print("MAIN: search is " + str(list(self.search.to('um').m)))
-                    
-                
+                                    self.search, temp_data, total_fluor, search_error_array, self.XYZ_center, self.drift, self.x_k, self.p_k, self.n_k = self.AdvancedTracking.one_axis_measurement(**feed_params)
+                                else:
+                                    self.search, temp_data, total_fluor, search_error_array, self.XYZ_center, self.drift=self.AdvancedTracking.one_axis_measurement(**feed_params)
+                                print("MAIN: search is " + str(list(self.search)))
+                                # current_time=time.time()
+                                I1_dataset.append(np.array([np.array(current_time-start_t), np.array(temp_data[0])]))
+                                I2_dataset.append(np.array([np.array(current_time-start_t), np.array(temp_data[1])]))
+                                x_position.append(np.array([np.array(current_time-start_t), np.array(self.XYZ_center[0])]))
+                                y_position.append(np.array([np.array(current_time-start_t), np.array(self.XYZ_center[1])]))
+                                z_position.append(np.array([np.array(current_time-start_t), np.array(self.XYZ_center[2])]))
+                                total_fluor_dataset.append(np.array([np.array(current_time-start_t), np.array(total_fluor)]))
+                                odmr_freq_dataset.append(np.array([np.array(current_time-start_t), np.array(self.odmr_frequency)]))
+                                I1_dataset.updated_item(-1)
+                                I2_dataset.updated_item(-1)
+                                x_position.updated_item(-1)
+                                y_position.updated_item(-1)
+                                z_position.updated_item(-1)
+                                total_fluor_dataset.updated_item(-1)
+                                odmr_freq_dataset.updated_item(-1)
+
                                 # Shivam: Use self.current_temp to continually use the latest temperature from the initial setting onwards.
                                 self.odmr_frequency, error_array, freq_change, temp_change, self.current_temp, subtracted_error, normalization_error = self.measure_2pt_temp(temp_data, self.odmr_frequency, 
                                                 quasilinear_slope, error_array, self.current_temp, activate_PID, PID, PID_recurrence, integral_history, 
@@ -920,106 +934,34 @@ class TemperatureVsTime():
                         
                                 quasilinear_slope_e9 = quasilinear_slope * 1e9
 
-                                if do_not_run_feedback:
+                                # if do_not_run_feedback:
 
-                                    self.acquire({
-                                        't': time_elapsed,
-                                        'temperature': self.current_temp,
-                                        'temp_change': temp_change,
-                                        'freq_change':freq_change,
-                                        'sg_frequency': self.sg.frequency,
-                                        'new_odmr_center': int(self.odmr_frequency),
-                                        'total_fluorescence': self.total_fluor,
-                                        'subtracted_error': subtracted_error,
-                                        'normalization_error': normalization_error,
-                                        'quasilinear_slope_e9': quasilinear_slope_e9,
-                                                    })
+                                data_source.push({
+                                        'params':params,
+                                        'datasets': { "I1": I1_dataset, 
+                                                     "I2": I2_dataset, 
+                                                     "x_pos": x_position, 
+                                                     "y_pos": y_position, 
+                                                     "z_pos": z_position, 
+                                                      "total_fluor": total_fluor_dataset, 
+                                                      "odmr_freq": odmr_freq_dataset
+                                                       }
+
+                                })
                                     
-                                else:
-                                    self.acquire({
-                                        't': time_elapsed,
-                                        'temperature': self.current_temp,
-                                        'temp_change': temp_change,
-                                        'freq_change':freq_change,
-                                        'new_odmr_center': self.odmr_frequency,
-                                        'set_sg_frequency': self.sg.frequency,
-                                        'searchX_um': list(self.search.to('um').m)[0],
-                                        'searchY_um': list(self.search.to('um').m)[1],
-                                        'searchZ_um': list(self.search.to('um').m)[2],
-                                        'tracking_data_X': self.tracking_data[0],
-                                        'x_pos': self.XYZ_center[0].to('um').m,
-                                        'y_pos': self.XYZ_center[1].to('um').m,
-                                        'z_pos': self.XYZ_center[2].to('um').m,
-                                        'total_fluorescence': int(self.total_fluor),
-                                        'subtracted_error': subtracted_error,
-                                        'normalization_error': normalization_error,
-                                        'quasilinear_slope': quasilinear_slope_e9,
-                                                    })
                                 
-                                time.sleep(cooling_delay.m)
-
-        
-            '''
-            else:
-                num_freq = 4
-                for rep in self.progress(range(repetitions)):
-                    for lp_idx, lp in enumerate(self.laser_powers):  # self.laser_powers):
-                        # print(lp)
-                        # import pdb; pdb.set_trace()
-                        sequence = self.sequence
-                        self.infrared.modulation_power = lp
-                        self.laser_ctrl_task.start()
-                        # print("task has started")
-                        # start_time = time.time()
-                        thermo_data = [[], [], []]
-
-                        for sweep in range(self.heating_scans):
-                            flex = time.time()
-                            for index in range(3):
-                                sequence, search, temp_data = self.one_axis_measurement(self.buffer_size, index, track_z,
-                                                                                        sweep, lp_idx, z_cycle,
-                                                                                        PS_clk_channel,
-                                                                                        channel, sequence, search, rep, 0,
-                                                                                        num_freq, do_not_run_feedback)
-
-                                thermo_data[index].append(temp_data)
-                                # if sequence == None:
-                                # continue
-                            print('\nevery scan takes this long:', time.time() - flex, '\n')
-                        hot_dat_storage = thermo_data
-                        thermo_data = [[], [], []]
-                        self.laser_ctrl_task.stop()
-                        for sweep in range(self.cooling_scans):
-                            for index in range(3):
-                                sequence, search, temp_dat_storage = self.one_axis_measurement(self.buffer_size, index,
-                                                                                            track_z, sweep, lp_idx,
-                                                                                            z_cycle, PS_clk_channel,
-                                                                                            channel, sequence, search,
-                                                                                            rep, 0, num_freq,
-                                                                                            do_not_run_feedback)
-                                thermo_data[index].append(temp_data)
-                        cold_dat_storage = thermo_data
-                        thermo_data = [[], [], []]
-                        rise_in_temperature, fall_in_temperature, fluo_h, fluo_c = self.measure_4pt_temp(hot_dat_storage,
-                                                                                                        cold_dat_storage)
-
-                        self.acquire({
-                            'lp_repetitions': rep,
-                            'laserPower': lp.to('mW').m,
-                            'lp_idx': lp_idx,
-                            'heat_data': fluo_h,
-                            'cooling_data': fluo_c,
-                            'tempRising': rise_in_temperature,
-                            'tempFalling': fall_in_temperature,
-            
-                        })
-            '''
+                                if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
+                                    # the GUI has asked us nicely to exit
+                                    self.finalize(data_download,mgr, data_download, do_not_run_feedback, infrared_on)
+                                    return
+                                time.sleep(cooling_delay)
+            self.finalize(data_download,mgr, data_download, do_not_run_feedback, infrared_on)
 
 
     def ready_center_pulse_sequence(self, mgr,time_per_scan, mwPulseTime, clockPulse, sideband_frequency, rf_amplitude):
-        self.streamer.read_time = int(round(mwPulseTime.to('ns').m))
-        self.streamer.clock_time = int(round(clockPulse.to('ns').m))
-        seq, self.new_pulse_time = self.streamer.odmr_temp_calib_no_bg(sideband_frequency)
+        ns_read_time = int(round(mwPulseTime*1e9))
+        ns_clock_time = int(round(clockPulse*1e9))
+        seq, self.new_pulse_time = mgr.Pulser.odmr_temp_calib_no_bg(ns_read_time, ns_clock_time, sideband_frequency)
 
         mgr.sg.set_rf_amplitude(rf_amplitude)
         mgr.sg.set_mod_type('QAM')
@@ -1029,26 +971,27 @@ class TemperatureVsTime():
 
         # Shivam: streamer.total_time is from the odmr_temp_calib function from dr_pulsesequences_Sideband
         # And it is the total time for one pulse sequence (2 * new_pulse_time)
-        self.run_ct = math.ceil(time_per_scan.to('ns').m / self.streamer.total_time)
-
-        # This is an important variable to know how long is spent collecting photons at one center freqeuncy
-        self.real_time_per_scan = self.run_ct * self.streamer.total_time
+        total_time=2*mwPulseTime
+        self.run_ct = math.ceil(time_per_scan / total_time)
+        # This is an important variable to know how long is spent collecting photons at one center frequency
+        self.real_time_per_scan = self.run_ct * total_time
 
         return seq, self.new_pulse_time
     
 
     def setup_LPvT(self, mgr, freqs, mwPulseTime, clock_time, time_per_scan, num_freq, rf_amplitude):
-        mgr.streamer.read_time = int(round(mwPulseTime.to('ns').m))
-        mgr.streamer.clock_time = int(round(clock_time.to('ns').m))
+        ns_read_time = int(round(mwPulseTime*1e9))
+        ns_clock_time = int(round(clock_time*1e9))
+        
 
         mgr.sg.set_rf_amplitude(rf_amplitude)
         mgr.sg.set_mod_type('QAM')
         mgr.sg.set_rf_toggle(True)
         mgr.sg.set_mod_toggle(True)
-        mgr.sg.set_mod_function('external')
-
-        temp_sequence = self.streamer.setup_LPvT(freqs, num_freq)
-        self.run_ct = math.ceil(time_per_scan.to('ns').m / self.streamer.total_time) + 1
+        mgr.sg.set_mod_function('QAM', 'external')
+        total_time=2*len(freqs)*mwPulseTime
+        temp_sequence = mgr.Pulser.setup_LPvT(freqs, ns_read_time, ns_clock_time, num_freq)
+        self.run_ct = math.ceil(time_per_scan / total_time) + 1
         # import pdb; pdb.set_trace()
         print('\nThis is my sequence!\n', temp_sequence)
         return temp_sequence
@@ -1062,7 +1005,7 @@ class TemperatureVsTime():
         print('\nBefore changing pulse frequencies:    ', self.ps_frequencies)
         self.ps_frequencies = list(np.array(self.ps_frequencies) - freq_change)
         print('After changing pulse frequencies:    ', self.ps_frequencies, '\n')
-        tempReadout = mgr.streamer.setup_LPvT(self.ps_frequencies, 2)
+        tempReadout = mgr.Pulser.setup_LPvT(self.ps_frequencies, 2)
         # self.run_ct = math.ceil(self.time_per_scan.to('ns').m / self.streamer.total_time) + 1
         # import pdb; pdb.set_trace()
         return tempReadout
@@ -1074,69 +1017,6 @@ class TemperatureVsTime():
         sigma = width / (np.sqrt(8 * np.log(2)))
         return a * np.exp(-np.square((xs - x) / (np.sqrt(2) * + sigma))) + b
 
-    '''
-    Shivam: This is no longer needed as its role is fulfilled by hs_prepare() and hs_linescan() in dr_ni_motion_controller.py
-    def read_data(self, buffer, ctr_task, ctr_reader, sequence):
-                            
-        'start the pulse streamer and the task close to simultaneously'
-        ctr_task.start()
-        self.streamer.Pulser.stream(sequence, self.run_ct)
-
-        data_obtain = ctr_reader.read_many_sample_uint32(
-            buffer,
-            number_of_samples_per_channel=len(buffer),
-            timeout= self.read_timeout
-        )
-        ctr_task.stop()
-        
-        self.streamer.Pulser.reset() 
-    
-        return buffer
-    '''
-
-    
-    
-    '''
-    Shivam: This is no longer needed as we are doing spatial tracking while taking measurements.
-    def feedback(self, sweep, sweeps_until_feedback, z_feedback_every, xyz_step_nm, shrink_every_x_iter,starting_point):
-        # Shivam: This is the standard spatial feedback method employed in other ODMR Spyrelets.
-
-        if (sweep > 0) and (sweep % sweeps_until_feedback == 0):
-            if sweep % z_feedback_every == 0:
-                dozfb = True
-            else:
-                dozfb = False
-
-            feed_params = {
-                'starting_point': str(starting_point),
-                'x_initial': rpyc.utils.classic.obtain(self.urixyz.daq_controller.position['x']),
-                'y_initial': rpyc.utils.classic.obtain(self.urixyz.daq_controller.position['y']),
-                'z_initial': rpyc.utils.classic.obtain(self.urixyz.daq_controller.position['z']),
-                'do_z': dozfb,
-                'xyz_step': xyz_step_nm,
-                'shrink_every_x_iter': shrink_every_x_iter,
-
-            }
-            ## we make sure the laser is turned on.
-            self.streamer.Pulser.constant(([7], 0.0, 0.0))
-
-            self.call(self.newSpaceFB, **feed_params)
-
-            ##space_data is the last line of data from spatialfeedbackxyz
-            space_data = self.newSpaceFB.data.tail(1)
-            x_initial = Q_(space_data['x_center'].values[0], 'um')
-            y_initial = Q_(space_data['y_center'].values[0], 'um')
-            if dozfb:
-                z_initial = Q_(space_data['z_center'].values[0], 'um')
-
-                self.urixyz.daq_controller.move({'x': x_initial, 'y': y_initial, 'z': z_initial})
-                return
-            # Shivam: Is there supposed to be an else over here?
-            self.urixyz.daq_controller.move({'x': x_initial, 'y': y_initial, 'z': self.XYZ_center[2]})
-            return
-        else:
-            return
-    '''
 
 
 
@@ -1151,9 +1031,9 @@ class TemperatureVsTime():
         mgr.sg.set_rf_toggle(False)
         mgr.sg.set_mod_toggle(False)
         print("Turning off laser")
-        self.streamer.Pulser.reset()
+        mgr.Pulser.reset()
         #self.streamer.Pulser.constant(([7],0.0,0.0))
-        self.streamer.Pulser.isStreaming()
+        mgr.Pulser.isStreaming()
 
                 ## turns off instruments
         mgr.sg.set_rf_toggle(False)

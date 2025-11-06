@@ -4,7 +4,7 @@ from nspyre import FlexLinePlotWidget
 from nspyre import ExperimentWidget
 from nspyre import DataSink
 from pyqtgraph.Qt import QtWidgets
-from PyQt6.QtWidgets import QSpinBox, QLineEdit, QCheckBox
+from PyQt6.QtWidgets import QSpinBox, QLineEdit, QCheckBox, QComboBox
 from special_widgets import unit_widgets
 from pyqtgraph import SpinBox
 
@@ -18,15 +18,11 @@ from special_widgets.heat_map_plot_widget import HeatMapPlotWidget
 cmap = pg.colormap.get('viridis')  
 
 get_param_value_funs={
-            unit_widgets.PointWidget: lambda w: w.get_point(),
-            unit_widgets.MLineEdit:   lambda w: w.umvalue,
-            unit_widgets.HzLineEdit:  lambda w: w.hzvalue,
-            unit_widgets.SecLineEdit:  lambda w: w.secvalue,
-            unit_widgets.NSLineEdit:  lambda w: w.nsvalue,
-            unit_widgets.HzIntervalWidget: lambda w: w.get_range(),
-            unit_widgets.ThreeValueWidget: lambda w: w.get_values(),
+            SpinBox: lambda w: w.value() if w.suffix() != 'm' else w.value()*1e6,
             QSpinBox: lambda w: w.value(),
-            unit_widgets.FlexiblePointWidget: lambda w: w.get_points(),
+            QLineEdit: lambda w: w.text(),
+            QCheckBox: lambda w: w.isChecked(),
+            QComboBox: lambda w: w.currentText(),
         }
 
 MAXIMUM=2147483647 # There has to be a better way...
@@ -35,13 +31,9 @@ class ConfocalFMODMRWidget(ExperimentWidget):
         from PyQt6.QtWidgets import QLineEdit, QSpinBox, QCheckBox, QComboBox
 
         # Define widgets that require extra configuration outside of params:
-        # channel1_cb = QComboBox()
-        # channel1_cb.addItems(['ctr0', 'ctr1', 'ctr2', 'ctr3', 'none'])
-        # channel1_cb.setCurrentText('ctr1')
         
         runs_sb = QSpinBox()
         runs_sb.setMinimum(1)
-        
         runs_sb.setMaximum(MAXIMUM)
         runs_sb.setValue(10)
         
@@ -63,18 +55,13 @@ class ConfocalFMODMRWidget(ExperimentWidget):
         starting_point_cb.addItems(['user_input', 'current_position (ignore input)'])
         starting_point_cb.setCurrentText('current_position (ignore input)')
 
-        # sampling_rate_sb=unit_widgets.HzLineEdit(50000)
-
-        # repeat_minutes_sb = SpinBox()
-        # repeat_minutes_sb.setValue(0)
-        # repeat_minutes_sb.setMinimum(0)
-        # repeat_minutes_sb.setMaximum(None)
-        # repeat_minutes_sb.setDecimals(3)
-
-        rf_amplitude_sb = QSpinBox()
-        rf_amplitude_sb.setMinimum(-100)
-        rf_amplitude_sb.setMaximum(7)
-        rf_amplitude_sb.setValue(-20)
+        rf_amplitude_sb = SpinBox(
+            value=-20,
+            suffix='dBm',
+            siPrefix=False,
+            dec=True,
+            bounds=(-100, 10),
+        )
 
         feedback_cb=QCheckBox()
         feedback_cb.setChecked(True)
@@ -112,19 +99,43 @@ class ConfocalFMODMRWidget(ExperimentWidget):
             },
             'probe_time': {
                 'display_text': 'Probe Time',
-                'widget': unit_widgets.SecLineEdit(100e-6)
+                'widget': SpinBox(
+                    value=100e-6,
+                    suffix='s',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(1e-9, 1),
+                )
             },
             'clock_duration': {
                 'display_text': 'Clock Duration',
-                'widget': unit_widgets.SecLineEdit(10e-9)
+                'widget': SpinBox(
+                    value=10e-9,
+                    suffix='s',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(1e-12, 1),
+                )
             },
             'laser_lag': {
                 'display_text': 'Laser Lag',
-                'widget': unit_widgets.SecLineEdit(80e-9)
+                'widget': SpinBox(
+                    value=80e-9,
+                    suffix='s',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(1e-12, 1),
+                )
             },
             'cooldown_time': {
                 'display_text': 'Cooldown Time',
-                'widget': unit_widgets.SecLineEdit(0)
+                'widget': SpinBox(
+                    value=0,
+                    suffix='s',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(0, 1000),
+                )
             },
 
             'feedback': {
@@ -142,7 +153,13 @@ class ConfocalFMODMRWidget(ExperimentWidget):
         
             'xyz_step': {
                 'display_text': 'XYZ Step',
-                'widget': unit_widgets.MLineEdit(45e-9)
+                'widget': SpinBox(
+                    value=45e-9,
+                    suffix='m',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(1e-12, 1e-3),
+                )
             },
             'count_step_shrink': {
                 'display_text': 'Count Step Shrink',

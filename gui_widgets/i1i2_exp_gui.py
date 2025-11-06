@@ -8,17 +8,6 @@ from special_widgets import unit_widgets
 import pyqtgraph as pg
   
 
-get_param_value_funs={
-            unit_widgets.PointWidget: lambda w: w.get_position_as_tuple(),
-            unit_widgets.MLineEdit:   lambda w: w.umvalue,
-            unit_widgets.HzLineEdit:  lambda w: w.hzvalue,
-            unit_widgets.SecLineEdit:  lambda w: w.secvalue,
-            unit_widgets.NSLineEdit:  lambda w: w.nsvalue,
-            unit_widgets.HzIntervalWidget: lambda w: w.get_range(),
-            unit_widgets.ThreeValueWidget: lambda w: w.get_values(),
-            QSpinBox: lambda w: w.value(),
-            unit_widgets.FlexiblePointWidget: lambda w: w.get_points(),
-        }
 
 
 
@@ -71,35 +60,48 @@ class I1I2Widget(ExperimentWidget):
         sideband_frequency_cb.addItems(sideband_items)
         sideband_frequency_cb.setCurrentText("10.1010101")
         # New params_config dictionary using only display_text and widget:
-        
+        track_z_cb = QCheckBox()
+        track_z_cb.setChecked(True)
         params_config = {
-            'device': {
-                'display_text': 'Device',
-                'widget': QLineEdit("Dev1")
-            },
-            'PS_clock_channel': {
-                'display_text': 'PS Clock Channel',
-                'widget': QLineEdit("PFI0")
-            },
-            'APD_channel': {
-                'display_text': 'APD Channel',
-                'widget': apd_channel_cb
-            },
             'sampling_rate': {
                 'display_text': 'Sampling Rate',
-                'widget': unit_widgets.HzLineEdit(50000)
+                'widget': SpinBox(
+                    value=50000,
+                    suffix='Hz',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(1, 1e9),
+                )
             },
             'clockPulseTime': {
                 'display_text': 'Clock Pulse Time',
-                'widget': unit_widgets.SecLineEdit(10e-9)
+                'widget': SpinBox(
+                    value=10e-9,
+                    suffix='s',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(1e-12, 1),
+                )
             },
             'mwPulseTime': {
                 'display_text': 'MW Pulse Time',
-                'widget': unit_widgets.SecLineEdit(50e-6)
+                'widget': SpinBox(
+                    value=50e-6,
+                    suffix='s',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(1e-9, 1),
+                )
             },
             'time_per_sgpoint': {
                 'display_text': 'Time per SG Point',
-                'widget': unit_widgets.SecLineEdit(1)
+                'widget': SpinBox(
+                    value=1,
+                    suffix='s',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(0.001, 1000),
+                )
             },
             'sweeps': {
                 'display_text': 'Sweeps',
@@ -119,7 +121,13 @@ class I1I2Widget(ExperimentWidget):
             },
             'rf_amplitude': {
                 'display_text': 'RF Amplitude',
-                'widget': QLineEdit("-20")
+                'widget': SpinBox(
+                    value=-20,
+                    suffix='dBm',
+                    siPrefix=False,
+                    dec=True,
+                    bounds=(-50, 10),
+                )
             },
             'read_timeout': {
                 'display_text': 'Read Timeout',
@@ -129,13 +137,23 @@ class I1I2Widget(ExperimentWidget):
                 'display_text': 'Sweeps Until Feedback',
                 'widget': sweeps_until_feedback_sb
             },
-            'z_feedback_every': {
+            'z_cycle': {
                 'display_text': 'Z Feedback Every',
                 'widget': z_feedback_every_sb
             },
+            'track_z':{
+                'display_text': 'Track Z',
+                'widget': track_z_cb
+            },
             'xyz_step_nm': {
-                'display_text': 'XYZ Step (nm)',
-                'widget': QLineEdit("0.5e-7")
+                'display_text': 'XYZ Step',
+                'widget': SpinBox(
+                    value=0.5e-7,
+                    suffix='m',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(1e-12, 1e-3),
+                )
             },
             'shrink_every_x_iter': {
                 'display_text': 'Shrink Every X Iter',
@@ -151,19 +169,19 @@ class I1I2Widget(ExperimentWidget):
             },
             'searchXYZ': {
                 'display_text': 'Search XYZ',
-                'widget': unit_widgets.PointWidget(0.5, 0.5, 0.5)
+                'widget': QLineEdit("[0.5, 0.5, 0.5]")
             },
             'max_search': {
                 'display_text': 'Max Search',
-                'widget': unit_widgets.PointWidget(1.0, 1.0, 1.0)
+                'widget': QLineEdit("(1.0, 1.0, 1.0)")
             },
             'min_search': {
                 'display_text': 'Min Search',
-                'widget': unit_widgets.PointWidget(0.1, 0.1, 0.1)
+                'widget': QLineEdit("(0.1, 0.1, 0.1)")
             },
             'scan_distance': {
                 'display_text': 'Scan Distance',
-                'widget': unit_widgets.PointWidget(0.03, 0.03, 0.05)
+                'widget': QLineEdit("(0.03, 0.03, 0.05)")
             },
             'changing_search': {
                 'display_text': 'Changing Search',
@@ -171,7 +189,7 @@ class I1I2Widget(ExperimentWidget):
             },
             'search_PID': {
                 'display_text': 'Search PID',
-                'widget': QLineEdit("[0.5,0.01,0]")
+                'widget': QLineEdit("(0.5,0.01,0)")
             },
             'search_integral_history': {
                 'display_text': 'Search Integral History',
@@ -179,7 +197,13 @@ class I1I2Widget(ExperimentWidget):
             },
             'spot_size': {
                 'display_text': 'Spot Size',
-                'widget': unit_widgets.MLineEdit(400e-9)
+                'widget': SpinBox(
+                    value=400e-9,
+                    suffix='m',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(1e-12, 1e-3),
+                )
             },
             'advanced_tracking': {
                 'display_text': 'Advanced Tracking',
@@ -187,7 +211,12 @@ class I1I2Widget(ExperimentWidget):
             },
             'diffusion_constant': {
                 'display_text': 'Diffusion Constant',
-                'widget': QLineEdit("200")
+                'widget': SpinBox(
+                    value=200,
+                    siPrefix=False,
+                    dec=True,
+                    bounds=(0.1, 10000),
+                )
             },
             'data_download': {
                 'display_text': 'Data Download',
@@ -211,19 +240,11 @@ class I1I2Widget(ExperimentWidget):
             title='I1I2 Experiment',
             get_param_value_funs={
                 # Insert the appropriate mapping functions here for each widget type.
-                unit_widgets.PointWidget: lambda w: w.get_point(),
-                unit_widgets.MLineEdit: lambda w: w.umvalue,
-                unit_widgets.HzLineEdit: lambda w: w.hzvalue,
-                unit_widgets.SecLineEdit: lambda w: w.secvalue,
-                unit_widgets.NSLineEdit: lambda w: w.nsvalue,
-                unit_widgets.HzIntervalWidget: lambda w: w.get_range(),
-                unit_widgets.ThreeValueWidget: lambda w: w.get_values(),
+                SpinBox: lambda w: w.value() if w.opts.get('suffix', '') != 'm' else w.value()*1e6,
                 QSpinBox: lambda w: w.value(),
-                unit_widgets.FlexiblePointWidget: lambda w: w.get_points(),
-                QCheckBox: lambda w: w.isChecked(),
                 QLineEdit: lambda w: w.text(),
+                QCheckBox: lambda w: w.isChecked(),
                 QComboBox: lambda w: w.currentText(),
-                SpinBox: lambda w: w.value(),
             }
         )
 
@@ -233,11 +254,52 @@ class I1I2PlotWidget(FlexLinePlotWidget):
         
         # create some default signal plots
         def processing_function(sink):
-            sink.datasets["I2-I1"]=np.array(sink.datasets["I2"])-np.array(sink.datasets["I1"])
+            """
+            Processing function to calculate I2-I1 difference from I1I2 experiment data.
+            
+            The I1I2 experiment returns data where I1 and I2 are lists containing:
+            - Each entry is a list with [frequencies_array, values_array]
+            
+            This function calculates I2-I1 for each frequency point.
+            """
+            if 'I1' in sink.datasets and 'I2' in sink.datasets:
+                I1_data = sink.datasets['I1']
+                I2_data = sink.datasets['I2']
+                
+                # Check if we have data
+                if len(I1_data) == 0 or len(I2_data) == 0:
+                    return
+                
+                # Initialize I2-I1 dataset
+                I2_minus_I1 = []
+                
+                # Process each sweep (assuming I1 and I2 have same number of sweeps)
+                min_sweeps = min(len(I1_data), len(I2_data))
+                
+                for i in range(min_sweeps):
+                    # Extract frequency and value arrays from each sweep
+                    I1_sweep = I1_data[i]
+                    I2_sweep = I2_data[i]
+                    
+                    # Each sweep is [frequencies, values]
+                    if len(I1_sweep) >= 2 and len(I2_sweep) >= 2:
+                        frequencies = np.array(I1_sweep[0])
+                        I1_values = np.array(I1_sweep[1])
+                        I2_values = np.array(I2_sweep[1])
+                        
+                        # Calculate difference I2 - I1
+                        diff_values = I2_values - I1_values
+                        
+                        # Store sweep entry with frequencies and difference values as numpy arrays
+                        I2_minus_I1.append(np.stack([frequencies, diff_values]))
+                
+                # Store the processed data
+                sink.datasets["I2_I1"] = I2_minus_I1
+                
         super().__init__(data_processing_func=processing_function) 
-        self.add_plot('I1',        series='I1',   scan_i='',     scan_j='',  processing='Append')
-        self.add_plot('I2',        series='I2',   scan_i='',     scan_j='',  processing='Append')
-        self.add_plot('I2-I1',      series='I2-I1', scan_i='',     scan_j='',  processing=processing_function)
+        self.add_plot('I1',        series='I1',   scan_i='',     scan_j='',  processing='Average')
+        self.add_plot('I2',        series='I2',   scan_i='',     scan_j='',  processing='Average')
+        self.add_plot('I2_I1',      series='I2_I1', scan_i='',     scan_j='',  processing='Average')
 
 
         # retrieve legend object

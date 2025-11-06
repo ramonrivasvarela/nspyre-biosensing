@@ -12,7 +12,7 @@ import time
 import numpy as np
 from collections import OrderedDict
 from nidaqmx.stream_writers import AnalogMultiChannelWriter
-import rpyc.utils.classic
+from rpyc.utils.classic import obtain
 
 class NIDAQAxis:
     def __init__(self, ao_ch, cal, limits=(None, None)):
@@ -137,10 +137,12 @@ class DAQCounter:
         # self.read_task.ci_channels.all.ci_count_edges_term = self.pfi_channel
         
 
-    def prepare_counting(self, sampling_rate, n_points, bounded_sample=True):
+    def prepare_counting(self, sampling_rate=None, n_points=None, bounded_sample=True):
         ## Set up the clock channel.
-        self.set_sampling_rate(sampling_rate)
-        self.create_buffer(n_points + 1)  # +1 to account for signal being a difference of counts
+        if sampling_rate is not None:
+            self.set_sampling_rate(sampling_rate)
+        if n_points is not None:
+            self.create_buffer(n_points + 1)  # +1 to account for signal being a difference of counts
         if bounded_sample:
             sample_mode = AcquisitionType.FINITE
         else:
@@ -212,20 +214,20 @@ class DAQCounter:
         self.read_task.stop() 
         return 
     
-    def buffer_to_data(self, probe_time):
+    def buffer_to_data(self):
         if self.ctr_buffer is None:
             raise ValueError("Buffer is not initialized.")
         all_data = np.array(self.ctr_buffer[1:] - self.ctr_buffer[0:-1])
-        data = np.sum(all_data)/ ((self.n_samples+1)*probe_time )
+        data = np.sum(all_data)*self.sampling_rate/ (2*(self.n_samples+1) )
         return data
-    
-    def read_to_data(self,probe_time, timeout=10.0):
+
+    def read_to_data(self, timeout=10.0):
         """
         Read samples from the counter channel into the buffer and convert to data.
         Returns the data as a float.
         """
         self.read_counter(timeout)
-        return self.buffer_to_data(probe_time)
+        return self.buffer_to_data()
     
     def read_to_data_array(self, timeout=10.0):
         self.read_counter(timeout=timeout)
@@ -234,6 +236,7 @@ class DAQCounter:
     ### MOTION TASKS SECTION ###
     
     def move(self, target: dict):
+        target=obtain(target)
         for name, axis in self.axes.items():
             if target[name] < axis.limits[0] or target[name] > axis.limits[1]:
                 raise ValueError(f"{name} position {target[name]} is out of bounds {axis.limits}")
@@ -261,12 +264,40 @@ class DAQCounter:
         self.ao_motion_task.wait_until_done()
         self.ao_motion_task.stop()
 
-        self.position = dict(target)
+        self.position = target
+
+    def move_new(self, target: dict):
+        for name, axis in self.axes.items():
+            if target[name] < axis.limits[0] or target[name] > axis.limits[1]:
+                raise ValueError(f"{name} position {target[name]} is out of bounds {axis.limits}")
+        
+        stop_v = np.array([
+            axis.units_to_volts(target[name]) for name, axis in self.axes.items()
+        ])
+        voltages = stop_v.reshape(-1, 1)
+
+        # Ensure voltages array is C-contiguous
+        voltages = np.ascontiguousarray(voltages)
+
+        self.ao_motion_task.timing.cfg_samp_clk_timing(
+            self.acq_rate,
+            sample_mode=nidaqmx.constants.AcquisitionType.FINITE,
+            samps_per_chan=1,
+        )
+
+        writer = AnalogMultiChannelWriter(self.ao_motion_task.out_stream, auto_start=False)
+        writer.write_many_sample(voltages)
+        self.ao_motion_task.start()
+        self.ao_motion_task.wait_until_done()
+        self.ao_motion_task.stop()
+
+        self.position = target
 
     def line_scan(self, init_point, final_point, steps, pts_per_step=1):
         """1-axis line scan while acquiring counter data"""
         #print(init_point)
         #print('self.sleep_factor in line scan right before calling move():', self.sleep_factor)
+        final_point=obtain(final_point)
         self.move(init_point)
         #print("start line_scan")
         step_voltages = self.linear_func(init_point, final_point, steps)
@@ -334,12 +365,12 @@ class DAQCounter:
         """1-axis line scan while acquiring counter data"""
         #print(init_point)
         #print('self.sleep_factor in line scan right before calling move():', self.sleep_factor)
-        self.move(init_point)
-        self.final_point = final_point
+        self.move(obtain(init_point))
+        self.final_point = obtain(final_point)
         #print("start line_scan")
         self.buffer_shape= (steps, pts_per_step + 1)
-        step_voltages, remainding_buffer = self.linear_func(init_point, final_point, steps)
-        step_voltages = np.repeat(step_voltages, pts_per_step + 1, axis=0)
+        step_voltages, remaining_buffer = self.linear_func(init_point, final_point, steps, ctr_buffer_size, buffer_allocation, hs=True)
+        #step_voltages = np.repeat(step_voltages, pts_per_step + 1, axis=0)
         # configure analog output task
         self.ao_motion_task.timing.cfg_samp_clk_timing(
             self.acq_rate,
@@ -383,26 +414,24 @@ class DAQCounter:
         # start the move
         self.read_task.start()
         self.ao_motion_task.start()
-        return remainding_buffer
+        return remaining_buffer
 
-    def start_line_scan(self):
+    def start_line_scan(self, timeout=10):
         # 9) read — match v1’s use of READ_ALL_AVAILABLE
         self.sample_reader_stream.read_many_sample_uint32(self.ni_ctr_sample_buffer,
                                         number_of_samples_per_channel=nidaqmx.constants.READ_ALL_AVAILABLE,
-                                        timeout=60)
+                                        timeout=timeout)
         
         # wait for motion to complete
         #time.sleep((1.1*step_voltages.shape[0] / self.acq_rate).to('s').m)
-        
+        self.ao_motion_task.wait_until_done()
         self.read_task.stop()
         self.ao_motion_task.stop()
-        scanned = self.ni_ctr_sample_buffer.reshape(self.buffer_shape)
-        averaged = np.diff(scanned).mean(axis=1)
-        self.position = self.final_point
+
         # print('what is my final point', final_point, self.position)
         return self.ni_ctr_sample_buffer
-    
-    def linear_func(self, start_pt, stop_pt, steps, buffer_allocation, ctr_buffer_size, hs=False):
+
+    def linear_func(self, start_pt, stop_pt, steps, ctr_buffer_size=None, buffer_allocation=None, hs=False):
         """Generate a set of linearly spaced points between the start and stop point
         return value is in volts"""
         start_volts = np.array([])
@@ -438,3 +467,20 @@ class DAQCounter:
 
     def get_position(self):
         return self.position
+
+    def odmr_center_read_process_data(self, n_points, runs):
+        data=self.read_to_data_array()
+        points_per_run = 4 * n_points + 4  # (n_points+1) background + n_points signal
+        data_reshaped = data.reshape(runs, points_per_run)
+        # Separate background and signal for each run
+        background_left_raw = data_reshaped[:, :n_points+1]  # First n_points+1 are background
+        signal_left_raw = data_reshaped[:, n_points+1:2*n_points+2]  # Next n_points are signal
+        background_right_raw = data_reshaped[:, 2*n_points+2:3*n_points+3]  # Next n_points are background
+        signal_right_raw = data_reshaped[:, 3*n_points+3:4*n_points+4]  # Next n_points are signal
+
+        # Apply buffer_to_data logic to each row and sum the differences
+        background_left = np.average([np.sum(np.diff(row)) for row in background_left_raw])
+        signal_left = np.average([np.sum(np.diff(row)) for row in signal_left_raw])
+        background_right = np.average([np.sum(np.diff(row)) for row in background_right_raw])
+        signal_right = np.average([np.sum(np.diff(row)) for row in signal_right_raw])
+        return background_left, signal_left, background_right, signal_right

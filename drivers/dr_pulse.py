@@ -3,8 +3,10 @@ Created on 5/30/2025 by Ramon Rivas
 """
 import numpy as np
 from math import sin, cos, radians, lcm
+import math
 #from threed.data_and_plot import save_excel
 import datetime as Dt
+import pandas as pd
 
 #REQUIRED IMPORT
 from pulsestreamer import PulseStreamer, OutputState, Sequence
@@ -143,7 +145,41 @@ class PulserClass():
         # Reset internal state after streaming
         self.change_state([], 0.0, 0.0)
 
+    def I1I2pulse(self,sideband_frequency, ns_read_time, ns_clock_time, runs):
+        # seq, self.new_pulse_time= mgr.Pulser.odmr_temp_calib_no_bg(sideband_frequency, ns_read_time, ns_clock_time)
+        IQleft = [0.355, 0.348]
+        IQright = [0.357, 0.350]
+        itty_bitty_time = 8
+        freq_ns = sideband_frequency/ 1e9
+        multiplier = math.lcm(round((1/freq_ns)),8)
+        new_pulse_time = multiplier * int(ns_read_time/multiplier)
+        print("New pulse time is " + str(new_pulse_time))
+        num_samples = new_pulse_time /  itty_bitty_time
+        print("num_samples is  " + str(num_samples))
+        endpoint = freq_ns * (num_samples - 1) * itty_bitty_time
 
+        pointsAO0 = np.linspace(0., float(endpoint), num = int(num_samples))
+        pointsAO1 = np.linspace(0., float(endpoint), num = int(num_samples))
+        seq_dict={'clock': [], 'laser': [], 'Q':[], 'I':[]}
+        # Note that we have different amplitudes of sine waves for left and right sideband modulations from calibration
+        for i in range(2):
+            if i == 0:
+                analog_ptsAO0, analog_ptsAO1 = np.cos(2*np.pi * pointsAO0), np.sin(2*np.pi * pointsAO1)
+                zip_seqAO0 = [(itty_bitty_time,) * (int(num_samples)), tuple((IQleft[0] * analog_ptsAO0))]
+                zip_seqAO1 = [(itty_bitty_time,) * (int(num_samples)), tuple((IQleft[1] * analog_ptsAO1))]
+
+            elif i == 1:
+                analog_ptsAO0, analog_ptsAO1 = np.sin(2*np.pi * pointsAO0), np.cos(2*np.pi * pointsAO1)
+                zip_seqAO0 = [(itty_bitty_time,) * (int(num_samples)), tuple((IQright[0] * analog_ptsAO0))]
+                zip_seqAO1 = [(itty_bitty_time,) * (int(num_samples)), tuple((IQright[1] * analog_ptsAO1))]
+
+            seq_dict['Q'] += list(zip(*zip_seqAO0))
+            seq_dict['I'] += list(zip(*zip_seqAO1))
+
+            seq_dict['clock'] += [(ns_clock_time, 1), (new_pulse_time - ns_clock_time, 0)]
+            seq_dict['laser'] += [(new_pulse_time, 1)]
+        seq= self.make_seq(**seq_dict)
+        return seq, new_pulse_time
 
 
     def stream_sequence(self, sequence:Sequence, n_runs:int=1, SWITCH:bool=False, AM:bool=False):
@@ -160,7 +196,31 @@ class PulserClass():
         analog_set = -1 if AM else 0
         self.Pulser.stream(sequence,n_runs, final = OutputState(digital_set, analog_set,0))
         self.change_state(digital_set, analog_set, 0)
-
+    def stream_converted_sequence(self, seqs, n_runs):
+        self.Pulser.stream(self.convert_sequence(seqs), n_runs)
+    def convert_sequence(self, seqs):
+         # 0-7 are the 8 digital channels
+         # 8-9 are the 2 analog channels
+        data = {}
+        time = -0.01
+        for seq in seqs:
+            col = np.zeros(10)
+            col[seq[1]] = 1
+            col[8] = seq[2]
+            col[9] = seq[3]
+            init_time = time + 0.01
+            data[init_time] = col
+            time = time + seq[0]
+            #data[prev_time_stamp + 0.01] = col
+            data[time] = col
+            #prev_time_stamp = seq[0]
+        dft = pd.DataFrame(data)
+        df = dft.T #transposes to have channels listed on vertical lines
+        rev_dict={0: "clock", 1: "blue", 2: "SRS", 3: "NIR", 4: "gate1", 5: "gate2", 6: "gate3", 7: "laser", 8: "I", 9: "Q"}
+        sub_df = df[list(rev_dict.keys())]
+        fin = sub_df.rename(columns = rev_dict)
+        return fin
+    
     def flip_mirror(self, output=[], i=0, q=0, n_runs=1):
         pulse = [(1000000, [5], 0, 0)]
         self.Pulser.stream(pulse, n_runs, final=OutputState(output, i, q))
@@ -428,3 +488,377 @@ class PulserClass():
         #self.plotSeq(dchans,achans,dpatterns,apatterns,'CWUriMRnew') #works
         return self.sequence
     
+    def odmr_temp_calib_no_bg(self, freq, ns_read_time, ns_clock_time):
+        '''
+        Shivam: Same as above but with no background measurements for normalization.
+        '''
+        print('self.read_time:', ns_read_time)
+        print(' self.clock_time:',  ns_clock_time)
+        # self.total_time = 0
+        seq1, new_pulse_time = self.new_sideband_center(ns_read_time, ns_clock_time, freq, modulation = "left")
+        seq2, new_pulse_time = self.new_sideband_center(ns_read_time, ns_clock_time, freq, modulation = "right")
+        
+
+        # self.total_time += 2 * ns_read_time
+        
+        return seq1 + seq2 , new_pulse_time
+    
+    def new_sideband_center(self, ns_pulse_time, ns_clock_time, frequency, modulation):
+        '''
+        This function produces one pulse_time pulse of a sideband modulation of frequency (generally 50 us)
+        Modulation "left" and "right" indicate which direction to produce sideband peak.
+        
+        '''
+        
+        experiment = self.create_sequence()
+        patternAO0, patternAO1 = [], []
+        itty_bitty_time = 8
+        freq_ns = frequency/ 1e9
+        multiplier = math.lcm(round((1/freq_ns)),8)
+        new_pulse_time = multiplier * int(ns_pulse_time/multiplier)
+        print("New pulse time is " + str(new_pulse_time))
+        num_samples = new_pulse_time /  itty_bitty_time
+        print("num_samples is  " + str(num_samples))
+        endpoint = freq_ns * (num_samples - 1) * itty_bitty_time
+
+        pointsAO0 = np.linspace(0., float(endpoint), num = int(num_samples))
+        pointsAO1 = np.linspace(0., float(endpoint), num = int(num_samples))
+
+        # Note that we have different amplitudes of sine waves for left and right sideband modulations from calibration
+
+        if modulation == "left":
+            analog_ptsAO0, analog_ptsAO1 = np.cos(2*np.pi * pointsAO0), np.sin(2*np.pi * pointsAO1)
+            zip_seqAO0 = [(itty_bitty_time,) * (int(num_samples)), tuple((self.IQleft[0] * analog_ptsAO0))]
+            zip_seqAO1 = [(itty_bitty_time,) * (int(num_samples)), tuple((self.IQleft[1] * analog_ptsAO1))]
+
+        elif modulation == "right":
+            analog_ptsAO0, analog_ptsAO1 = np.sin(2*np.pi * pointsAO0), np.cos(2*np.pi * pointsAO1)
+            zip_seqAO0 = [(itty_bitty_time,) * (int(num_samples)), tuple((self.IQright[0] * analog_ptsAO0))]
+            zip_seqAO1 = [(itty_bitty_time,) * (int(num_samples)), tuple((self.IQright[1] * analog_ptsAO1))]
+
+        
+
+        patternAO0 += list(zip(*zip_seqAO0)) 
+        patternAO1 += list(zip(*zip_seqAO1))
+
+        patternClock = [(ns_clock_time, 1), (new_pulse_time - ns_clock_time, 0)]
+        patternGreen = [(new_pulse_time, 1)]
+
+
+        experiment.setAnalog(0, patternAO0)
+        experiment.setAnalog(1, patternAO1)
+
+        experiment.setDigital(self.channel_dict['clock'], patternClock)
+        experiment.setDigital(self.channel_dict['laser'], patternGreen)
+
+        return experiment, new_pulse_time
+    
+    def setup_no_wait(self, ns_laser_lag, ns_probe_time, ns_clock_duration, runs, mode, switch):
+        '''
+        Sets up the pulse sequence for ODMR without wait time. Returns the relevant instrument sequences as a dictionary
+        '''
+        IQ0 = [-0.0025,-0.0025]
+        IQpx = [0.4461,-.0025]
+        
+        #if self.VERBOSE: 
+        #    print('\n using sequence without wait time')
+        #    print('self.read_time:', ns_probe_time)
+        #    print('self.clock_time:',  ns_clock_duration)       
+        #    print('self.laser_lag:', ns_laser_lag) 
+
+        #### LASER LAG
+        laser = [(ns_laser_lag, 1)]
+        clock = [(ns_laser_lag, 0)]
+        if mode == 'QAM': 
+            mwQ = [(ns_laser_lag, IQ0[0])]
+            mwI = [(ns_laser_lag, IQ0[1])]
+        elif mode == 'AM':
+            mwQ = [(ns_laser_lag, -1)]
+        elif mode == 'NoMod':
+            if not switch:
+                raise ValueError('NoMod mode requires switch to be True')
+
+        if switch:
+            #if self.VERBOSE: print('using switch')
+            switch = [(ns_laser_lag, 1)]
+
+
+        #### (mwOnOff repeating sequence defn)
+        mwOnOff_laser = [(ns_probe_time, 1), (ns_probe_time, 1)]
+        if mode == 'QAM':
+            mwOnOff_mwQ = [(ns_probe_time, IQpx[0]), (ns_probe_time, IQ0[0])]
+            mwOnOff_mwI = [(ns_probe_time, IQpx[1]), (ns_probe_time, IQ0[1])]
+        elif mode == 'AM':
+            mwOnOff_mwQ = [(ns_probe_time, 0), (ns_probe_time, -1)]
+        elif mode == 'NoMod':
+            pass
+        mwOnOff_clock = [(ns_clock_duration,1),(ns_probe_time-ns_clock_duration,0),(ns_clock_duration,1),(ns_probe_time-ns_clock_duration,0)]
+        if switch:
+            mwOnOff_switch = [(ns_probe_time, 0), (ns_probe_time, 1)]
+
+        #### REPEATING MICROWAVE ON/OFF SEQUENCE
+        for i in range(runs):        
+            laser += mwOnOff_laser
+            clock += mwOnOff_clock
+            mwQ += mwOnOff_mwQ
+            if mode == 'QAM':
+                mwI += mwOnOff_mwI
+            if switch:
+                switch += mwOnOff_switch
+        
+        #### Last clock to collect for the last point in the run        
+        laser += [(ns_clock_duration, 0)]
+        clock += [(ns_clock_duration, 1)]
+        if mode == 'QAM':
+            mwQ += [(ns_clock_duration, IQ0[0])]
+            mwI += [(ns_clock_duration, IQ0[1])]
+        elif mode == 'AM':
+            mwQ += [(ns_clock_duration, -1)] 
+        elif mode == 'NoMod':
+            pass
+        if switch:
+            switch += [(ns_clock_duration, 1)]
+        
+        #### FINALIZE
+        #if self.VERBOSE:
+        #    print('Finished setting up pulse sequence')
+
+        seq_dict = {'clock': clock,'laser': laser}
+        if mode == 'QAM':
+            seq_dict['Q'] = mwQ
+            seq_dict['I'] = mwI
+        elif mode == 'AM':
+            seq_dict['Q'] = mwQ
+        elif mode == 'NoMod':
+            pass
+
+        if switch:
+            seq_dict['switch'] = switch
+
+        return seq_dict
+        
+    ## still need to change this to new method
+    def setup_ODMR_wait(self, ns_laser_lag, ns_probe_time, ns_clock_duration, ns_cooldown_time, ns_pulsewait_time ,runs, mode, switch):
+        '''
+        Sets up the pulse sequence for ODMR without wait time. Returns the relevant instrument sequences as a dictionary
+        '''
+        
+        IQ0 = [-0.0025,-0.0025]
+        IQpx = [0.4461,-.0025]
+        
+        #if self.VERBOSE: 
+        #    print('\n using sequence with wait time')
+        #    print('self.read_time:', ns_probe_time)
+        #    print('self.clock_time:',  ns_clock_duration)     
+        #    print('self.cooldown_time:', ns_cooldown_time)  
+        #    print('self.laser_lag:', ns_laser_lag) 
+        #    print('self.pulsewait_time:', ns_pulsewait_time)
+
+        #### LASER LAG
+        laser = [(ns_laser_lag, 1)]
+        clock = [(ns_laser_lag, 0)]
+        if mode == 'QAM': 
+            mwQ = [(ns_laser_lag, IQ0[0])]
+            mwI = [(ns_laser_lag, IQ0[1])]
+        elif mode == 'AM':
+            mwQ = [(ns_laser_lag, -1)]
+        elif mode == 'NoMod':
+            if not switch:
+                raise ValueError('NoMod mode requires switch to be True')
+
+        #if switch:
+            #if self.VERBOSE: print('using switch')
+            switch = [(ns_laser_lag, 1)]
+
+
+        #### (mwOnOff repeating sequence defn)
+        mwOnOff_laser = [(ns_probe_time, 1), (ns_cooldown_time,0),
+                          (ns_probe_time, 1), (ns_cooldown_time,0), (ns_pulsewait_time, 0)]
+        if mode == 'QAM':
+            mwOnOff_mwQ = [(ns_probe_time, IQpx[0]), 
+                            (ns_probe_time + 2 * ns_cooldown_time + ns_pulsewait_time, IQ0[0])]
+            mwOnOff_mwI = [(ns_probe_time, IQpx[1]), 
+                           (ns_probe_time + 2 * ns_cooldown_time + ns_pulsewait_time, IQ0[1])]
+        elif mode == 'AM':
+            mwOnOff_mwQ = [(ns_probe_time, 0), 
+                            (ns_probe_time + 2 * ns_cooldown_time + ns_pulsewait_time, -1)]
+        elif mode == 'NoMod':
+            pass
+        mwOnOff_clock = [(ns_clock_duration,1),(ns_probe_time-2*ns_clock_duration,0),(ns_clock_duration,1), (ns_cooldown_time + ns_pulsewait_time, 0),
+                         (ns_clock_duration,1),(ns_probe_time-2*ns_clock_duration,0),(ns_clock_duration,1), (ns_cooldown_time + ns_pulsewait_time, 0)]
+        if switch:
+            mwOnOff_switch = [(ns_probe_time, 0),
+                               (ns_probe_time + 2 * ns_cooldown_time + ns_pulsewait_time, 1)]
+
+        #### REPEATING MICROWAVE ON/OFF SEQUENCE
+        for i in range(runs):        
+            laser += mwOnOff_laser
+            clock += mwOnOff_clock
+            mwQ += mwOnOff_mwQ
+            if mode == 'QAM':
+                mwI += mwOnOff_mwI
+            if switch:
+                switch += mwOnOff_switch
+        
+        #### Last clock to collect for the last point in the run        
+        laser += [(ns_clock_duration, 0)]
+        clock += [(ns_clock_duration, 1)]
+        if mode == 'QAM':
+            mwQ += [(ns_clock_duration, IQ0[0])]
+            mwI += [(ns_clock_duration, IQ0[1])]
+        elif mode == 'AM':
+            mwQ += [(ns_clock_duration, -1)] 
+        elif mode == 'NoMod':
+            pass
+        if switch:
+            switch += [(ns_clock_duration, 1)]
+        
+        #### FINALIZE
+        #if self.VERBOSE:
+        #    print('Finished setting up pulse sequence')
+
+        seq_dict = {'clock': clock,'laser': laser}
+        if mode == 'QAM':
+            seq_dict['Q'] = mwQ
+            seq_dict['I'] = mwI
+        elif mode == 'AM':
+            seq_dict['Q'] = mwQ
+        elif mode == 'NoMod':
+            pass
+
+        if switch:
+            seq_dict['switch'] = switch
+
+        return seq_dict
+
+
+    def setup_LPvT(self, ns_read_time, ns_clock_time, freq_array, num_freq = 4):
+        freq_ct = len(freq_array)
+        if freq_ct != num_freq:
+            print("\nWARNING\n\n, Hard Coded", num_freq, "frequencies to be used for ODMR Temperature Measurement.\n",
+                  "frequency array of size greater or smaller was given to pulse streamer. \n\n")
+        experiment = self.create_sequence()
+        #patternNIR = [(self.heat_on, 1), (self.heat_off, 0)] * int((self.read_time)/(self.heat_off + self.heat_on)) 
+        # Shivam: Green laser on for all frequency points       
+        patternGreen = [(ns_read_time, 1)] * freq_ct * 2
+        
+        patternAO0, patternAO1 = [], []
+        #list_for_num_freq = {'4': [0,3,1,2,2,1,3,0], '2': [0,1,1,0]}
+        ## for idx in list_for_num_freq[str(num_freq)]:
+        if freq_ct == 2:
+            for idx in [0,1,1,0]:
+                patternAO0 += self.sidebandPattern(ns_read_time, freq_array[idx], self.IQboth[0])
+                patternAO1 += self.sidebandPattern(ns_read_time, freq_array[idx], self.IQboth[1], sine = True)
+        if freq_ct == 4:
+            for idx in [0,3,1,2,2,1,3,0]:
+                patternAO0 += self.sidebandPattern(ns_read_time, freq_array[idx], self.IQboth[0]) 
+                patternAO1 += self.sidebandPattern(ns_read_time, freq_array[idx], self.IQboth[1], sine = True)
+            
+        patternClock = freq_ct * [(ns_clock_time, 1), (ns_read_time - ns_clock_time, 0)]*2# + [(self.clock_time,1)]
+        #dictionary:
+        #default_digi_dict = {"clock": 0, "blue": 1, "SRS": 2, "NIR":3, "gate1": 4, "gate2": 5, "gate3": 6, "laser": 7, "": None}
+        experiment.setDigital(self.channel_dict['clock'], patternClock)
+        #self.sequence.setDigital(0, patternClock)
+        #experiment.setDigital(self.channel_dict['NIR'], patternNIR)
+        experiment.setDigital(self.channel_dict['laser'], patternGreen)
+        experiment.setAnalog(0, patternAO0)
+        experiment.setAnalog(1, patternAO1)
+        self.total_time = ns_read_time * freq_ct * 2# + self.clock_time
+        #import pdb; pdb.set_trace()
+        return experiment
+    
+    def sidebandPattern(self, ns_pulse_time, frequency, IQ, sine = False):
+        freq_ns = frequency / 1e9
+        itty_bitty_time = 8
+        num_samples = ns_pulse_time/itty_bitty_time
+        endpoint = freq_ns * int(num_samples) * itty_bitty_time ##TIME ##set itty_bitty_time from here to nearest int
+        points = np.linspace(0., float(endpoint), num = int(num_samples))
+        analog_pts = np.cos(2*np.pi * points) if sine == False else np.sin(2*np.pi*points) ## freq_ns inside sinusoid
+        zip_seq = [(itty_bitty_time,) * int(num_samples), tuple(IQ * analog_pts)]
+        pattern = list(zip(*zip_seq))
+        return pattern
+
+    def odmr_center_create_sequence(self, odmr_span,sweep_time, clock_time, probe_time, laser_pause):
+                # constants
+        DT_NS = max(8, (int(sweep_time *1e4)//8)*8)
+        print("DT_NS:", DT_NS)
+
+        clock_time_ns = int(round(clock_time * 1e9))
+        IQleft  = [0.355, 0.348]
+        IQright = [0.357, 0.350]
+
+        # probe_time rounded to a multiple of 8 ns
+        number_bins   = max(1, int(round((probe_time * 1e9) / DT_NS)))
+        probe_time_ns = number_bins * DT_NS
+
+        # total points
+        n_points = int(sweep_time // (probe_time_ns * 1e-9))
+        sweep_time_ns = probe_time_ns * n_points
+
+        # frequency values (GHz if odmr_span is in Hz; GHz*ns is unitless for phase)
+        f_values = np.linspace(0.0, odmr_span * 1e-9, n_points * number_bins, dtype=np.float64)
+
+        laser_pause_ns = int(round(laser_pause * 1e9))
+        if laser_pause_ns < (probe_time_ns - clock_time_ns):
+            # keep the warning but avoid printing in performance-critical paths if not needed
+            print("Warning: laser pause time is less than probe_time - clock_time. "
+                "Setting laser pause time to probe_time - clock_time")
+            laser_pause_ns = probe_time_ns - clock_time_ns
+
+        # ----- digital channels (lightweight list multiplications are fine) -----
+        clock_pulse = [(clock_time_ns, 1), (probe_time_ns - clock_time_ns, 0)]  # one probe block
+        laser = 4 * [(sweep_time_ns + clock_time_ns, 1), (laser_pause_ns, 0)]
+        clock = 4 * (clock_pulse * n_points + [(clock_time_ns, 1), (laser_pause_ns, 0)])
+        switch = 2 * [
+            (sweep_time_ns + clock_time_ns, 1), (laser_pause_ns, 0),
+            (sweep_time_ns + clock_time_ns, 0), (laser_pause_ns, 0)
+        ]
+
+        # ----- analog channels (vectorised) -----
+        # Phase accumulates: phi_k = sum_{j<=k} 2π * f_j * DT_NS
+        phi = (2.0 * np.pi * DT_NS) * np.cumsum(f_values)  # shape (N,)
+
+        cos_phi = np.cos(phi)
+        sin_phi = np.sin(phi)
+
+        # Precompute amplitude arrays
+        i_left_vals  = IQleft[1]  * cos_phi
+        i_right_vals = IQright[1] * cos_phi
+        q_left_vals  = -IQleft[0] * sin_phi
+        q_right_vals =  IQright[0] * sin_phi
+
+        # Convert to lists of (duration, value) tuples efficiently
+        dur8 = np.full(phi.size, DT_NS, dtype=np.int64)
+
+        # Using column_stack + map(tuple) is faster than Python loops for large N
+        i_left  = list(map(tuple, np.column_stack((dur8, i_left_vals))))
+        i_right = list(map(tuple, np.column_stack((dur8, i_right_vals))))
+        q_left  = list(map(tuple, np.column_stack((dur8, q_left_vals))))
+        q_right = list(map(tuple, np.column_stack((dur8, q_right_vals))))
+
+        # Headers/tail segments unchanged
+        i = (
+            [(laser_pause_ns + clock_time_ns + sweep_time_ns, IQleft[1])]
+            + i_left
+            + [(2 * laser_pause_ns + 2 * clock_time_ns + sweep_time_ns, IQright[1])]
+            + i_right
+            + [(laser_pause_ns + clock_time_ns, IQright[1])]
+        )
+
+        q = (
+            [(laser_pause_ns + clock_time_ns + sweep_time_ns, 0.0)]
+            + q_left
+            + [(2 * laser_pause_ns + 2 * clock_time_ns + sweep_time_ns, 0.0)]
+            + q_right
+            + [(laser_pause_ns + clock_time_ns, 0.0)]
+        )
+
+        # ----- build sequence -----
+        seq = self.create_sequence()
+        seq.setDigital(self.channel_dict['clock'], clock)
+        seq.setDigital(self.channel_dict['laser'], laser)
+        seq.setDigital(self.channel_dict['switch'], switch)
+        seq.setAnalog(0, q)
+        seq.setAnalog(1, i)
+
+        return seq, n_points

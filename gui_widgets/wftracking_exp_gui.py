@@ -5,7 +5,7 @@ from nspyre import ExperimentWidget
 from nspyre import DataSink
 from pyqtgraph import SpinBox
 from pyqtgraph.Qt import QtWidgets
-from PyQt6.QtWidgets import QSpinBox, QLineEdit, QCheckBox
+from PyQt6.QtWidgets import QSpinBox, QLineEdit, QCheckBox, QComboBox
 from special_widgets import unit_widgets
 
 import experiments.WFTracking
@@ -19,22 +19,18 @@ from special_widgets.heat_map_plot_widget import HeatMapPlotWidget
 cmap = pg.colormap.get('viridis')  
 
 get_param_value_funs={
-            unit_widgets.PointWidget: lambda w: w.get_point(),
-            unit_widgets.MLineEdit:   lambda w: w.umvalue,
-            unit_widgets.HzLineEdit:  lambda w: w.hzvalue,
-            unit_widgets.SecLineEdit:  lambda w: w.secvalue,
-            unit_widgets.NSLineEdit:  lambda w: w.nsvalue,
-            unit_widgets.HzIntervalWidget: lambda w: w.get_range(),
-            unit_widgets.ThreeValueWidget: lambda w: w.get_values(),
-            QSpinBox: lambda w: w.value(),
-            unit_widgets.FlexiblePointWidget: lambda w: w.get_points(),
-        }
+    SpinBox: lambda w: w.value() if w.opts.get('suffix', '') != 'm' else w.value()*1e6,
+    QSpinBox: lambda w: w.value(),
+    QLineEdit: lambda w: w.text(),
+    QCheckBox: lambda w: w.isChecked(),
+    QComboBox: lambda w: w.currentText(),
+}
 
 class WFTrackingWidget(ExperimentWidget):
     def __init__(self):
         # Widgets that need extra configuration are created separately
         # cam_trigger_cb requires adding items and setting default text
-        cam_trigger_cb = QtWidgets.QComboBox()
+        cam_trigger_cb = QComboBox()
         cam_trigger_cb.addItems(["EXTERNAL_EXPOSURE", "EXTERNAL_FT"])
         cam_trigger_cb.setCurrentText("EXTERNAL_FT")
         
@@ -47,9 +43,11 @@ class WFTrackingWidget(ExperimentWidget):
         # rf_amplitude_sb: although a QSpinBox, we want to set its value explicitly
         rf_amplitude_sb = QSpinBox()
         rf_amplitude_sb.setValue(-15)
+        rf_amplitude_sb.setMinimum(-100)
+        rf_amplitude_sb.setMaximum(10)
         
         # mode_cb requires extra steps
-        mode_cb = QtWidgets.QComboBox()
+        mode_cb = QComboBox()
         mode_cb.addItems(["AM", "SWITCH"])
         mode_cb.setCurrentText("AM")
         
@@ -60,11 +58,23 @@ class WFTrackingWidget(ExperimentWidget):
             },
             'exp_time': {
                 'display_text': 'Exposure Time',
-                'widget': unit_widgets.SecLineEdit(75e-3),
+                'widget': SpinBox(
+                    value=75e-3,
+                    suffix='s',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(1e-6, 1000),
+                )
             },
             'readout_time': {
                 'display_text': 'Readout Time',
-                'widget': unit_widgets.SecLineEdit(15e-3),
+                'widget': SpinBox(
+                    value=15e-3,
+                    suffix='s',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(1e-6, 1000),
+                )
             },
             'cam_trigger': {
                 'display_text': 'Camera Trigger',

@@ -304,14 +304,15 @@ class CameraWidget(QWidget):
             self.set_camera_settings()
 
     def set_camera_settings(self):
-        
+        self.camera.set_acquisition_mode(self.acq_mode_combo.currentText())
         self.camera.set_read_mode(self.read_mode_combo.currentText())
         self.camera.set_frame_transfer_mode(self.frame_transfer_combo.currentText())
-        self.camera.get_detector()
-        self.camera.set_image()
         self.camera.set_trigger_mode(self.trigger_combo.currentText())
+        _, width, height =self.camera.get_detector()
+        self.camera.set_image(width=width, height=height)
         
-        self.camera.set_acquisition_mode(self.acq_mode_combo.currentText())
+        
+        
         self.camera.set_number_accumulations(self.acc_sb.value())
         self.camera.set_number_kinetics(self.kinetics_sb.value())
         self.camera.set_exposure_time(self.exp_input.secvalue)
@@ -356,75 +357,3 @@ class CameraWidget(QWidget):
             self.cooler_status_button.setText("Cooler OFF")
         print(f"Cooler status: {'ON' if ret == 1 else 'OFF'}")
     
-    def optimize_gain(self, gain=1):
-        with InstrumentManager() as mgr:
-            print('optimizing gain...')
-            mx = 0
-            safety_counter = 0
-            err= self.camera.set_emccdgain(gain)  # setting Electron Multiplier Gain
-            if err != 20002:
-                raise RuntimeError(f"SetEMCCDGain({gain}) failed (code {err})")
-            while(mx<=2.0e4 or mx>=2.9e4) and safety_counter<5 and err==20002:
-                safety_counter += 1
-                print(f"Safety counter: {safety_counter}")
-                # mgr.sg.set_frequency(2.87e9)  # Set the frequency
-                mgr.Pulser.stream(1000000000, [3])
-                time.sleep(0.1)  # Give time to start acquisition
-                self.camera.start_acquisition()
-                ret, _ = self.camera.get_status()
-                print(f"Start Acquisition returned {ret}")
-                if not ret == 20002:
-                    print('Starting Acquisition Failed, ending process...')
-                    return
-                #print('Starting Acquisition', ret)
-                time.sleep(0.1) #Give time to start acquisition
-                #mgr.Pulser.stream_umOFF([3], 1) 
-                if self.camera.trigger_mode != "Internal":
-
-                    mgr.Pulser.stream(100000000, [1])
-                timeout_counter = 0
-                while(self.camera.get_total_number_images_acquired()[1]<self.camera.number_kinetics and timeout_counter<=100): #20 second hard-coded limit!
-                    time.sleep(0.05)#Might want to base wait time on pulse streamer signal
-                    timeout_counter+=1
-                ret, data, _, _ = self.camera.get_images_16(1,1,1024**2) #cut out first image here
-                #print("Number of images collected in current acquisition: ", mgr.sdk.GetTotalNumberImagesAcquired()[1])
-                # temp_image = self.img_1D_to_2D(all_data[:1024**2],1024,1024) 
-                temp_image = self.img_1D_to_2D(data, 1024, 1024)
-                mx = np.max(temp_image)
-                print(f'gain of {gain}, mx is {mx}')
-                if(mx<=1.0e4):
-                    print('signal really low, raising gain +3')
-                    gain+=3
-                elif mx<=2.0e4:
-                    print('raising gain +1')
-                    gain+=1
-                elif mx>=3.2e4:
-                    print(f'Warning, risk of saturation! Max pixel value {mx} detected')
-                    gain-=5
-                elif mx>=2.9e4: 
-                    print(f'Warning, risk of saturation! Max pixel value {mx} detected')  
-                    gain-=2
-                if gain <= 0:
-                    gain = 1
-                err=self.camera.set_emccdgain(gain)#setting Electron Multiplier Gain
-                self.camera.prepare_acquisition()
-                if gain>=150:
-                    print('Warning! Gain too high! Re-adjust experiment parameters, or turn off optimize_gain, or edit the limit in the spyrelet code. Aborting...')
-                    return
-                time.sleep(0.6)
-            gain_string = f'optimum gain determined to be {gain}, giving max pixel value of roughly {mx}'
-            print(gain_string)
-            ret=self.camera.set_emccdgain(gain)
-            self.gain_sb.setValue(self.camera.emccdgain)
-
-    def img_1D_to_2D(self, img_1D,x_len,y_len):
-        '''
-        turns a singular 1D list of integers x_len*y_len long into a 2D array. Cuts and stacks, does not snake.
-        '''
-        arr = np.asarray(img_1D, dtype=int)
-        # if arr.size != x_len * y_len:
-        #     raise ValueError(f"Expected {x_len*y_len} elements, got {arr.size}")
-
-        # Reshape into (rows=y_len, cols=x_len)
-        return arr.reshape((y_len, x_len))
-
