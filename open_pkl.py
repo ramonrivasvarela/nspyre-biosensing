@@ -1,15 +1,18 @@
 from pathlib import Path
 import pickle
 import matplotlib.pyplot as plt
+from pulsestreamer import Sequence
 
-pkl_path = Path("seq.pkl").resolve()
+pkl_path = Path("nspyre-biosensing/seq.pkl").resolve()
 out_path = pkl_path.with_suffix(".png")  # seq.png next to seq.pkl
 
 with pkl_path.open("rb") as f:
     seq = pickle.load(f)
-
+print(seq)
+data=seq.getData()
+print(data)
 plt.figure()
-plt.plot(seq)                 # if seq is a list/1D array
+plt.plot(data)                 # if seq is a list/1D array
 plt.xlabel("Index")
 plt.ylabel("Value")
 plt.title("Sequence")

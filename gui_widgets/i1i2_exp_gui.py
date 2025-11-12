@@ -39,10 +39,6 @@ class I1I2Widget(ExperimentWidget):
         shrink_every_x_iter_sb.setMinimum(1)
         shrink_every_x_iter_sb.setValue(1)
 
-        starting_point_cb = QComboBox()
-        starting_point_cb.addItems(['user_input', 'current_position (ignore input)'])
-        starting_point_cb.setCurrentText('current_position (ignore input)')
-
         search_integral_history_sb = QSpinBox()
         search_integral_history_sb.setMinimum(1)
         search_integral_history_sb.setValue(5)
@@ -159,10 +155,7 @@ class I1I2Widget(ExperimentWidget):
                 'display_text': 'Shrink Every X Iter',
                 'widget': shrink_every_x_iter_sb
             },
-            'starting_point': {
-                'display_text': 'Starting Point',
-                'widget': starting_point_cb
-            },
+
             'continuous_tracking': {
                 'display_text': 'Continuous Tracking',
                 'widget': QCheckBox()

@@ -50,9 +50,8 @@ class ODMRCenter:
         """Perform experiment teardown."""
         _logger.info('Destroyed Experiment instance.')
 
-    def main(self, runs, n_steps, initial_odmr, odmr_span, sweep_time, PID, probe_time, clock_time, laser_pause, timeout_counter, rf_amplitude,  dataset):
+    def main(self, runs, initial_odmr, odmr_span, sweep_time, PID, probe_time, clock_time, laser_pause, timeout_counter, rf_amplitude, mode, dataset):
         params={'runs':runs, 
-                'n_steps':n_steps,
                 'initial_odmr':initial_odmr, 
                 'odmr_span':odmr_span, 
                 'sweep_time':sweep_time, 
@@ -62,17 +61,18 @@ class ODMRCenter:
                 'laser_pause':laser_pause, 
                 'timeout_counter':timeout_counter, 
                 'rf_amplitude':rf_amplitude,
+                'mode':mode,
                 'dataset':dataset}
         kp, ki, kd=eval(PID)
         with InstrumentManager() as mgr, DataSource(dataset) as ds:
             counter=0
             odmr_freq=initial_odmr
-            self.initialize(mgr, runs, n_steps, odmr_span, sweep_time, probe_time, clock_time, laser_pause, rf_amplitude)
+            self.initialize(mgr, runs, odmr_span, sweep_time, probe_time, clock_time, laser_pause, mode, rf_amplitude)
             while counter<timeout_counter:
                 counter+=1
                 mgr.sg.set_frequency(odmr_freq)
                 mgr.DAQcontrol.start_counter()
-                mgr.Pulser.stream_sequence(self.sequence, runs)
+                mgr.Pulser.stream_sequence(self.sequence, 1)
                 mgr.Pulser.set_state_off()
                 # data = rpyc.utils.classic.obtain(mgr.DAQcontrol.read_to_data_array())
 
@@ -102,13 +102,13 @@ class ODMRCenter:
                     return self.finalize(mgr)
             return self.finalize(mgr)
 
-    def initialize(self, mgr, runs,n_steps, odmr_span, sweep_time, probe_time, clock_time, laser_pause,  rf_amplitude):
+    def initialize(self, mgr, runs,odmr_span, sweep_time, probe_time, clock_time, laser_pause, mode, rf_amplitude):
         # n_points=int(sweep_time/probe_time)
         # odmr_span=int(odmr_span/probe_time)*probe_time
         # sg_span=(odmr_span/sweep_time)*(sweep_time+laser_pause)
         
         print("Creating sequence")
-        self.sequence, self.n_points, probe_time_ns=mgr.Pulser.odmr_center_create_sequence_FM(n_steps, odmr_span,sweep_time, clock_time, probe_time, laser_pause)
+        self.sequence, self.n_points=mgr.Pulser.odmr_center_create_sequence( odmr_span,sweep_time, clock_time, probe_time, laser_pause)
         import pickle, os
         print(f'saving sequence to seq.pkl in {os.getcwd()}')
         pickle.dump(self.sequence, open('seq.pkl', 'wb'))
@@ -116,22 +116,23 @@ class ODMRCenter:
         # import pickle, os
         # print(f'saving sequence to seq.pkl in {os.getcwd()}')
         # pickle.dump(self.sequence, open('seq.pkl', 'wb'))
-        new_probe_time=probe_time_ns*1e-9
         mgr.DAQcontrol.create_counter()
         print("buffer size:", (4*self.n_points+4)*runs)
-        mgr.DAQcontrol.prepare_counting(2/new_probe_time, (4*self.n_points+4)*runs-1)
+        mgr.DAQcontrol.prepare_counting(2/probe_time, (4*self.n_points+4)*runs-1)
         print(len(mgr.DAQcontrol.ctr_buffer))
 
         # SG settings: 
-         
+        mgr.sg.set_rf_amplitude(rf_amplitude) 
         mgr.sg.set_mod_toggle(True)
-        mgr.sg.set_rf_amplitude(rf_amplitude)
-        mgr.sg.set_mod_type('FM')
-        mgr.sg.set_mod_function('FM', 'external')
-        
-        
-        mgr.sg.set_FM_mod_dev(odmr_span)
+        if mode == 'QAM':
+            mgr.sg.set_mod_type('QAM')
+            mgr.sg.set_mod_function('QAM', 'external')
+        elif mode == 'AM' or mode == 'NoMod':
+            mgr.sg.set_mod_type('AM')
+            mgr.sg.set_mod_function('AM', 'external')
+            mgr.sg.set_AM_mod_depth(100)
         mgr.sg.set_rf_toggle(True)
+
         return
     
     def process_data(self, runs, data):
@@ -161,67 +162,49 @@ class ODMRCenter:
         mgr.sg.set_rf_toggle(False)
         return
 
-    def create_sequence(self, mgr, n_steps, odmr_span,sweep_time, clock_time, probe_time, laser_pause):
-        DT_NS = max(8, int(sweep_time*1e9 // (n_steps)))
+    def create_sequence(self, mgr, odmr_span,sweep_time, clock_time, probe_time, laser_pause):
+        clock_time_ns=int(clock_time*1e9)
+        IQleft=[0.355, 0.348]
+        IQright=[0.357, 0.350]
+        # Ensure probe_time_ns is a multiple of 8
+        number_bins=(int(probe_time*1e9) + 4) // 8
+        probe_time_ns = (number_bins) * 8
+        self.n_points=int(sweep_time//(probe_time_ns*1e-9))
+        print('type n_points', type(self.n_points), self.n_points)
+        print('type n_bins', type(number_bins), number_bins)
+        sweep_time_ns=probe_time_ns*self.n_points
+        f_values=np.linspace(0, odmr_span*1e-9, self.n_points*number_bins)
+        laser_pause_ns=int(laser_pause*1e9)
         
-        print("DT_NS:", DT_NS)
-
-        clock_time_ns = int(round(clock_time * 1e9))
-        IQleft  = [0.355, 0.348]
-        IQright = [0.357, 0.350]
-
-        # probe_time rounded to a multiple of 8 ns
-        number_bins   = max(1, int(round((probe_time * 1e9) / DT_NS)))
-
-        probe_time_ns = number_bins * DT_NS
-        self.probe_time=probe_time_ns*1e-9
-
-        # total points
-        n_points = int(sweep_time // (probe_time_ns * 1e-9))
-        # sweep_time_ns = n_steps * DT_NS
-        sweep_time_ns = probe_time_ns *n_points
-        n_steps=int(sweep_time_ns//DT_NS)
-        # n_points = sweep_time_ns // probe_time_ns
-
-        # frequency values (GHz if odmr_span is in Hz; GHz*ns is unitless for phase)
-        q_values_up = np.linspace(0, 1, n_steps, dtype=np.float64)
-        q_values_down = np.linspace(0, -1, n_steps, dtype=np.float64)
-        laser_pause_ns = int(round(laser_pause * 1e9))
-        if laser_pause_ns < (probe_time_ns - clock_time_ns):
-            # keep the warning but avoid printing in performance-critical paths if not needed
-            print("Warning: laser pause time is less than probe_time - clock_time. "
-                "Setting laser pause time to probe_time - clock_time")
-            laser_pause_ns = probe_time_ns - clock_time_ns
-
-        # ----- digital channels (lightweight list multiplications are fine) -----
-        clock_pulse = [(clock_time_ns, 1), (probe_time_ns - clock_time_ns, 0)]  # one probe block
-        laser = 4 * [(sweep_time_ns + clock_time_ns, 1), (laser_pause_ns, 0)]
-        clock = 4 * (clock_pulse * n_points + [(clock_time_ns, 1), (laser_pause_ns, 0)])
-        switch = 2 * [
-            (sweep_time_ns + clock_time_ns, 1), (laser_pause_ns, 0),
-            (sweep_time_ns + clock_time_ns, 0), (laser_pause_ns, 0)
-        ]
-
-        # ----- analog channels (vectorised) -----
-        # Phase accumulates: phi_k = sum_{j<=k} 2π * f_j * DT_NS
-        
-
-        q_seq_up=[(DT_NS, q) for q in q_values_up]
-        q_seq_down=[(DT_NS, q) for q in q_values_down]
-        q_seq = [(sweep_time_ns+clock_time_ns+laser_pause_ns, 0)]+q_seq_up +[(clock_time_ns, 1), (2*laser_pause_ns+sweep_time_ns+clock_time_ns, 0)]+ q_seq_down+ [(clock_time_ns, -1), (laser_pause_ns, 0)]
-        print('q=', q_seq)
-        print('clock=', clock)
-        print('laser=', laser)
-        print('switch=', switch)
-        # ----- build sequence -----
-        seq = self.create_sequence()
-        seq.setDigital(self.channel_dict['clock'], clock)
-        seq.setDigital(self.channel_dict['laser'], laser)
-        seq.setDigital(self.channel_dict['switch'], switch)
-        seq.setAnalog(0, q_seq)
-
-        return seq, n_points
-
+        clock_pulse = [(clock_time_ns,1),(probe_time_ns-clock_time_ns,0)] ##ensure clock_time in nanoseconds
+        laser=4*[(sweep_time_ns+clock_time_ns,1), (laser_pause_ns,0)]
+        clock =4*(clock_pulse * (self.n_points)+[(clock_time_ns, 1), (laser_pause_ns,0)])
+        switch=2*[(sweep_time_ns+clock_time_ns, 1), (laser_pause_ns,0), (sweep_time_ns+clock_time_ns, 0), (laser_pause_ns,0)]
+        i_left=[]
+        i_right=[]
+        q_left=[]
+        q_right=[]
+        phi=0
+        for f in f_values:
+            phi+=2*np.pi*f*8
+            i_left.append((8, IQleft[1]*np.cos(phi)))
+            i_right.append((8, IQright[1]*np.cos(phi)))
+            q_left.append((8, -IQleft[0]*np.sin(phi)))
+            q_right.append((8, IQright[0]*np.sin(phi)))
+        i=[(laser_pause_ns+clock_time_ns+sweep_time_ns,IQleft[1])]+i_left+[(2*laser_pause_ns+2*clock_time_ns+sweep_time_ns,IQright[1])]+i_right+[(laser_pause_ns+clock_time_ns,IQright[1])]
+        q=[(laser_pause_ns+clock_time_ns+sweep_time_ns,0)]+q_left+[(2*laser_pause_ns+2*clock_time_ns+sweep_time_ns,0)]+q_right+[(laser_pause_ns+clock_time_ns,0)]
+        print('clock', clock)
+        print('laser', laser)
+        print('switch', switch)
+        print('i', i)
+        print('q', q)
+        seq = mgr.Pulser.create_sequence()
+        seq.setDigital(mgr.Pulser.channel_dict['clock'], clock)
+        seq.setDigital(mgr.Pulser.channel_dict['laser'], laser)
+        seq.setDigital(mgr.Pulser.channel_dict['switch'], switch)
+        seq.setAnalog(mgr.Pulser.channel_dict['I'], i)
+        seq.setAnalog(mgr.Pulser.channel_dict['Q'], q)
+        return seq
     
     def pid_control(self, left_contrast, right_contrast, kp, ki, kd):
         """

@@ -68,7 +68,7 @@ class AdvancedTracking():
     def __exit__(self):
         """Perform experiment teardown."""
         _logger.info('Destroyed AdvancedTracking instance.')
-    def one_axis_measurement(self,
+    def one_axis_measurement(self, mgr,
                                 buffer_size, index, XYZ_center, search_PID, max_search, min_search, 
                              sequence, search, scan_distance, num_freq, do_not_run_feedback, 
                              read_timeout, spot_size, advanced_tracking, changing_search, 
@@ -105,52 +105,52 @@ class AdvancedTracking():
             self.time_elapsed = time_elapsed
         
         self.search_kp, self.search_ki, self.search_kd = eval(search_PID)
-        with InstrumentManager() as mgr:
-            # if trackz and (index == 2):
-            #     # Shivam: What is the significance of this if statement?
-            #     if ((sweep + lp_idx * (self.heating_scans + self.cooling_scans)) % z_cycle != 0):
-            #         return sequence, search, np.array([0] * num_freq)
 
-            ## in this is 180 ms of lag
-            self.sequence=sequence
-            
-            if do_not_run_feedback:
+        # if trackz and (index == 2):
+        #     # Shivam: What is the significance of this if statement?
+        #     if ((sweep + lp_idx * (self.heating_scans + self.cooling_scans)) % z_cycle != 0):
+        #         return sequence, search, np.array([0] * num_freq)
+
+        ## in this is 180 ms of lag
+        self.sequence=sequence
         
+        if do_not_run_feedback:
+    
 
-                mgr.DAQcontrol.start_counter()
+            mgr.DAQcontrol.start_counter()
 
-                mgr.Pulser.stream_sequence(self.sequence, run_ct)
+            mgr.Pulser.stream_sequence(self.sequence, run_ct)
 
-                data=mgr.DAQcontrol.read_to_data_array(read_timeout)
+            data=mgr.DAQcontrol.read_to_data_array(read_timeout)
 
-                # self.current_counter_task.clear()
-                
-
-                buffer_allocation = None
-                remaining_buffer = None
-
-
-            else:
-                print("-------------------")
-                print("\n\n\nWe are indeed running tracking code")
-                data, buffer_allocation, remaining_buffer = self.read_stream_flee( mgr, index, search, buffer_size, scan_distance, num_freq, run_ct, read_timeout)
-
-            # data = self.read_stream_flee( mgr, index, search, buffer_size, scan_distance, num_freq, read_timeout)
-
-            ## confirmed, here I have 180-200 ms of lag
-
-            ## after this is 70-130 ms of lag        
-            tracking_data, track_steps, temp_data, num_bins = self.process_data(data, buffer_allocation, remaining_buffer, index, search, do_not_run_feedback)
-            total_fluor=np.sum(tracking_data)
-            self.data_analysis(mgr, self.XYZ_center, tracking_data, track_steps, index, search, do_not_run_feedback, spot_size, num_bins, advanced_tracking,
-                changing_search, search_error_array, search_integral_history)
-            mgr.DAQcontrol.move({'x': self.XYZ_center[0], 'y': self.XYZ_center[1], 'z': self.XYZ_center[2]})
-            print('\nHere is where the laser is currently pointing:', mgr.DAQcontrol.position)
-            for i, num in enumerate(search):
-                search[i] *= 0.9 if abs(self.drift[i]) < (2 / 5 * search[i]) else 1.2 if abs(self.drift[i]) > (
-                        7 / 10 * search[i]) else 1
+            # self.current_counter_task.clear()
             
-            return  search, temp_data, total_fluor, search_error_array
+
+            buffer_allocation = None
+            remaining_buffer = None
+
+
+        else:
+            print("-------------------")
+            print("\n\n\nWe are indeed running tracking code")
+            data, buffer_allocation, remaining_buffer = self.read_stream_flee( mgr, index, search, buffer_size, scan_distance, num_freq, run_ct, read_timeout)
+
+        # data = self.read_stream_flee( mgr, index, search, buffer_size, scan_distance, num_freq, read_timeout)
+
+        ## confirmed, here I have 180-200 ms of lag
+
+        ## after this is 70-130 ms of lag        
+        tracking_data, track_steps, temp_data, num_bins = self.process_data(data, buffer_allocation, remaining_buffer, index, search, do_not_run_feedback)
+        total_fluor=np.sum(tracking_data)
+        self.data_analysis(mgr, self.XYZ_center, tracking_data, track_steps, index, search, do_not_run_feedback, spot_size, num_bins, advanced_tracking,
+            changing_search, search_error_array, search_integral_history)
+        mgr.DAQcontrol.move({'x': self.XYZ_center[0], 'y': self.XYZ_center[1], 'z': self.XYZ_center[2]})
+        print('\nHere is where the laser is currently pointing:', mgr.DAQcontrol.position)
+        for i, num in enumerate(search):
+            search[i] *= 0.9 if abs(self.drift[i]) < (2 / 5 * search[i]) else 1.2 if abs(self.drift[i]) > (
+                    7 / 10 * search[i]) else 1
+        
+        return  search, temp_data, total_fluor, search_error_array
     def process_data(self, input_buffer, buffer_allocation, remaining_buffer, index, search, do_not_run_feedback):
         # Shivam: We are removing the last value of I2 from the buffer to not have the last photon count
         # This is because we do not have a clock at the last time period and so would only have 1 out of 2 relevant counts for that segment when subtracting
@@ -230,8 +230,10 @@ class AdvancedTracking():
         pos_center_end[index] = xyz_steps[-1]
 
         distance_of_sweep = np.abs(pos_center_end[index] - pos_center_st[index])
-        print(distance_of_sweep)
-        print(scan_distance)
+        print('distance_of_sweep:', distance_of_sweep)
+        print('Type of distance_of_sweep:', type(distance_of_sweep))
+        print('scan_distance:', scan_distance)
+        print('Type of scan distance:', type(scan_distance))
         number_of_steps = math.ceil(distance_of_sweep / scan_distance[index])
         print("The number of steps is " + str(number_of_steps))
         effective_scan_distance = distance_of_sweep / number_of_steps

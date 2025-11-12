@@ -39,11 +39,20 @@ class ODMRCenterWidget(ExperimentWidget):
         mode_cb = QComboBox()
         mode_cb.addItems(['QAM', 'AM'])
         mode_cb.setCurrentText('QAM')
+
+        n_steps_sb = QSpinBox()
+        n_steps_sb.setMinimum(1)
+        n_steps_sb.setMaximum(MAXIMUM)
+        n_steps_sb.setValue(100)
         
         params_config = {
             'runs': {
                 'display_text': '# Runs',
                 'widget': runs_sb,
+            },
+            'n_steps': {
+                'display_text': "# Steps",
+                'widget': n_steps_sb,
             },
             'initial_odmr': {
                 'display_text': 'Initial ODMR Freq',
@@ -118,10 +127,10 @@ class ODMRCenterWidget(ExperimentWidget):
                 'display_text': 'RF Amplitude',
                 'widget': rf_amplitude_sb
             },
-            'mode': {
-                'display_text': 'Modulation Mode',
-                'widget': mode_cb
-            },
+            # 'mode': {
+            #     'display_text': 'Modulation Mode',
+            #     'widget': mode_cb
+            # },
             'dataset': {
                 'display_text': 'Data Set',
                 'widget': QtWidgets.QLineEdit('odmrcenter'),

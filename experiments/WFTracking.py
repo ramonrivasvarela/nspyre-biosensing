@@ -475,9 +475,9 @@ class WFODMRTrack():
 
         self.latest_ims = []
         
-        mgr.sg.set_mode_toggle(True)
-        mgr.sg.set_mode_function('external')
-        mgr.sg.set_mode_amplitude(rf_amplitude) #set amplitude in dBm
+        mgr.sg.set_mod_toggle(True)
+        mgr.sg.set_mod_function('external')
+        mgr.sg.set_mod_amplitude(rf_amplitude) #set amplitude in dBm
 
         ## Seq init ##########
         bool_FT = (cam_trigger=='EXTERNAL_FT')
