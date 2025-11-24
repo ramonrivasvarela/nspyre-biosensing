@@ -12,7 +12,7 @@ import datetime as Dt
 import numpy as np
 import rpyc.utils.classic
 from scipy import optimize
-from scipy import signal
+
 
 import nidaqmx
 from nidaqmx.constants import (AcquisitionType, CountDirection, Edge,
