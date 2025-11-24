@@ -84,7 +84,7 @@ class I1I2():
                    time_per_sgpoint=1, mwPulseTime=50e-6, clockPulseTime=10e-9, rf_amplitude=-20,
                    sweeps=10, frequencies='(2.85e9, 2.89e9, 20)', slope_range='(2.868e9, 2.871e9)', sideband_frequency='10.1010101', 
                    read_timeout=12, sweeps_until_feedback=6, z_cycle=1, track_z=True,
-                   xyz_step_nm=.5e-7, shrink_every_x_iter=1, starting_point='current_position (ignore input)', 
+                   xyz_step_nm=.5e-7, shrink_every_x_iter=1, 
                    continuous_tracking=False, searchXYZ="(0.5, 0.5, 0.5)", max_search="(1, 1, 1)", min_search="(0.1, 0.1, 0.1)", 
                    scan_distance="(0.03, 0.03, 0.05)", changing_search=False, search_PID="(0.5,0.01,0)", 
                    search_integral_history=5, spot_size=400e-9, advanced_tracking=False, 
@@ -103,7 +103,6 @@ class I1I2():
                 'z_cycle': z_cycle,
                 'xyz_step_nm': xyz_step_nm,
                 'shrink_every_x_iter': shrink_every_x_iter,
-                'starting_point': starting_point,
                 'continuous_tracking': continuous_tracking,
                 'searchXYZ': searchXYZ,
                 'max_search': max_search,
@@ -149,7 +148,7 @@ class I1I2():
                     I1_sweeps.append(np.stack([freqs, I1_empty]))
                     I2_sweeps.append(np.stack([freqs, I2_empty]))
                     print('before feedback')
-                    self.feedback(mgr, sweep, sweeps_until_feedback, z_cycle, xyz_step_nm, shrink_every_x_iter,starting_point, sampling_rate)
+                    self.feedback(mgr, sweep, sweeps_until_feedback, z_cycle, xyz_step_nm, shrink_every_x_iter, sampling_rate)
                     for f, freq in enumerate(freqs):
                         print("Frequency value is " + str(f))
                         # time_start = time.time()
@@ -230,6 +229,7 @@ class I1I2():
 
                         self.AdvancedTracking=AdvancedTracking(self.queue_to_exp, self.queue_from_exp)
                         feed_params={
+                            'mgr':mgr,
                             'XYZ_center':self.XYZ_center,
                             'buffer_size':self.bufsize,
                             'index':index,
@@ -292,20 +292,24 @@ class I1I2():
                             
                             'datasets':{
                                 'I1': I1_sweeps,
-                                'I2': I2_sweeps
-                            }
-                        })
-                        tracking_data_source.push({
-                            'title': 'Tracking Data',
-                            'xlabel': 'Time (s)',
-                            'datasets': {
-
+                                'I2': I2_sweeps,
                                 'x_pos': x_tracking,
                                 'y_pos': y_tracking,
                                 'z_pos': z_tracking,
                                 'total_fluor': total_fluor_tracking,
                             }
                         })
+                        # tracking_data_source.push({
+                        #     'title': 'Tracking Data',
+                        #     'xlabel': 'Time (s)',
+                        #     'datasets': {
+
+                        #         'x_pos': x_tracking,
+                        #         'y_pos': y_tracking,
+                        #         'z_pos': z_tracking,
+                        #         'total_fluor': total_fluor_tracking,
+                        #     }
+                        # })
 
                         self.counter += 1
 
@@ -479,7 +483,7 @@ class I1I2():
         print('end of read')
         return buffer
 
-    def feedback(self, mgr, sweep, sweeps_until_feedback, z_cycle, xyz_step_nm, shrink_every_x_iter,starting_point, sampling_rate):
+    def feedback(self, mgr, sweep, sweeps_until_feedback, z_cycle, xyz_step_nm, shrink_every_x_iter, sampling_rate):
         # \consider taking away sweep>0, allows you to avoid running spatial feedback before experiment
 
         if (sweep > 0) and (sweep % sweeps_until_feedback == 0):
@@ -488,12 +492,12 @@ class I1I2():
             else:
                 dozfb = False
             feed_params = {
-                'starting_point': str(starting_point),
                 # 'position': position,
                 'do_z': dozfb,
                 'xyz_step': xyz_step_nm,
                 'shrink_every_x_iter': shrink_every_x_iter,
-                'counter_already_exists':True
+                'counter_already_exists':True,
+                'starting_point': 'current_position (ignore input)'
             }
             ## we make sure the laser is turned on.
             self.SpatialFB = SpatialFeedback(self.queue_to_exp, self.queue_from_exp)

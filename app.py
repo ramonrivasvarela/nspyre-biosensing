@@ -62,6 +62,8 @@ def main():
             if camera_activation_boolean:
                 mgr.Camera.shutdown()
 
+            
+
             print("Cleanup complete.")
 
         # Connect the close event to the app
@@ -96,6 +98,7 @@ def main():
                     'Wide Field ODMR Flex Line Plot': MainWidgetItem(widefield_odmr_exp_gui, 'WFODMRPlotWidget', stretch=(1, 1)),
                     'Confocal ODMR Flex Line Plot': MainWidgetItem(confocal_odmr_exp_gui, 'ConfocalODMRPlotWidget', stretch=(1, 1)),
                     'Confocal I1I2 Flex Line Plot': MainWidgetItem(i1i2_exp_gui, 'I1I2PlotWidget', stretch=(1, 1)),
+                    'Confocal TempVsTime Flex Line Plot': MainWidgetItem(temptime_exp_gui, 'TempTimePlotWidget', stretch=(1, 1)),
                     
                 
                     

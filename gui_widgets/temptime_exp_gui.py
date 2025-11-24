@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import QLineEdit, QSpinBox, QCheckBox, QComboBox
 from pyqtgraph import SpinBox
 from special_widgets import unit_widgets
 import experiments.temptime
-from nspyre import ExperimentWidget
+from nspyre import ExperimentWidget, FlexLinePlotWidget
 
 MAXIMUM=2147483647 
 
@@ -33,10 +33,10 @@ class TempTimeWidget(ExperimentWidget):
         sb_MHz_2fq_cb.addItems(sb_MHz_2fq_items)
         sb_MHz_2fq_cb.setCurrentText("10.1010101")
 
-        quasilinear_slope_sb = QSpinBox()
+        quasilinear_slope_sb = SpinBox()
         quasilinear_slope_sb.setMinimum(0)
         quasilinear_slope_sb.setMaximum(MAXIMUM)
-        quasilinear_slope_sb.setValue(0)
+        quasilinear_slope_sb.setValue(1e-9)
 
         is_center_modulation_qb = QCheckBox()
         is_center_modulation_qb.setChecked(True)
@@ -64,6 +64,8 @@ class TempTimeWidget(ExperimentWidget):
         integral_history_sb.setMaximum(100)
         integral_history_sb.setValue(1)
 
+        two_freq_cb = QCheckBox()
+        two_freq_cb.setChecked(True)
         params_config = {
             'sampling_rate': {
                 'display_text': 'Sampling Rate',
@@ -115,7 +117,7 @@ class TempTimeWidget(ExperimentWidget):
             },
             'two_freq': {
                 'display_text': 'Two Frequency Modulation',
-                'widget': QCheckBox()
+                'widget': two_freq_cb
             },
             'odmr_frequency': {
                 'display_text': 'ODMR Frequency',
@@ -308,3 +310,26 @@ class TempTimeWidget(ExperimentWidget):
             title='Temperature vs Time',
             get_param_value_funs=get_param_value_funs
         )
+
+class TempTimePlotWidget(FlexLinePlotWidget):
+    """Add some default settings to the FlexSinkLinePlotWidget."""
+    def __init__(self):
+        
+        
+                
+        super().__init__() 
+        self.add_plot('I1',        series='I1',   scan_i='',     scan_j='',  processing='Append')
+        self.add_plot('I2',        series='I2',   scan_i='',     scan_j='',  processing='Append')
+        self.add_plot('x_pos',      series='x_pos', scan_i='',     scan_j='',  processing='Append')
+        
+        self.add_plot('y_pos',      series='y_pos', scan_i='',     scan_j='',  processing='Append')
+        self.add_plot('z_pos',      series='z_pos', scan_i='',     scan_j='',  processing='Append')
+        self.add_plot('odmr_freq',      series='odmr_freq', scan_i='',     scan_j='',  processing='Append')
+        self.add_plot('total_fluor',      series='total_fluor', scan_i='',     scan_j='',  processing='Append')
+
+        # retrieve legend object
+        legend = self.line_plot.plot_widget.addLegend()
+        # set the legend location
+        legend.setOffset((-10, -50))
+
+        self.datasource_lineedit.setText('temp_time')

@@ -121,6 +121,10 @@ class SG396:
 
     # 1 = True (on), 0 = False (off)
     def set_rf_toggle(self, value):
+        if value:
+            value=1
+        else:
+            value=0
         self.device.write(f"ENBR{value}")
 
     def get_lf_offset(self):

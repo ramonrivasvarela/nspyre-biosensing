@@ -732,6 +732,10 @@ class PulserClass():
 
 
     def setup_LPvT(self, ns_read_time, ns_clock_time, freq_array, num_freq = 4):
+        print('ns_read_time: ', ns_read_time)
+        print('ns_clock_time: ', ns_clock_time)
+        print('num_freq: ', num_freq)
+        print('freq_array:', freq_array)
         freq_ct = len(freq_array)
         if freq_ct != num_freq:
             print("\nWARNING\n\n, Hard Coded", num_freq, "frequencies to be used for ODMR Temperature Measurement.\n",
@@ -777,7 +781,7 @@ class PulserClass():
         pattern = list(zip(*zip_seq))
         return pattern
 
-    def odmr_center_create_sequence(self, odmr_span,sweep_time, clock_time, probe_time, laser_pause):
+    def odmr_center_create_sequence_IQ(self, odmr_span,sweep_time, clock_time, probe_time, laser_pause):
                 # constants
         DT_NS = max(8, (int(sweep_time *1e4)//8)*8)
         print("DT_NS:", DT_NS)
@@ -861,3 +865,111 @@ class PulserClass():
         seq.setAnalog(1, i)
 
         return seq, n_points
+
+    def odmr_center_create_sequence_FM(self, n_steps, odmr_span,sweep_time, clock_time, probe_time, laser_pause):
+        DT_NS = max(8, int(sweep_time*1e9 // (n_steps)))
+        
+        print("DT_NS:", DT_NS)
+
+        clock_time_ns = int(round(clock_time * 1e9))
+
+        # probe_time rounded to a multiple of 8 ns
+        number_bins   = max(1, int(round((probe_time * 1e9) / DT_NS)))
+        probe_time_ns = number_bins * DT_NS
+
+        # total points
+        n_points = int(sweep_time // (probe_time_ns * 1e-9))
+        # sweep_time_ns = n_steps * DT_NS
+        sweep_time_ns = probe_time_ns *n_points
+        n_steps=int(sweep_time_ns//DT_NS)
+        # n_points = sweep_time_ns // probe_time_ns
+
+        # frequency values (GHz if odmr_span is in Hz; GHz*ns is unitless for phase)
+        q_values_up = np.linspace(0, 1, n_steps, dtype=np.float64)
+        q_values_down = np.linspace(0, -1, n_steps, dtype=np.float64)
+        laser_pause_ns = int(round(laser_pause * 1e9))
+        if laser_pause_ns < (probe_time_ns - clock_time_ns):
+            # keep the warning but avoid printing in performance-critical paths if not needed
+            print("Warning: laser pause time is less than probe_time - clock_time. "
+                "Setting laser pause time to probe_time - clock_time")
+            laser_pause_ns = probe_time_ns - clock_time_ns
+
+        # ----- digital channels (lightweight list multiplications are fine) -----
+        clock_pulse = [(clock_time_ns, 1), (probe_time_ns - clock_time_ns, 0)]  # one probe block
+        laser = 4 * [(sweep_time_ns + clock_time_ns, 1), (laser_pause_ns, 0)]
+        clock = 4 * (clock_pulse * n_points + [(clock_time_ns, 1), (laser_pause_ns, 0)])
+        switch = 2 * [
+            (sweep_time_ns + clock_time_ns, 1), (laser_pause_ns, 0),
+            (sweep_time_ns + clock_time_ns, 0), (laser_pause_ns, 0)
+        ]
+
+        # ----- analog channels (vectorised) -----
+        # Phase accumulates: phi_k = sum_{j<=k} 2π * f_j * DT_NS
+        
+
+        q_seq_up=[(DT_NS, q) for q in q_values_up]
+        q_seq_down=[(DT_NS, q) for q in q_values_down]
+        q_seq = [(sweep_time_ns+clock_time_ns+laser_pause_ns, 0)]+q_seq_up +[(clock_time_ns, 1), (2*laser_pause_ns+sweep_time_ns+clock_time_ns, 0)]+ q_seq_down+ [(clock_time_ns, -1), (laser_pause_ns, 0)]
+        print('q=', q_seq)
+        print('clock=', clock)
+        print('laser=', laser)
+        print('switch=', switch)
+        # ----- build sequence -----
+        seq = self.create_sequence()
+        seq.setDigital(self.channel_dict['clock'], clock)
+        seq.setDigital(self.channel_dict['laser'], laser)
+        seq.setDigital(self.channel_dict['switch'], switch)
+        seq.setAnalog(0, q_seq)
+
+        return seq, n_points, probe_time_ns
+        #         # constants
+        # DT_NS = max(8, int(sweep_time*1e9 // (n_steps)))
+        
+        # print("DT_NS:", DT_NS)
+
+        # clock_time_ns = int(round(clock_time * 1e9))
+        # IQleft  = [0.355, 0.348]
+        # IQright = [0.357, 0.350]
+
+        # # probe_time rounded to a multiple of 8 ns
+        # number_bins   = max(1, int(round((probe_time * 1e9) / DT_NS)))
+        # probe_time_ns = number_bins * DT_NS
+
+        # # total points
+        # n_points = int(sweep_time // (probe_time_ns * 1e-9))
+        # sweep_time_ns = probe_time_ns * n_steps*DT_NS
+
+        # # frequency values (GHz if odmr_span is in Hz; GHz*ns is unitless for phase)
+        # q_values_up = np.linspace(0.0, 1, n_steps, dtype=np.float64)
+        # q_values_down = np.linspace(0, -1, n_steps, dtype=np.float64)
+        # laser_pause_ns = int(round(laser_pause * 1e9))
+        # if laser_pause_ns < (probe_time_ns - clock_time_ns):
+        #     # keep the warning but avoid printing in performance-critical paths if not needed
+        #     print("Warning: laser pause time is less than probe_time - clock_time. "
+        #         "Setting laser pause time to probe_time - clock_time")
+        #     laser_pause_ns = probe_time_ns - clock_time_ns
+
+        # # ----- digital channels (lightweight list multiplications are fine) -----
+        # clock_pulse = [(clock_time_ns, 1), (probe_time_ns - clock_time_ns, 0)]  # one probe block
+        # laser = 4 * [(sweep_time_ns + clock_time_ns, 1), (laser_pause_ns, 0)]
+        # clock = 4 * (clock_pulse * n_points + [(clock_time_ns, 1), (laser_pause_ns, 0)])
+        # switch = 2 * [
+        #     (sweep_time_ns + clock_time_ns, 1), (laser_pause_ns, 0),
+        #     (sweep_time_ns + clock_time_ns, 0), (laser_pause_ns, 0)
+        # ]
+
+        # # ----- analog channels (vectorised) -----
+        # # Phase accumulates: phi_k = sum_{j<=k} 2π * f_j * DT_NS
+        
+
+        # q_seq_up=[(DT_NS, q) for q in q_values_up]
+        # q_seq_down=[(DT_NS, q) for q in q_values_down]
+        # q_seq = q_seq_up +[(clock_time_ns, 1), (laser_pause_ns, 0)]+ q_seq_down+ [(clock_time_ns, -1), (laser_pause_ns, 0)]
+        # # ----- build sequence -----
+        # seq = self.create_sequence()
+        # seq.setDigital(self.channel_dict['clock'], clock)
+        # seq.setDigital(self.channel_dict['laser'], laser)
+        # seq.setDigital(self.channel_dict['switch'], switch)
+        # seq.setAnalog(0, q_seq)
+
+        # return seq, n_points
