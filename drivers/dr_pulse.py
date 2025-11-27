@@ -19,9 +19,6 @@ class PulserClass():
     
 ## Should change aom to laser
     def __init__(self, ip="10.135.70.127"):
-
-
-        
         # create pulse streamer instance
         self.Pulser = PulseStreamer(ip)
         self.sequence = self.Pulser.createSequence()
@@ -31,10 +28,9 @@ class PulserClass():
         self.switch_on=False
         self.q_analog=0
         self.i_analog=0
-        
-## Should change it according to crosstalk between I and Q. If no crosstalk should be 0.5 and 0
-        
-        #note: IQ
+
+#### IQ params
+        # Should change it according to crosstalk between I and Q, calibrated using oscilloscope. If no crosstalk should be 0.5 and 0
         self.IQ0 = [-0.0025,-0.0025]#[-.0231,-0.00815]#[-.0177,-.0045]
         self.IQ = self.IQ0
         self.IQpx = [0.4461,-.0025]#[0.4,-.005]
@@ -182,17 +178,20 @@ class PulserClass():
         return seq, new_pulse_time
 
 
-    def stream_sequence(self, sequence:Sequence, n_runs:int=1, SWITCH:bool=False, AM:bool=False):
+    def stream_sequence(self, sequence:Sequence, n_runs:int=1, SWITCH:bool=True, AM:bool=False, CW:bool=False):
         """
         Stream a sequence object for n_runs.
         WARNING: WILL NOT CHANGE self.blue_laser_on, self.green_laser_on, self.switch_on, self.q_analog, or self.i_analog.
         Use self.change_state() to change the state of the pulser before streaming.
 
         If SWITCH or AM are true, then the relevant final states are implemented to keep the microwave off.
+        If CW is true, then the laser is kept on throughout.
         """
         digital_set = []
         if SWITCH:
             digital_set.append(self.channel_dict['switch'])
+        if CW:
+            digital_set.append(self.channel_dict['laser'])
         analog_set = -1 if AM else 0
         self.Pulser.stream(sequence,n_runs, final = OutputState(digital_set, analog_set,0))
         self.change_state(digital_set, analog_set, 0)
@@ -322,7 +321,7 @@ class PulserClass():
         self.Pulser.stream(pulse,runs, final = OutputState(digital_set, analog_set,0))
         self.change_state(digital_set, analog_set, 0)
 
-
+# This method of making sequences runs into trouble with rpyc. Do not use.
     def make_seq(self, clock = None, camera = None, laser_405 =  None, laser_488 = None, laser_647 = None, mirror = None, switch = None, laser = None, Q = None, I = None):
         seq = self.Pulser.createSequence()
         if clock is not None:
