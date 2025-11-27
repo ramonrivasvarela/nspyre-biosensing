@@ -14,6 +14,7 @@ from pathlib import Path
 from nspyre import nspyre_init_logger
 from nspyre import experiment_widget_process_queue
 import collections
+from rpyc.utils.classic import obtain
 
 
 # nidaqmx
@@ -384,7 +385,7 @@ class TemperatureVsTime():
         self.starting_odmr_frequency = odmr_frequency
         self.odmr_frequency = odmr_frequency
 
-        sb_MHz_2fq = eval(sb_MHz_2fq) * 1e6
+        sb_Hz_2fq = eval(sb_MHz_2fq) * 1e6
 
         self.diffusion_constant = diffusion_constant
 
@@ -438,11 +439,7 @@ class TemperatureVsTime():
             mgr.DAQcontrol.acq_rate = sampling_rate
 
             # Shivam: Parameters for tracking
-            self.drift = [0, 0, 0]
-            current_position=mgr.DAQcontrol.position
-            self.XYZ_center = [current_position['x'],
-                                current_position['y'],
-                                current_position['z']]
+
 
         else: 
             self.search = None
@@ -455,7 +452,11 @@ class TemperatureVsTime():
             mgr.DAQcontrol.create_counter()
             mgr.DAQcontrol.acq_rate = sampling_rate
             mgr.DAQcontrol.prepare_counting(sampling_rate, self.bufsize-1)
-
+        self.drift = [0, 0, 0]
+        current_position=obtain(mgr.DAQcontrol.position)
+        self.XYZ_center = [current_position['x'],
+                                current_position['y'],
+                                current_position['z']]
         self.starting_temp = starting_temp
         self.current_temp = starting_temp
       
@@ -489,7 +490,7 @@ class TemperatureVsTime():
 
             if is_center_modulation:
                 self.sequence, self.new_pulse_time = self.ready_center_pulse_sequence(mgr, time_per_scan, mwPulseTime, clock_time,
-                                                                        sb_MHz_2fq, rf_amplitude) 
+                                                                        sb_Hz_2fq, rf_amplitude) 
                 
                 import pickle, os
                 print(f'saving sequence to seq.pkl in {os.getcwd()}')
@@ -516,8 +517,8 @@ class TemperatureVsTime():
                 self.w = self.spot_size ** 2
 
             else:
-                self.frequencies = [(odmr_frequency - sb_MHz_2fq), (odmr_frequency + sb_MHz_2fq)]
-                sg_frequency = (odmr_frequency - (sb_MHz_2fq + 5000))
+                self.frequencies = [(odmr_frequency - sb_Hz_2fq), (odmr_frequency + sb_Hz_2fq)]
+                sg_frequency = (odmr_frequency - (sb_Hz_2fq + 5000))
                 self.ps_frequencies = [freq - sg_frequency for freq in
                                     self.frequencies]  # (frequencies.to('Hz').m - sg_frequency)
                 mgr.sg.set_frequency(sg_frequency)
@@ -834,6 +835,8 @@ class TemperatureVsTime():
                 total_fluor_dataset=StreamingList()
                 start_t=time.time()
                 odmr_freq_dataset=StreamingList()
+                self.AdvancedTracking=AdvancedTracking(self.queue_to_exp, self.queue_from_exp)
+                self.AdvancedTracking.initialize_drift_position(self.XYZ_center, self.drift)
                 for i in iterator:
                     if infrared_on:
                         # Shivam: Code to alternate between infrared laser on scans and off scans
@@ -867,7 +870,6 @@ class TemperatureVsTime():
                                 # import pdb; pdb.set_trace()
                                 feed_params={
                                     'mgr':mgr,
-                                    'XYZ_center':self.XYZ_center,
                                     'buffer_size':self.bufsize,
                                     'index':index,
                                     'search_PID':search_PID,
@@ -884,7 +886,6 @@ class TemperatureVsTime():
                                     'changing_search':changing_search,
                                     'search_error_array':search_error_array,
                                     'search_integral_history':search_integral_history,
-                                    'drift':self.drift,
                                     'run_ct':self.run_ct,
                                     'x_k':self.x_k, 
                                     'p_k':self.p_k, 
@@ -894,21 +895,29 @@ class TemperatureVsTime():
                                     'time_elapsed':self.time_elapsed
 
                                 }
-                                self.AdvancedTracking=AdvancedTracking(self.queue_to_exp, self.queue_from_exp)
+                                
                                 current_time = time.time()
                                 if advanced_tracking:
                                     self.search, temp_data, total_fluor, search_error_array = self.AdvancedTracking.one_axis_measurement(**feed_params)
-                                    self.XYZ_center=self.AdvancedTracking.XYZ_center
-                                    self.drift=self.AdvancedTracking.drift
 
-                                    self.x_k=self.AdvancedTracking.x_k
-                                    self.p_k=self.AdvancedTracking.p_k
-                                    self.n_k=self.AdvancedTracking.n_k
+                                    # Debug prints to inspect what's happening
+                                    print(f"[DEBUG] iter {i} index {index} total_fluor={total_fluor} temp_data={temp_data}")
+                                    print(f"[DEBUG] XYZ_center(before move) = {self.XYZ_center}, drift = {self.drift}")
+                                    # If DAQcontrol exposes position directly:
+                                    try:
+                                        pos = mgr.DAQcontrol.position
+                                        print(f"[DEBUG] DAQ position = {pos}")
+                                    except Exception:
+                                        pass
+
+                                    # Save tracking_data for inspection if available
+                                    # (advancedtracking stored tracking buffer in local variable only; you can instrument AdvancedTracking to return it)
                                 else:
                                     self.search, temp_data, total_fluor, search_error_array=self.AdvancedTracking.one_axis_measurement(**feed_params)
                                     self.XYZ_center=self.AdvancedTracking.XYZ_center
                                     self.drift=self.AdvancedTracking.drift
-                                print("MAIN: search is " + str(list(self.search)))
+                                if not do_not_run_feedback:
+                                    print("MAIN: search is " + str(list(self.search)))
                                 # current_time=time.time()
                                 
                                 # Shivam: Use self.current_temp to continually use the latest temperature from the initial setting onwards.
@@ -1054,9 +1063,7 @@ class TemperatureVsTime():
         if do_not_run_feedback:
             print("Closing counter task")
 
-            self.current_counter_task.stop()
-
-            self.current_counter_task.close()
+            mgr.DAQcontrol.finalize_counter()
 
         if data_download:
             save_excel(self.name)

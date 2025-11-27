@@ -208,6 +208,8 @@ class I1I2():
                 total_fluor_tracking=StreamingList()
                 # Counts every time we measure a certain frequency value
                 self.counter = 0
+                self.AdvancedTracking=AdvancedTracking(self.queue_to_exp, self.queue_from_exp)
+                self.AdvancedTracking.initialize_drift_position( self.XYZ_center, self.drift)
                 for sweep in range(sweeps):
                     I1_empty=np.empty(n_freqs)
                     I1_empty[:]=np.nan
@@ -227,10 +229,11 @@ class I1I2():
                         print('frequency:', freq)
                         # import pdb; pdb.set_trace()
 
-                        self.AdvancedTracking=AdvancedTracking(self.queue_to_exp, self.queue_from_exp)
+                        
+                        
                         feed_params={
                             'mgr':mgr,
-                            'XYZ_center':self.XYZ_center,
+                            # 'XYZ_center':self.XYZ_center,
                             'buffer_size':self.bufsize,
                             'index':index,
                             'search': self.search,
@@ -243,7 +246,7 @@ class I1I2():
                             'search_error_array':search_error_array, 
                             'search_integral_history':search_integral_history,
                             # 'sampling_rate':sampling_rate,
-                            'drift':self.drift,
+                            # 'drift':self.drift,
                             'run_ct':self.run_ct,
                             'search_PID':search_PID,
                             'max_search':self.max_search,
@@ -260,9 +263,10 @@ class I1I2():
                             feed_params['p_k']=self.p_k
                             feed_params['x_k']=self.x_k
 
-                        self.search, temp_data, total_fluor, search_error_array = self.AdvancedTracking.one_axis_measurement(**feed_params)
-                        self.XYZ_center=self.AdvancedTracking.XYZ_center
-                        self.drift=self.AdvancedTracking.drift
+                        self.search, temp_data, total_fluor, search_error_array = rpyc.utils.classic.obtain(self.AdvancedTracking.one_axis_measurement(**feed_params))
+                        current_time=time.time()
+                        self.XYZ_center=rpyc.utils.classic.obtain(self.AdvancedTracking.XYZ_center)
+                        self.drift=rpyc.utils.classic.obtain(self.AdvancedTracking.drift)
                         data_I1=temp_data[0]
                         data_I2=temp_data[1]
                         
@@ -271,13 +275,13 @@ class I1I2():
                         I1_sweeps.updated_item(-1)
                         I2_sweeps[-1][1][f] = data_I2
                         I2_sweeps.updated_item(-1)
-                        x_tracking.append(np.array([np.array([time.time()-start_t]), np.array([self.XYZ_center[0]])]))
+                        x_tracking.append(np.array([np.array([current_time-start_t]), np.array([self.XYZ_center[0]])]))
                         x_tracking.updated_item(-1)
-                        y_tracking.append(np.array([np.array([time.time()-start_t]), np.array([self.XYZ_center[1]])]))
+                        y_tracking.append(np.array([np.array([current_time-start_t]), np.array([self.XYZ_center[1]])]))
                         y_tracking.updated_item(-1)
-                        z_tracking.append(np.array([np.array([time.time()-start_t]), np.array([self.XYZ_center[2]])]))
+                        z_tracking.append(np.array([np.array([current_time-start_t]), np.array([self.XYZ_center[2]])]))
                         z_tracking.updated_item(-1)
-                        total_fluor_tracking.append(np.array([np.array([time.time()-start_t]), np.array([total_fluor])]))
+                        total_fluor_tracking.append(np.array([np.array([current_time-start_t]), np.array([total_fluor])]))
                         total_fluor_tracking.updated_item(-1)
 
                         print("Main search_error_array is " + str(search_error_array))

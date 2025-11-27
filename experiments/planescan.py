@@ -223,6 +223,12 @@ class PlaneScan:
                                 'snake_scan': snake_scan,
                                 'sleep_factor': sleep_factor
                             },
+                            'params_for_fb':
+                            {'adjust_line': adjust_line,
+                             'adjust_step': adjust_step,
+                             'scan_vector': scan_vector,
+                             'extent_vector': extent_vector,
+                             },
                             'name': 'Heatmap',
                             'xs': scan_vals,
                             'ys': step_vals,

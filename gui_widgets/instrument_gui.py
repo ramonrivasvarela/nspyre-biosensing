@@ -419,9 +419,9 @@ class InstWidgetV2(QWidget):
         """Refresh the XYZ position values."""
         with InstrumentManager() as mgr:
             try:
-                self.x_control.spinbox.set_value(obtain(mgr.DAQcontrol.position['x']))
-                self.y_control.spinbox.set_value(obtain(mgr.DAQcontrol.position['y']))
-                self.z_control.spinbox.set_value(obtain(mgr.DAQcontrol.position['z']))
+                self.x_control.spinbox.set_value(mgr.DAQcontrol.position['x'])
+                self.y_control.spinbox.set_value(mgr.DAQcontrol.position['y'])
+                self.z_control.spinbox.set_value(mgr.DAQcontrol.position['z'])
             except RuntimeError:
                 raise RuntimeError("Can't extract positions.")
             

@@ -9,15 +9,18 @@ out_path = pkl_path.with_suffix(".png")  # seq.png next to seq.pkl
 with pkl_path.open("rb") as f:
     seq = pickle.load(f)
 print(seq)
-data=seq.getData()
-print(data)
-plt.figure()
-plt.plot(data)                 # if seq is a list/1D array
-plt.xlabel("Index")
-plt.ylabel("Value")
-plt.title("Sequence")
-plt.tight_layout()
-plt.savefig(out_path, dpi=200)
-plt.close()
+seq.plot()
+# plt.figure()
+# plt.show()
 
-print("Saved plot to:", out_path)
+# print('len(data):', len(data))
+# plt.figure()
+# plt.plot(data)                 # if seq is a list/1D array
+# plt.xlabel("Index")
+# plt.ylabel("Value")
+# plt.title("Sequence")
+# plt.tight_layout()
+# plt.savefig(out_path, dpi=200)
+# plt.close()
+
+# print("Saved plot to:", out_path)

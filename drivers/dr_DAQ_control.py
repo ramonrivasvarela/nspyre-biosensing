@@ -126,7 +126,9 @@ class DAQCounter:
 
         ## Set up the counter, connect it to the clock.
         self.read_task = nidaqmx.Task('NIDAQMotionController_CTR_{}'.format(np.random.randint(2**31)))
-        self.read_task.ci_channels.add_ci_count_edges_chan(self.ctr_channel)
+        self.read_task.ci_channels.add_ci_count_edges_chan(self.ctr_channel, edge=nidaqmx.constants.Edge.RISING,
+                                                    initial_count=0,
+                                                    count_direction=nidaqmx.constants.CountDirection.COUNT_UP)
         # self.read_task = nidaqmx.Task()
         # self.read_task.ci_channels.add_ci_count_edges_chan(
         #     self.ctr_channel,
@@ -369,11 +371,21 @@ class DAQCounter:
         self.final_point = obtain(final_point)
         #print("start line_scan")
         self.buffer_shape= (steps, pts_per_step + 1)
+        self.counter_buffer = np.ascontiguousarray(np.zeros(ctr_buffer_size), dtype=np.uint32)
         step_voltages, remaining_buffer = self.linear_func(init_point, final_point, steps, ctr_buffer_size, buffer_allocation, hs=True)
         #step_voltages = np.repeat(step_voltages, pts_per_step + 1, axis=0)
         # configure analog output task
+                # configure counter input task
+        self.read_task.timing.cfg_samp_clk_timing(
+            self.acq_rate,
+            source='PFI0',
+            sample_mode=nidaqmx.constants.AcquisitionType.FINITE,
+            samps_per_chan=ctr_buffer_size
+        )
+        
         self.ao_motion_task.timing.cfg_samp_clk_timing(
             self.acq_rate,
+            source='PFI0',
             sample_mode=nidaqmx.constants.AcquisitionType.FINITE,
             samps_per_chan=step_voltages.shape[0]
         )
@@ -390,26 +402,19 @@ class DAQCounter:
         sample_writer_stream.write_many_sample(ni_ao_sample_buffer, timeout=60)
         
         # e.g. "Dev1"
-        device_name = list(self.axes.items())[0][1].ch.split('/')[0]
+        # device_name = list(self.axes.items())[0][1].ch.split('/')[0]
         
-        # configure counter input task
-        self.read_task.timing.cfg_samp_clk_timing(
-            self.acq_rate,
-            source='/{}/ao/SampleClock'.format(device_name),
-            sample_mode=nidaqmx.constants.AcquisitionType.FINITE,
-            samps_per_chan=step_voltages.shape[0]
-        )
-        
+
         # set the counter input to trigger / start acquisition when the AO starts
-        self.read_task.triggers.arm_start_trigger.dig_edge_src = '/{}/ao/StartTrigger'.format(device_name)
-        self.read_task.triggers.arm_start_trigger.trig_type = nidaqmx.constants.TriggerType.DIGITAL_EDGE
+        # self.read_task.triggers.arm_start_trigger.dig_edge_src = '/{}/ao/StartTrigger'.format(device_name)
+        # self.read_task.triggers.arm_start_trigger.trig_type = nidaqmx.constants.TriggerType.DIGITAL_EDGE
         #self.ao_motion_task.triggers.start_trigger.disable_start_trig()
         
         # create counter stream object
         self.sample_reader_stream = CounterReader(self.read_task.in_stream)
         
         # must use array with contiguous memory region because NI uses C arrays under the hood
-        self.ni_ctr_sample_buffer = np.ascontiguousarray(np.zeros(step_voltages.shape[0]), dtype=np.uint32)
+        
         
         # start the move
         self.read_task.start()
@@ -418,7 +423,7 @@ class DAQCounter:
 
     def start_line_scan(self, timeout=10):
         # 9) read — match v1’s use of READ_ALL_AVAILABLE
-        self.sample_reader_stream.read_many_sample_uint32(self.ni_ctr_sample_buffer,
+        self.sample_reader_stream.read_many_sample_uint32(self.counter_buffer,
                                         number_of_samples_per_channel=nidaqmx.constants.READ_ALL_AVAILABLE,
                                         timeout=timeout)
         
@@ -429,7 +434,7 @@ class DAQCounter:
         self.ao_motion_task.stop()
 
         # print('what is my final point', final_point, self.position)
-        return self.ni_ctr_sample_buffer
+        return self.counter_buffer
 
     def linear_func(self, start_pt, stop_pt, steps, ctr_buffer_size=None, buffer_allocation=None, hs=False):
         """Generate a set of linearly spaced points between the start and stop point

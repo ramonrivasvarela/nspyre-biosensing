@@ -68,19 +68,26 @@ class AdvancedTracking():
     def __exit__(self):
         """Perform experiment teardown."""
         _logger.info('Destroyed AdvancedTracking instance.')
+
+    def initialize_drift_position(self, XYZ_center, drift):
+        self.XYZ_center = obtain(XYZ_center)
+        self.drift = obtain(drift)
+
+
     def one_axis_measurement(self, mgr,
-                                buffer_size, index, XYZ_center, search_PID, max_search, min_search, 
+                                buffer_size, index, search_PID, max_search, min_search, 
                              sequence, search, scan_distance, num_freq, do_not_run_feedback, 
                              read_timeout, spot_size, advanced_tracking, changing_search, 
-                             search_error_array, search_integral_history,
-                             drift=(0,0,0), 
+                             search_error_array, search_integral_history, 
                              run_ct=1, 
                              x_k=None, p_k=None, n_k=None, w=None, diffusion_constant=None, time_elapsed=None):
 
-        self.max_search = max_search
-        self.min_search = min_search
-        self.drift=obtain(drift)
-        self.XYZ_center= obtain(XYZ_center)
+        self.max_search = eval(obtain(max_search))
+        self.min_search = eval(obtain(min_search))
+        # self.drift = obtain(drift)
+        # self.XYZ_center = obtain(XYZ_center)
+        search = obtain(search)
+        search_error_array = obtain(search_error_array)
         if advanced_tracking:
             if x_k is None:
                 print("Advanced tracking is enabled but no initial value for x_k was provided.")
@@ -121,8 +128,8 @@ class AdvancedTracking():
 
             mgr.Pulser.stream_sequence(self.sequence, run_ct)
 
-            data=mgr.DAQcontrol.read_to_data_array(read_timeout)
-
+            data=obtain(mgr.DAQcontrol.read_to_data_array(read_timeout))
+            print("Data obtained from DAQ:", data)
             # self.current_counter_task.clear()
             
 
@@ -142,13 +149,19 @@ class AdvancedTracking():
         ## after this is 70-130 ms of lag        
         tracking_data, track_steps, temp_data, num_bins = self.process_data(data, buffer_allocation, remaining_buffer, index, search, do_not_run_feedback)
         total_fluor=np.sum(tracking_data)
-        self.data_analysis(mgr, self.XYZ_center, tracking_data, track_steps, index, search, do_not_run_feedback, spot_size, num_bins, advanced_tracking,
+        
+        # Remove XYZ_center parameter
+        search, search_error_array = self.data_analysis(mgr, tracking_data, track_steps, index, search, do_not_run_feedback, spot_size, num_bins, advanced_tracking,
             changing_search, search_error_array, search_integral_history)
-        mgr.DAQcontrol.move({'x': self.XYZ_center[0], 'y': self.XYZ_center[1], 'z': self.XYZ_center[2]})
+        
+        # This move is now redundant - already done in data_analysis
+        # mgr.DAQcontrol.move({'x': self.XYZ_center[0], 'y': self.XYZ_center[1], 'z': self.XYZ_center[2]})
+        
         print('\nHere is where the laser is currently pointing:', mgr.DAQcontrol.position)
-        for i, num in enumerate(search):
-            search[i] *= 0.9 if abs(self.drift[i]) < (2 / 5 * search[i]) else 1.2 if abs(self.drift[i]) > (
-                    7 / 10 * search[i]) else 1
+        if not do_not_run_feedback:
+            for i, num in enumerate(search):
+                search[i] *= 0.9 if abs(self.drift[i]) < (2 / 5 * search[i]) else 1.2 if abs(self.drift[i]) > (
+                        7 / 10 * search[i]) else 1
         
         return  search, temp_data, total_fluor, search_error_array
     def process_data(self, input_buffer, buffer_allocation, remaining_buffer, index, search, do_not_run_feedback):
@@ -168,6 +181,7 @@ class AdvancedTracking():
         num_bins = int(len(interval_data) / 2)
         print("The number of bins is " + str(num_bins))
         # Shivam: sums interval data in steps of 4 (I1-I0+I5-I4+...) is the first element
+        print('type(interval_data):', type(interval_data))
         sum_Is = [np.sum(interval_data[i::2]) for i in range(2)]
         # \ sum_Is = [#,#,#,#]
         # data = sum_Is[0]/sum_Is[1] - sum_Is[2]/sum_Is[3]
@@ -270,81 +284,60 @@ class AdvancedTracking():
 
         ## pulser stream to pulser reset has 60ms delay.
         
-        return rpyc.utils.classic.obtain(scan_data), buffer_allocation, remaining_buffer
+        return obtain(scan_data), buffer_allocation, remaining_buffer
     
-    def data_analysis(self, mgr, XYZ_center, tracking_data, track_steps, index, search, do_not_run_feedback, spot_size, num_bins, advanced_tracking, 
+    def data_analysis(self, mgr, tracking_data, track_steps, index, search, do_not_run_feedback, spot_size, num_bins, advanced_tracking, 
                  changing_search, search_error_array, search_integral_history):
+        # Remove XYZ_center parameter, use self.XYZ_center instead
         print("/n/n In data analysis/n")
-        #import pdb; pdb.set_trace()
         self.total_fluor = np.sum(tracking_data)
-
-        # Shivam: Attempt to fix search radius issue when theres a rapid change in position, but not working well yet
-        # if self.total_fluor / self.previous_fluors[index] < 0.5:
-            # HAVE MAX SEARCH CONDITION
-            # self.search[index] *= 4
-            # return search, search_error_array
-
+        
         print("Total Fluorescence is " + str(self.total_fluor))
         if do_not_run_feedback:
             return search, search_error_array
         
         print('Out of XYZ = [0,1,2], this is the', index, 'axis')
-        # if index == 2:
-        #     print("Track steps is " + str(track_steps))
-        #     print("Tracking data is " + str(tracking_data))
-        #     max_count_position = track_steps[np.argmax(tracking_data)]
-        #     self.drift[index] = Q_(max_count_position, 'um') - XYZ_center[index]
-        #     XYZ_center[index] = Q_(max_count_position, 'um')
-        #     self.urixyz.daq_controller.move({'x': XYZ_center[0], 'y': XYZ_center[1], 'z': XYZ_center[2]})
-        #     print("xyz positions set are " + str(XYZ_center[0]) + str(XYZ_center[1]) + str(XYZ_center[2]))
-        #     print('\nHere is where the laser is currently pointing:', self.urixyz.daq_controller.position)
-        #     return search
 
-        # Here we are attempting to fit to Gaussian. spot_size is the initial guess for the FWHM of the Gaussian spot
+        # Here we are attempting to fit to Gaussian
         p0 = [np.max(tracking_data), track_steps[np.argmax(tracking_data)], spot_size, np.min(tracking_data)]
         if advanced_tracking:
             try:
-                # Shivam: popt is the return of the optimized values of curve parameters (array of form such as p0)
-                print("made it to before curve fit")
-                print("Track steps is " + str(track_steps))
-                print("Length of track steps is " + str(len(track_steps)))
-                print("Tracking data is " + str(tracking_data))
-                print("Length of tracking data is " + str(len(tracking_data)))
                 popt, pcov = optimize.curve_fit(self.gaussian, track_steps, tracking_data, p0=p0)
-                print("popt[1] is " + str(popt[1]))
-                print("popt is " + str(popt))
-                plot_fitted = self.gaussian(track_steps, *popt)
                 plot_center_fit = popt[1]
-                plotbackground = popt[3]
-                # plotbackground = self.gaussian(track_steps[0], *popt)
-                plotpeak = self.gaussian(plot_center_fit, *popt)
-                print('plot peak, background, SBR: ' + str(plotpeak) + ',' + str(plotbackground) + ',' + str(
-                    plotpeak / plotbackground - 1), '\n')
+                # plotbackground = popt[3]
+                # plotpeak = self.gaussian(plot_center_fit, *popt)
+                # print('plot peak, background, SBR: ' + str(plotpeak) + ',' + str(plotbackground) + ',' + str(
+                #     plotpeak / plotbackground - 1), '\n')
                 if np.min(track_steps) <= plot_center_fit <= np.max(track_steps):
-                    # import pdb; pdb.set_trace()
                     if popt[0] < 0:
                         print("negative fit")
-
                     else:
-                        self.drift[index] = plot_center_fit - XYZ_center[index]
-                        XYZ_center[index] = self.advanced_tracking(plot_center_fit, index)
-
+                        self.drift[index] = plot_center_fit - self.XYZ_center[index]
+                        self.XYZ_center[index] = self.advanced_tracking(plot_center_fit, index)
                 else:
                     print('Gaussian fit max is out of scanning range. Using maximum point instead')
                     max_count_position = track_steps[np.argmax(tracking_data)]
-                    self.drift[index] = max_count_position - XYZ_center[index]
-                    XYZ_center[index] =self.advanced_tracking(max_count_position, index)     
-                    "CHECK WHAT THIS BECOMES"
+                    self.drift[index] = max_count_position - self.XYZ_center[index]
+                    self.XYZ_center[index] = self.advanced_tracking(max_count_position, index)
             except:
                 print('no Gaussian fit')
                 max_count_position = track_steps[np.argmax(tracking_data)]
-                self.drift[index] = max_count_position - XYZ_center[index]
-                XYZ_center[index] = self.advanced_tracking(max_count_position, index)
+                self.drift[index] = max_count_position - self.XYZ_center[index]
+                self.XYZ_center[index] = self.advanced_tracking(max_count_position, index)
 
-            print("debugging, XYZ center is " + str(XYZ_center))
+            print("debugging, XYZ center is " + str(self.XYZ_center))
             
-            mgr.DAQcontrol.move({'x': XYZ_center[0], 'y': XYZ_center[1], 'z': XYZ_center[2]})
-            print("xyz positions set are " + str(XYZ_center[0]) + str(XYZ_center[1]) + str(XYZ_center[2]))
+            # MOVE IMMEDIATELY after updating position
+            # Clamp move delta to a maximum step (e.g. max_step = 5e-6 for 5 µm or appropriate unit)
+            max_step = 5e-6
+            for ax in range(3):
+                delta = self.XYZ_center[ax] - mgr.DAQcontrol.position[ ['x','y','z'][ax] ]
+                if abs(delta) > max_step:
+                    print(f"[WARNING] large move on axis {ax}: {delta}, clamping to {max_step}")
+                    self.XYZ_center[ax] = mgr.DAQcontrol.position[ ['x','y','z'][ax] ] + np.sign(delta)*max_step
+            
+            mgr.DAQcontrol.move({'x': self.XYZ_center[0], 'y': self.XYZ_center[1], 'z': self.XYZ_center[2]})
+            print("xyz positions set are " + str(self.XYZ_center[0]) + str(self.XYZ_center[1]) + str(self.XYZ_center[2]))
             print('\nHere is where the laser is currently pointing:', mgr.DAQcontrol.position)
 
             if changing_search:
@@ -424,11 +417,10 @@ class AdvancedTracking():
                 print("popt is " + str(popt))
                 plot_fitted = self.gaussian(track_steps, *popt)
                 plot_center_fit = popt[1]
-                plotbackground = popt[3]
-                # plotbackground = self.gaussian(track_steps[0], *popt)
-                plotpeak = self.gaussian(plot_center_fit, *popt)
-                print('plot peak, background, SBR: ' + str(plotpeak) + ',' + str(plotbackground) + ',' + str(
-                    plotpeak / plotbackground - 1), '\n')
+                # plotbackground = popt[3]
+                # plotpeak = self.gaussian(plot_center_fit, *popt)
+                # print('plot peak, background, SBR: ' + str(plotpeak) + ',' + str(plotbackground) + ',' + str(
+                #     plotpeak / plotbackground - 1), '\n')
                 if np.min(track_steps) <= plot_center_fit <= np.max(track_steps):
                     
                     if popt[0] < 0:
@@ -436,50 +428,30 @@ class AdvancedTracking():
 
                     else:
                         print("Fitting to Gaussian")
-                        print("debugging, XYZ center is " + str(XYZ_center))
-                        print("debugging, plot center fit is ", plot_center_fit, 'um')
-                        # import pdb; pdb.set_trace()
-                        self.drift[index] = plot_center_fit - XYZ_center[index]
-                        
-                        
-                        print("debugging, drift is " + str(self.drift[index]))
-                        
-                        XYZ_center[index] = plot_center_fit
-
-                    
+                        self.drift[index] = plot_center_fit - self.XYZ_center[index]
+                        self.XYZ_center[index] = plot_center_fit
                 else:
                     print('Gaussian fit max is out of scanning range. Using maximum point instead')
                     max_count_position = track_steps[np.argmax(tracking_data)]
-                    print("debugging, XYZ center is " + str(XYZ_center))
-                    print("debugging, max count position is ", max_count_position, 'um')
-                    #import pdb; pdb.set_trace()
-                    self.drift[index] = max_count_position - XYZ_center[index]
-                    
-                    print("debugging, drift is " + str(self.drift[index]))
-
-                    XYZ_center[index] = max_count_position
-
-                print("debugging, XYZ center is " + str(XYZ_center))
-                print("drift is " + str(self.drift[index]))
-
-
+                    self.drift[index] = max_count_position - self.XYZ_center[index]
+                    self.XYZ_center[index] = max_count_position
             except:
                 print('no Gaussian fit')
                 max_count_position = track_steps[np.argmax(tracking_data)]
-                try:
-                    self.drift[index] = max_count_position - XYZ_center[index]
-                except Exception as e:
-                    print("type self.drift", type(self.drift))
-                    print('type xyz_center', type(XYZ_center))
-                    print('xyz_center', XYZ_center)
-                    raise e
-                print("drift is " + str(self.drift[index]))
-                XYZ_center[index] = max_count_position
+                self.drift[index] = max_count_position - self.XYZ_center[index]
+                self.XYZ_center[index] = max_count_position
 
-                print("debugging, XYZ center is " + str(XYZ_center))
-
-            mgr.DAQcontrol.move({'x': XYZ_center[0], 'y': XYZ_center[1], 'z': XYZ_center[2]})
-            print("xyz positions set are " + str(XYZ_center[0]) + str(XYZ_center[1]) + str(XYZ_center[2]))
+            # MOVE IMMEDIATELY after updating position
+            # Clamp move delta to a maximum step (e.g. max_step = 5e-6 for 5 µm or appropriate unit)
+            max_step = 5e-6
+            for ax in range(3):
+                delta = self.XYZ_center[ax] - mgr.DAQcontrol.position[ ['x','y','z'][ax] ]
+                if abs(delta) > max_step:
+                    print(f"[WARNING] large move on axis {ax}: {delta}, clamping to {max_step}")
+                    self.XYZ_center[ax] = mgr.DAQcontrol.position[ ['x','y','z'][ax] ] + np.sign(delta)*max_step
+            
+            mgr.DAQcontrol.move({'x': self.XYZ_center[0], 'y': self.XYZ_center[1], 'z': self.XYZ_center[2]})
+            print("xyz positions set are " + str(self.XYZ_center[0]) + str(self.XYZ_center[1]) + str(self.XYZ_center[2]))
             print('\nHere is where the laser is currently pointing:', mgr.DAQcontrol.position)
 
             if changing_search:
@@ -526,7 +498,10 @@ class AdvancedTracking():
                 
                 # Converting search[index] to float to do maths then back to nm for the variable
                 search[index] =  search[index] + search_change
-
+                print('type(search) is ' + str(type(search)))
+                print('type(search[index]) is ' + str(type(search[index])))
+                print('type(self.max_search) is ' + str(type(self.max_search)))
+                print('type(self.max_search[index]) is ' + str(type(self.max_search[index])))
                 if search[index] > self.max_search[index]:
                     print("Max search radius for index " + str(index) + " reached.")
                     search[index] = self.max_search[index]
