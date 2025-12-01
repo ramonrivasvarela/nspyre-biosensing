@@ -432,6 +432,7 @@ class DAQCounter:
         self.ao_motion_task.wait_until_done()
         self.read_task.stop()
         self.ao_motion_task.stop()
+        self.position=self.final_point
 
         # print('what is my final point', final_point, self.position)
         return self.counter_buffer
@@ -472,20 +473,43 @@ class DAQCounter:
 
     def get_position(self):
         return self.position
-
-    def odmr_center_read_process_data(self, n_points, runs):
-        data=self.read_to_data_array()
-        points_per_run = 4 * n_points + 4  # (n_points+1) background + n_points signal
-        data_reshaped = data.reshape(runs, points_per_run)
-        # Separate background and signal for each run
-        background_left_raw = data_reshaped[:, :n_points+1]  # First n_points+1 are background
-        signal_left_raw = data_reshaped[:, n_points+1:2*n_points+2]  # Next n_points are signal
-        background_right_raw = data_reshaped[:, 2*n_points+2:3*n_points+3]  # Next n_points are background
-        signal_right_raw = data_reshaped[:, 3*n_points+3:4*n_points+4]  # Next n_points are signal
-
-        # Apply buffer_to_data logic to each row and sum the differences
-        background_left = np.average([np.sum(np.diff(row)) for row in background_left_raw])
-        signal_left = np.average([np.sum(np.diff(row)) for row in signal_left_raw])
-        background_right = np.average([np.sum(np.diff(row)) for row in background_right_raw])
-        signal_right = np.average([np.sum(np.diff(row)) for row in signal_right_raw])
+    
+    def odmr_center_read_process_data(self, n_points, runs, timeout=10):
+        data = self.read_to_data_array(timeout=timeout)
+        diff_data = np.diff(data)
+        
+        # Skip first clock pulse (idle) if needed
+        # diff_data = diff_data[1:]
+        
+        # Pattern: [bg_left]*runs, [sig_left]*runs, [bg_right]*runs, [sig_right]*runs, repeat...
+        # We have n_points frequency points, each producing 4 groups of runs samples
+        
+        background_left = []
+        signal_left = []
+        background_right = []
+        signal_right = []
+        
+        for i in range(n_points):
+            # Each frequency point has 4 groups of runs samples
+            base_idx = i * 4 * runs
+            
+            # Sum each group and append to respective channel
+            bg_left_sum = np.sum(diff_data[base_idx : base_idx + runs])
+            background_left.append(bg_left_sum)
+            
+            sig_left_sum = np.sum(diff_data[base_idx + runs : base_idx + 2*runs])
+            signal_left.append(sig_left_sum)
+            
+            bg_right_sum = np.sum(diff_data[base_idx + 2*runs : base_idx + 3*runs])
+            background_right.append(bg_right_sum)
+            
+            sig_right_sum = np.sum(diff_data[base_idx + 3*runs : base_idx + 4*runs])
+            signal_right.append(sig_right_sum)
+        
+        print('background_left:', background_left)
+        print('signal_left:', signal_left)
+        print('background_right:', background_right)
+        print('signal_right:', signal_right)
+        
         return background_left, signal_left, background_right, signal_right
+                

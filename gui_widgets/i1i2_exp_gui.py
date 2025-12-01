@@ -92,7 +92,7 @@ class I1I2Widget(ExperimentWidget):
             'time_per_sgpoint': {
                 'display_text': 'Time per SG Point',
                 'widget': SpinBox(
-                    value=1,
+                    value=0.5,
                     suffix='s',
                     siPrefix=True,
                     dec=True,
@@ -105,11 +105,11 @@ class I1I2Widget(ExperimentWidget):
             },
             'frequencies': {
                 'display_text': 'Frequencies',
-                'widget': QLineEdit("(2.85e9, 2.89e9, 20)")
+                'widget': QLineEdit("(2.865e9, 2.87e9, 10)")
             },
             'slope_range': {
                 'display_text': 'Slope Range',
-                'widget': QLineEdit("(2.868e9, 2.871e9)")
+                'widget': QLineEdit("(2.8665e9, 2.8685e9)")
             },
             'sideband_frequency': {
                 'display_text': 'Sideband Frequency',
@@ -281,10 +281,10 @@ class I1I2PlotWidget(FlexLinePlotWidget):
                         I2_values = np.array(I2_sweep[1])
                         
                         # Calculate difference I2 - I1
-                        diff_values = I2_values - I1_values
+                        div_values = (I2_values - I1_values)/(2*(I2_values + I1_values))
                         
                         # Store sweep entry with frequencies and difference values as numpy arrays
-                        I2_minus_I1.append(np.stack([frequencies, diff_values]))
+                        I2_minus_I1.append(np.stack([frequencies, div_values]))
                 
                 # Store the processed data
                 sink.datasets["I2_I1"] = I2_minus_I1

@@ -21,7 +21,7 @@ from nspyre import nspyreApp
 from gui_widgets import laser_gui
 from gui_widgets import instrument_gui
 from gui_widgets import camera_gui
-from gui_widgets import counts_exp_gui, picture_exp_gui, planescan_exp_gui, widefield_odmr_exp_gui, confocal_odmr_exp_gui, spatial_feedback_exp_gui, i1i2_exp_gui, temptime_exp_gui, triple_exp_gui, odmrcenter_exp_gui
+from gui_widgets import counts_exp_gui, picture_exp_gui, planescan_exp_gui, widefield_odmr_exp_gui, confocal_odmr_exp_gui, spatial_feedback_exp_gui, i1i2_exp_gui, temptime_exp_gui, triple_exp_gui, odmrcenter_exp_gui, testing_axis_exp_gui
 
 from nspyre import InstrumentManager
 
@@ -89,6 +89,7 @@ def main():
                     'Confocal TempVsTime': MainWidgetItem(temptime_exp_gui, 'TempTimeWidget', stretch=(1, 1)),
                     'Triple Experiment': MainWidgetItem(triple_exp_gui, 'TripleExperimentWidget', stretch=(1, 1)),
                     'ODMR Center': MainWidgetItem(odmrcenter_exp_gui, 'ODMRCenterWidget', stretch=(1, 1)),
+                    'Testing Axis': MainWidgetItem(testing_axis_exp_gui, 'TestingAxisWidget', stretch=(1, 1)),
                     },
                 
                 'Plotting' : {
@@ -99,6 +100,8 @@ def main():
                     'Confocal ODMR Flex Line Plot': MainWidgetItem(confocal_odmr_exp_gui, 'ConfocalODMRPlotWidget', stretch=(1, 1)),
                     'Confocal I1I2 Flex Line Plot': MainWidgetItem(i1i2_exp_gui, 'I1I2PlotWidget', stretch=(1, 1)),
                     'Confocal TempVsTime Flex Line Plot': MainWidgetItem(temptime_exp_gui, 'TempTimePlotWidget', stretch=(1, 1)),
+                    'Testing Axis Flex Line Plot': MainWidgetItem(testing_axis_exp_gui, 'TestingAxisPlotWidget', stretch=(1, 1)),
+                    'ODMR Center Flex Line Plot': MainWidgetItem(odmrcenter_exp_gui, 'ODMRCenterPlotWidget', stretch=(1, 1)),
                     
                 
                     

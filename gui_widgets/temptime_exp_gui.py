@@ -49,7 +49,7 @@ class TempTimeWidget(ExperimentWidget):
         search_integral_history_sb = QSpinBox()
         search_integral_history_sb.setMinimum(1)
         search_integral_history_sb.setMaximum(100)
-        search_integral_history_sb.setValue(1)
+        search_integral_history_sb.setValue(5)
 
         z_cycle_sb = QSpinBox()
         z_cycle_sb.setMinimum(1)
@@ -63,6 +63,9 @@ class TempTimeWidget(ExperimentWidget):
         integral_history_sb.setMinimum(1)
         integral_history_sb.setMaximum(100)
         integral_history_sb.setValue(1)
+
+        changing_search_cb = QCheckBox()
+        changing_search_cb.setChecked(True)
 
         two_freq_cb = QCheckBox()
         two_freq_cb.setChecked(True)
@@ -162,7 +165,7 @@ class TempTimeWidget(ExperimentWidget):
             'cooling_delay': {
                 'display_text': 'Cooling Delay',
                 'widget': SpinBox(
-                    value=0.0,
+                    value=0.400,
                     suffix='s',
                     siPrefix=True,
                     dec=True,
@@ -187,11 +190,11 @@ class TempTimeWidget(ExperimentWidget):
             },
             'PID': {
                 'display_text': 'PID Parameters',
-                'widget': QLineEdit("[0.1,0.01,0]")
+                'widget': QLineEdit("[0.01,0.0025,0.0065]")
             },
             'PID_recurrence': {
                 'display_text': 'PID Recurrence',
-                'widget': QLineEdit("[1,1,0]")
+                'widget': QLineEdit("[1,1,1]")
             },
             'integral_history': {
                 'display_text': 'Integral History',
@@ -225,7 +228,7 @@ class TempTimeWidget(ExperimentWidget):
             },
             'changing_search': {
                 'display_text': 'Changing Search',
-                'widget': QCheckBox()
+                'widget': changing_search_cb 
             },
             'search_PID': {
                 'display_text': 'Search PID',

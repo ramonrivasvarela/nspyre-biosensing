@@ -329,12 +329,13 @@ class AdvancedTracking():
             
             # MOVE IMMEDIATELY after updating position
             # Clamp move delta to a maximum step (e.g. max_step = 5e-6 for 5 µm or appropriate unit)
-            max_step = 5e-6
+            max_step = 5
+            current_position = obtain(mgr.DAQcontrol.position)
             for ax in range(3):
-                delta = self.XYZ_center[ax] - mgr.DAQcontrol.position[ ['x','y','z'][ax] ]
+                delta = self.XYZ_center[ax] - current_position[ ['x','y','z'][ax] ]
                 if abs(delta) > max_step:
                     print(f"[WARNING] large move on axis {ax}: {delta}, clamping to {max_step}")
-                    self.XYZ_center[ax] = mgr.DAQcontrol.position[ ['x','y','z'][ax] ] + np.sign(delta)*max_step
+                    self.XYZ_center[ax] = current_position[ ['x','y','z'][ax] ] + np.sign(delta)*max_step
             
             mgr.DAQcontrol.move({'x': self.XYZ_center[0], 'y': self.XYZ_center[1], 'z': self.XYZ_center[2]})
             print("xyz positions set are " + str(self.XYZ_center[0]) + str(self.XYZ_center[1]) + str(self.XYZ_center[2]))
@@ -443,12 +444,13 @@ class AdvancedTracking():
 
             # MOVE IMMEDIATELY after updating position
             # Clamp move delta to a maximum step (e.g. max_step = 5e-6 for 5 µm or appropriate unit)
-            max_step = 5e-6
+            max_step = 5
+            current_position = obtain(mgr.DAQcontrol.position)
             for ax in range(3):
-                delta = self.XYZ_center[ax] - mgr.DAQcontrol.position[ ['x','y','z'][ax] ]
+                delta = self.XYZ_center[ax] - current_position[ ['x','y','z'][ax] ]
                 if abs(delta) > max_step:
                     print(f"[WARNING] large move on axis {ax}: {delta}, clamping to {max_step}")
-                    self.XYZ_center[ax] = mgr.DAQcontrol.position[ ['x','y','z'][ax] ] + np.sign(delta)*max_step
+                    self.XYZ_center[ax] = current_position[ ['x','y','z'][ax] ] + np.sign(delta)*max_step
             
             mgr.DAQcontrol.move({'x': self.XYZ_center[0], 'y': self.XYZ_center[1], 'z': self.XYZ_center[2]})
             print("xyz positions set are " + str(self.XYZ_center[0]) + str(self.XYZ_center[1]) + str(self.XYZ_center[2]))

@@ -6,6 +6,7 @@ from pyqtgraph import SpinBox
 from pyqtgraph.Qt import QtWidgets
 from PyQt6.QtWidgets import QSpinBox, QLineEdit, QComboBox
 from special_widgets import unit_widgets
+from nspyre import DataSink
 
 import experiments.odmrcenterFM
 
@@ -144,17 +145,58 @@ class ODMRCenterWidget(ExperimentWidget):
                         title='odmr center', get_param_value_funs=get_param_value_funs)
 
 
-class CountsPlotWidget(FlexLinePlotWidget):
+def process_ODMR_data(sink: DataSink):
+    """Subtract the signal from background trace and add it as a new 'diff' dataset."""
+    # FIX: Use separate lists for left and right
+    left_div_sweeps = []
+    for s, _ in enumerate(sink.datasets['left_sg']):
+        freqs = sink.datasets['left_sg'][s][0]
+        sig = sink.datasets['left_sg'][s][1]
+        bg = sink.datasets['left_bg'][s][1]
+        left_div_sweeps.append(np.stack([freqs, sig / bg]))
+    sink.datasets['left_div'] = left_div_sweeps
+    
+    right_div_sweeps = []
+    for s, _ in enumerate(sink.datasets['right_sg']):
+        freqs = sink.datasets['right_sg'][s][0]
+        sig = sink.datasets['right_sg'][s][1]
+        bg = sink.datasets['right_bg'][s][1]
+        right_div_sweeps.append(np.stack([freqs, sig / bg]))
+    sink.datasets['right_div'] = right_div_sweeps
+
+    
+
+class ODMRCenterPlotWidget(FlexLinePlotWidget):
     """Add some default settings to the FlexSinkLinePlotWidget."""
     def __init__(self):
-        super().__init__()
+        super().__init__(data_processing_func=process_ODMR_data)
         # create some default signal plots
-        self.add_plot('counts',        series='counts',   scan_i='',     scan_j='',  processing='Append')
+        self.add_plot('left_sig_avg',        series='left_sg',   scan_i='',     scan_j='',  processing='Average')
+        self.add_plot('left_sig_latest',     series='left_sg',   scan_i='-1',   scan_j='',  processing='Average')
+
+        # create some default background plots
+        self.add_plot('left_bg_avg',         series='left_bg',   scan_i='',     scan_j='',  processing='Average')
+        self.add_plot('left_bg_latest',      series='left_bg',   scan_i='-1',   scan_j='',  processing='Average')
+
+        # create some default diff plots
+        self.add_plot('left_div_avg',       series='left_div',  scan_i='',      scan_j='',  processing='Average')
+        self.add_plot('left_div_latest',    series='left_div',  scan_i='-1',    scan_j='',  processing='Average')
+
+        self.add_plot('right_sig_avg',        series='right_sg',   scan_i='',     scan_j='',  processing='Average')
+        self.add_plot('right_sig_latest',     series='right_sg',   scan_i='-1',   scan_j='',  processing='Average')
+
+        # create some default background plots
+        self.add_plot('right_bg_avg',         series='right_bg',   scan_i='',     scan_j='',  processing='Average')
+        self.add_plot('right_bg_latest',      series='right_bg',   scan_i='-1',   scan_j='',  processing='Average')
 
 
+        # create some default diff plots
+        self.add_plot('right_div_avg',       series='right_div',  scan_i='',      scan_j='',  processing='Average')
+        self.add_plot('right_div_latest',    series='right_div',  scan_i='-1',    scan_j='',  processing='Average')
+ 
         # retrieve legend object
         legend = self.line_plot.plot_widget.addLegend()
         # set the legend location
         legend.setOffset((-10, -50))
 
-        self.datasource_lineedit.setText('counts')
+        self.datasource_lineedit.setText('odmrcenter')
