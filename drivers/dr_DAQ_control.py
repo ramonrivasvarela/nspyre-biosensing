@@ -474,12 +474,12 @@ class DAQCounter:
     def get_position(self):
         return self.position
     
-    def odmr_center_read_process_data(self, n_points, runs, timeout=10):
+    def odmr_center_read_process_data(self, n_steps, runs, timeout=10):
         data=self.read_to_data_array(timeout=timeout)
         diff_data = np.diff(data)
         data_final=[]
-        for run in range(runs):
-            data_final.extend(diff_data[run*(4*n_points+1):(run+1)*(4*n_points+1)-1])
+        for i in range(4*n_steps):
+            data_final.extend(diff_data[i*runs:(i+1)*runs])
 
         # Apply buffer_to_data logic to each row and sum the differences
         background_left = data_final[0::4]

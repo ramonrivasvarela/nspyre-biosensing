@@ -866,7 +866,7 @@ class PulserClass():
 
         return seq, n_points
 
-    def odmr_center_create_sequence_FM(self, n_steps, odmr_span,sweep_time, clock_time, probe_time, laser_pause):
+    def odmr_center_create_sequence_FM(self, n_steps, runs, clock_time, probe_time):
 
         clock_time_ns = int(round(clock_time * 1e9))
         probe_time_ns = int(round(probe_time * 1e9))
@@ -880,10 +880,10 @@ class PulserClass():
         # q_values_down = np.linspace(0, -1, n_steps, dtype=np.float64)
         # ----- digital channels (lightweight list multiplications are fine) -----
         
-        laser = [(probe_time_ns*(n_steps*4+1), 1)]
-        clock = (n_steps*4+1)*[(clock_time_ns, 1), (probe_time_ns - clock_time_ns, 0)] 
-        switch = 2*n_steps * [ (probe_time_ns, 1), (probe_time_ns, 0)] + [(probe_time_ns, 1)]
-        q_channel=[(clock_time_ns, 0)]+[(2*probe_time_ns, val) for q in q_values_up for val in (q, -q)]+ [(probe_time_ns-clock_time_ns, 0)]
+        laser = [(probe_time_ns*(n_steps*runs*4+1), 1)]
+        clock = (n_steps*runs*4+1)*[(clock_time_ns, 1), (probe_time_ns - clock_time_ns, 0)] 
+        switch = 2*n_steps * [ (probe_time_ns*runs, 1), (probe_time_ns*runs, 0)] + [(probe_time_ns, 1)]
+        q_channel=[(clock_time_ns, 0)]+[(2*probe_time_ns*runs, val) for q in q_values_up for val in (q, -q)]+ [(probe_time_ns-clock_time_ns, 0)]
 
         # ----- analog channels (vectorised) -----
         # Phase accumulates: phi_k = sum_{j<=k} 2π * f_j * DT_NS
@@ -899,7 +899,7 @@ class PulserClass():
         seq.setDigital(self.channel_dict['switch'], switch)
         seq.setAnalog(0, q_channel)
 
-        return seq, n_steps, probe_time_ns
+        return seq, probe_time_ns
     
         #         # constants
         # DT_NS = max(8, int(sweep_time*1e9 // (n_steps)))

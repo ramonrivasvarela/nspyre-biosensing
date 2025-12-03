@@ -87,7 +87,7 @@ class ODMRCenter:
                 # data = rpyc.utils.classic.obtain(mgr.DAQcontrol.read_to_data_array())
 
                 try:
-                    left_background_r, left_signal_r, right_background_r, right_signal_r = rpyc.utils.classic.obtain(mgr.DAQcontrol.odmr_center_read_process_data(self.n_points, runs, timeout=self.reader_timeout))
+                    left_background_r, left_signal_r, right_background_r, right_signal_r = rpyc.utils.classic.obtain(mgr.DAQcontrol.odmr_center_read_process_data(n_steps, runs, timeout=self.reader_timeout))
                 except Exception as e:
                     print("Error during data acquisition or processing:", e)
                     print(mgr.DAQcontrol.ctr_buffer)
@@ -137,7 +137,7 @@ class ODMRCenter:
         # sg_span=(odmr_span/sweep_time)*(sweep_time+laser_pause)
         
         print("Creating sequence")
-        self.sequence, self.n_points, probe_time_ns=mgr.Pulser.odmr_center_create_sequence_FM(n_steps, odmr_span,sweep_time, clock_time, probe_time, laser_pause)
+        self.sequence, probe_time_ns=mgr.Pulser.odmr_center_create_sequence_FM(n_steps, runs, clock_time, probe_time)
         import pickle, os
         print(f'saving sequence to seq.pkl in {os.getcwd()}')
         pickle.dump(self.sequence, open('seq.pkl', 'wb'))
@@ -146,11 +146,11 @@ class ODMRCenter:
         # print(f'saving sequence to seq.pkl in {os.getcwd()}')
         # pickle.dump(self.sequence, open('seq.pkl', 'wb'))
         new_probe_time=probe_time_ns*1e-9
-        self.reader_timeout=new_probe_time* (4*self.n_points+4)*runs*1.5
+        self.reader_timeout=new_probe_time* (4*n_steps*runs+1)*1.5
         mgr.DAQcontrol.create_counter()
-        print("buffer size:", (4*n_steps+1)*runs)
+        print("buffer size:", (4*n_steps*runs+1))
         print("new probe time:", new_probe_time)
-        mgr.DAQcontrol.prepare_counting(2/new_probe_time, (4*n_steps+1)*runs-1)
+        mgr.DAQcontrol.prepare_counting(2/new_probe_time, (4*n_steps*runs+1)-1)
         print(len(mgr.DAQcontrol.ctr_buffer))
 
         # SG settings: 
