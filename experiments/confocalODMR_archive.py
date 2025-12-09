@@ -501,33 +501,18 @@ class ConfocalODMR():
         mgr.sg.set_rf_toggle(False)
         mgr.sg.set_mod_toggle(False)
         mgr.Pulser.set_state_off()
-        
-        ## saves the data to an excel sheet.
-        # if data_download:
-        #     time_string = Dt.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-        #     print("name of spyrelet is", self.name+time_string)
-        #     save_excel(self.name)
-        #     print('data downloaded B)')
-        ## experiment finishes
+
         print("FINALIZE")           
         return
 
 
     def setup_no_wait(self, mgr,mode):
         print('\n using sequence without wait time')
-        # mgr.Pulser.ns_laser_lag = self.ns_laser_lag
-        # mgr.Pulser.ns_read_time = self.ns_probe_time #laser time per window
-        # mgr.Pulser.ns_clock_duration = self.ns_clock_duration #width of our clock pulse.
-        # mgr.Pulser.runs = self.runs #number of runs per point
         self.seqs = [mgr.Pulser.ODMRNoWait(self.ns_probe_time, self.ns_clock_duration, self.ns_laser_lag, self.runs ,mode)] #list of sequences to be compatible with read_odmr() and PulsedODMR class
         
     ## still need to change this to new method
     def setup_ODMR_wait(self, mgr):
         print('\n using sequence with wait time')
-        # mgr.Pulser.ns_laser_lag = self.ns_laser_lag
-        # mgr.Pulser.ns_read_time = self.ns_probe_time
-        # mgr.Pulser.ns_clock_duration = self.ns_clock_duration
-        # mgr.Pulser.runs = self.runs #number of runs per point
         self.seqs = [mgr.Pulser.ODMRHeatDissipation(self.ns_probe_time, self.ns_clock_duration, self.ns_laser_lag, self.runs , self.ns_cooldown_time)] #list of sequences to be compatible with read_odmr() and PulsedODMR class
 
     def run_feedback(self,mgr, 
