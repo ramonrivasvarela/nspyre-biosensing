@@ -1,0 +1,11 @@
+SIG GEN:
+pyvisa
+
+DLnsec:
+serial (pyserial)
+
+ps:
+pulsestreamer
+
+DAQ:
+niDAQmx

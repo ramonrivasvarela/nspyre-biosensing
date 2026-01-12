@@ -593,6 +593,10 @@ class ODMRSwabianSpyrelet(BaseFeedbackSpyrelet):
         else:
             odmr_buffer_size = 2*self.runs + 1 #odmr_buffer_size = 2*(math.floor(time_per_point/(2*probe_time)) + 1)
             print('effective buffer_size:', odmr_buffer_size)
+
+            # Note to self (David): The +1 is because each read function measures the current counts. So n+1 counts are needed to get 
+            # n differences = n samples.
+
         if odmr_buffer_size <2:
             raise ValueError('the buffer is too small. set runs to an integer > 0.')
 

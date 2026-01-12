@@ -367,7 +367,7 @@ class ConfocalFMODMR():
         for i,data_point in enumerate(delta_buffer):
             lbl_idx = label[i]
             if lbl_idx > 0 : sigs[lbl_idx-1] += data_point
-            else: bgs[label[i-1]] += data_point
+            else: bgs[label[i-1]-1] += data_point
 
         if self.VERBOSE:
             print('delta_buffer:', delta_buffer)
