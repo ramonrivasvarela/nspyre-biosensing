@@ -102,6 +102,7 @@ def main():
                     'Confocal TempVsTime Flex Line Plot': MainWidgetItem(temptime_exp_gui, 'TempTimePlotWidget', stretch=(1, 1)),
                     'Testing Axis Flex Line Plot': MainWidgetItem(testing_axis_exp_gui, 'TestingAxisPlotWidget', stretch=(1, 1)),
                     'ODMR Center Flex Line Plot': MainWidgetItem(odmrcenter_exp_gui, 'ODMRCenterPlotWidget', stretch=(1, 1)),
+                    'ODMR Center Track Plot': MainWidgetItem(odmrcenter_exp_gui, 'ODMRCenterTrackPlotWidget', stretch=(1, 1)),
                     
                 
                     

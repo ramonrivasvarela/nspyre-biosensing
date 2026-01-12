@@ -62,6 +62,7 @@ class DAQCounter:
         self.ao_motion_task = None
         self.position  = {name: 0 for name in self.axes}
         self.initialize_motion()
+        self.move({'x': 0, 'y': 0, 'z': 50})
 
     def __del__(self):
         self.finalize_counter()
@@ -363,14 +364,13 @@ class DAQCounter:
         # print('what is my final point', final_point, self.position)
         return averaged*self.acq_rate
 
-    def prepare_line_scan(self, ctr_buffer_size, buffer_allocation, init_point, final_point, steps, pts_per_step=1):
+    def prepare_line_scan(self, ctr_buffer_size, buffer_allocation, init_point, final_point, steps, ):
         """1-axis line scan while acquiring counter data"""
         #print(init_point)
         #print('self.sleep_factor in line scan right before calling move():', self.sleep_factor)
         self.move(obtain(init_point))
         self.final_point = obtain(final_point)
         #print("start line_scan")
-        self.buffer_shape= (steps, pts_per_step + 1)
         self.counter_buffer = np.ascontiguousarray(np.zeros(ctr_buffer_size), dtype=np.uint32)
         step_voltages, remaining_buffer = self.linear_func(init_point, final_point, steps, ctr_buffer_size, buffer_allocation, hs=True)
         #step_voltages = np.repeat(step_voltages, pts_per_step + 1, axis=0)
@@ -479,7 +479,7 @@ class DAQCounter:
         diff_data = np.diff(data)
         data_final=[]
         for i in range(4*n_steps):
-            data_final.extend(diff_data[i*runs:(i+1)*runs])
+            data_final.append(np.sum(diff_data[i*runs:(i+1)*runs]))
 
         # Apply buffer_to_data logic to each row and sum the differences
         background_left = data_final[0::4]

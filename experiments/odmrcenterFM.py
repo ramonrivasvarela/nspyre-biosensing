@@ -64,14 +64,21 @@ class ODMRCenter:
                 'rf_amplitude':rf_amplitude,
                 'dataset':dataset}
         kp, ki, kd=eval(PID)
-        with InstrumentManager() as mgr, DataSource(dataset) as ds:
+        with InstrumentManager() as mgr, DataSource(dataset) as ds , DataSource("tracking_odmr_center") as track_ds:
             counter=0
             left_bg_sweeps=StreamingList()
             right_bg_sweeps=StreamingList()
             left_sg_sweeps=StreamingList()
             right_sg_sweeps=StreamingList()
 
+            # track data wrt time
+
+            right_contrast_track= StreamingList()
+            left_contrast_track= StreamingList()
+            freq_track= StreamingList()
+
             odmr_freq=initial_odmr
+            initial_time=time.time()
             mgr.sg.set_frequency(odmr_freq)
             self.initialize(mgr, runs, n_steps, odmr_span, sweep_time, probe_time, clock_time, laser_pause, rf_amplitude)
             while counter<timeout_counter:
@@ -93,16 +100,22 @@ class ODMRCenter:
                     print(mgr.DAQcontrol.ctr_buffer)
                     self.finalize(mgr)
                     return
+                current_time=time.time()-initial_time
+                left_background_r=left_background_r[1:]
+                left_signal_r=left_signal_r[1:]
                 #Ramon: IMPORTANT: convert to float to avoid overflow issues
                 print('len(left_background_r):', len(left_background_r))
-                left_bg_sweeps.append(np.stack([np.linspace(0, -1, n_steps), left_background_r]))
+                print('n_steps', n_steps)
+                left_bg_sweeps.append(np.stack([np.linspace(-1/n_steps, -1, n_steps-1), left_background_r]))
                 left_bg_sweeps.updated_item(-1)
                 right_bg_sweeps.append(np.stack([np.linspace(0, 1, n_steps), right_background_r]))
                 right_bg_sweeps.updated_item(-1)
-                left_sg_sweeps.append(np.stack([np.linspace(0, -1, n_steps), left_signal_r]))
+                left_sg_sweeps.append(np.stack([np.linspace(-1/n_steps, -1, n_steps-1), left_signal_r]))
                 left_sg_sweeps.updated_item(-1)
                 right_sg_sweeps.append(np.stack([np.linspace(0, 1, n_steps), right_signal_r]))
                 right_sg_sweeps.updated_item(-1)
+                right_background_r=right_background_r[:-1]
+                right_signal_r=right_signal_r[:-1]
                 left_background=float(np.sum(left_background_r))
                 left_signal=float(np.sum(left_signal_r))
                 right_background=float(np.sum(right_background_r))
@@ -116,16 +129,44 @@ class ODMRCenter:
                 frequency_adjustment = self.pid_control(left_contrast, right_contrast, kp, ki, kd)
                 odmr_freq += frequency_adjustment
                 search = abs(frequency_adjustment)  # Update search value based on adjustment magnitude
+                if odmr_freq< initial_odmr - odmr_span:
+                    odmr_freq = initial_odmr - odmr_span
+                if odmr_freq> initial_odmr + odmr_span:
+                    odmr_freq = initial_odmr + odmr_span
+                mgr.sg.set_frequency(odmr_freq)
+                
+                right_contrast_track.append(np.array([np.array([current_time]), np.array([right_contrast])]))
+                right_contrast_track.updated_item(-1)
+                
+                left_contrast_track.append(np.array([np.array([current_time]), np.array([left_contrast])]))
+                left_contrast_track.updated_item(-1)
+                
+                freq_track.append(np.array([np.array([current_time]), np.array([odmr_freq*1e-9])]))
+                freq_track.updated_item(-1)
                 
                 print(f"Frequency adjustment: {frequency_adjustment:.6f} Hz, New ODMR freq: {odmr_freq:.6f} Hz")
+                
+                # Push main ODMR data
                 ds.push({'params': params,
+                        'xlabel': 'Frequency (Hz)',
+                        'ylabel': 'Counts',
                          'datasets':{
                             'left_sg': left_sg_sweeps,
                             'left_bg': left_bg_sweeps,
                             'right_bg': right_bg_sweeps,
                             'right_sg': right_sg_sweeps,
+                         }
+                })
+                
+                # Push tracking data
+                track_ds.push({'params': params,
+                        'xlabel': 'Time (s)',
+                        'ylabel': 'Frequency (GHz) / Contrast',
+                         'datasets':{
+                            'right_contrast': right_contrast_track,
+                            'left_contrast': left_contrast_track,
+                            'frequency': freq_track,
                          },
-                         'odmr_freq': odmr_freq
                 })
                 if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
                     return self.finalize(mgr)
@@ -150,7 +191,7 @@ class ODMRCenter:
         mgr.DAQcontrol.create_counter()
         print("buffer size:", (4*n_steps*runs+1))
         print("new probe time:", new_probe_time)
-        mgr.DAQcontrol.prepare_counting(2/new_probe_time, (4*n_steps*runs+1)-1)
+        mgr.DAQcontrol.prepare_counting(2/new_probe_time, 4*n_steps*runs)
         print(len(mgr.DAQcontrol.ctr_buffer))
 
         # SG settings: 
@@ -180,7 +221,7 @@ class ODMRCenter:
         PID controller to determine frequency adjustment based on contrast difference.
         Target is to make left_contrast == right_contrast.
         """
-        error = left_contrast - right_contrast
+        error =  left_contrast - right_contrast
         
         # Proportional term
         proportional = kp * error

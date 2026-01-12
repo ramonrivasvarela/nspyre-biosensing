@@ -40,8 +40,6 @@ from rpyc.utils.classic import obtain
 
 import logging
 
-from instrument_activation import xyz_activation_boolean
-
 logger = logging.getLogger(__name__)
 
 class InstWidgetV2(QWidget):
@@ -228,13 +226,14 @@ class InstWidgetV2(QWidget):
                 self.suffix = "nm"
                 self.value = 0
                 # Get values directly from XYZSetup
-                if xyz_activation_boolean:
+                try:
                     with InstrumentManager() as mgr:
                         self.min = mgr.DAQcontrol.axes[name].limits[0]
                         self.max = mgr.DAQcontrol.axes[name].limits[1]
-                else:
+                except Exception as e:
                     self.min = 0
                     self.max = 1000
+                    print(f"Could not get {name.upper()} axis limits:", e)
 
                 # Create and configure title label
                 self.title = QLabel(f"{name.upper()}:")
@@ -265,10 +264,9 @@ class InstWidgetV2(QWidget):
         self.xyz_refresh_button.clicked.connect(lambda: self.refresh_xyz_position())
 
         # Initialize xyz_setup outside the signal connection
-        if xyz_activation_boolean:
-            self.x_control.spinbox.editingFinished.connect(lambda: self.move())
-            self.y_control.spinbox.editingFinished.connect(lambda: self.move())
-            self.z_control.spinbox.editingFinished.connect(lambda: self.move())
+        self.x_control.spinbox.editingFinished.connect(lambda: self.move())
+        self.y_control.spinbox.editingFinished.connect(lambda: self.move())
+        self.z_control.spinbox.editingFinished.connect(lambda: self.move())
     '''
     LAYOUT -----------------------------------------------------------------------------------------------------------------------------------------------
     '''
@@ -376,59 +374,77 @@ class InstWidgetV2(QWidget):
 
     
     def sg396_emit_button_clicked(self):
-        with InstrumentManager() as mgr:
-            sig_gen = mgr.sg
+        try:
+            with InstrumentManager() as mgr:
+                sig_gen = mgr.sg
 
-            fun_kwargs = dict(**self.sg396_params_widget_1.all_params(), **self.sg396_params_widget_2.all_params())
+                fun_kwargs = dict(**self.sg396_params_widget_1.all_params(), **self.sg396_params_widget_2.all_params())
 
-            sig_gen.set_frequency(fun_kwargs['rf_frequency'])
-            sig_gen.set_rf_amplitude(fun_kwargs['rf_amplitude'])
-            pwr = float(sig_gen.get_rf_amplitude())
-            freq = float(sig_gen.get_frequency())
+                sig_gen.set_frequency(fun_kwargs['rf_frequency'])
+                sig_gen.set_rf_amplitude(fun_kwargs['rf_amplitude'])
+                pwr = float(sig_gen.get_rf_amplitude())
+                freq = float(sig_gen.get_frequency())
 
-            sig_gen.set_phase(fun_kwargs['phase'])
-            sig_gen.set_mod_toggle(fun_kwargs['mod_toggle'])
-            if fun_kwargs['mod_toggle']:
-                sig_gen.set_mod_type(fun_kwargs['mod_type'])
-                sig_gen.set_mod_function(fun_kwargs['mod_type'],fun_kwargs['mod_func'])
-                sig_gen.set_mod_rate(fun_kwargs['mod_rate'])
-                sig_gen.set_AM_mod_depth(fun_kwargs['AM_mod'])
-                sig_gen.set_FM_mod_dev(fun_kwargs['FM_mod'])
+                sig_gen.set_phase(fun_kwargs['phase'])
+                sig_gen.set_mod_toggle(fun_kwargs['mod_toggle'])
+                if fun_kwargs['mod_toggle']:
+                    sig_gen.set_mod_type(fun_kwargs['mod_type'])
+                    sig_gen.set_mod_function(fun_kwargs['mod_type'],fun_kwargs['mod_func'])
+                    sig_gen.set_mod_rate(fun_kwargs['mod_rate'])
+                    sig_gen.set_AM_mod_depth(fun_kwargs['AM_mod'])
+                    sig_gen.set_FM_mod_dev(fun_kwargs['FM_mod'])
 
-                sig_gen.set_mod_coupling(1) # Assuming DC input
-            
-            sig_gen.set_rf_toggle(1) 
-            print('rf_toggle: ',sig_gen.get_rf_toggle())
-            print('mod_type: ',sig_gen.get_mod_type())
-            print('mod_func: ',sig_gen.get_mod_function())
-            print('AM_depth: ',sig_gen.get_AM_mod_depth())
-            print('FM_dev: ',sig_gen.get_FM_mod_dev())
-            
-            self.sg396_status_label.setStyleSheet("color: black; background-color: gold; border: 4px solid black;")
-            self.sg396_status_label.setText(f"SRS SG396 Status: ON ({freq*1e-9} GHz at {pwr} dBm)")
+                    sig_gen.set_mod_coupling(1) # Assuming DC input
+                
+                sig_gen.set_rf_toggle(1) 
+                print('rf_toggle: ',sig_gen.get_rf_toggle())
+                print('mod_type: ',sig_gen.get_mod_type())
+                print('mod_func: ',sig_gen.get_mod_function())
+                print('AM_depth: ',sig_gen.get_AM_mod_depth())
+                print('FM_dev: ',sig_gen.get_FM_mod_dev())
+                
+                self.sg396_status_label.setStyleSheet("color: black; background-color: gold; border: 4px solid black;")
+                self.sg396_status_label.setText(f"SRS SG396 Status: ON ({freq*1e-9} GHz at {pwr} dBm)")
+        except Exception as e:
+            self.sg396_status_label.setStyleSheet("color: red; background-color: black; border: 4px solid black;")
+            self.sg396_status_label.setText("SRS SG396 Status: NOT CONNECTED")
+            print("Could not emit SG396:", e)
+            return
             
     def sg396_stop_button_clicked(self):
-        with InstrumentManager() as mgr:
-            mgr.sg.set_rf_toggle(0)
-            mgr.sg.set_mod_toggle(0)
+        try:
+            with InstrumentManager() as mgr:
+                mgr.sg.set_rf_toggle(0)
+                mgr.sg.set_mod_toggle(0)
 
-            self.sg396_status_label.setStyleSheet("color: white; background-color: black; border: 4px solid black;")
-            self.sg396_status_label.setText("SRS SG396 Status: OFF")
+                self.sg396_status_label.setStyleSheet("color: white; background-color: black; border: 4px solid black;")
+                self.sg396_status_label.setText("SRS SG396 Status: OFF")
+        except Exception as e:
+            self.sg396_status_label.setStyleSheet("color: red; background-color: black; border: 4px solid black;")
+            self.sg396_status_label.setText("SRS SG396 Status: NOT CONNECTED")
+            print("Could not stop SG396:", e)
+            return
     
     def refresh_xyz_position(self):
         """Refresh the XYZ position values."""
-        with InstrumentManager() as mgr:
-            try:
+        try:
+            with InstrumentManager() as mgr:
                 self.x_control.spinbox.set_value(mgr.DAQcontrol.position['x'])
                 self.y_control.spinbox.set_value(mgr.DAQcontrol.position['y'])
                 self.z_control.spinbox.set_value(mgr.DAQcontrol.position['z'])
-            except RuntimeError:
-                raise RuntimeError("Can't extract positions.")
+        except Exception as e:
+            self.x_control.spinbox.set_value(0)
+            self.y_control.spinbox.set_value(0)
+            self.z_control.spinbox.set_value(0)
+            print("Could not refresh XYZ position:", e)
             
     def move(self):
-        with InstrumentManager() as mgr:
-            try:
+        try:
+            with InstrumentManager() as mgr:
                 mgr.DAQcontrol.move({'x': self.x_control.spinbox.umvalue, 'y': self.y_control.spinbox.umvalue, 'z': self.z_control.spinbox.umvalue})
-            except RuntimeError:
-                raise RuntimeError("Can't move XYZ stage.")
+        except Exception as e:
+            self.x_control.spinbox.set_value(0)
+            self.y_control.spinbox.set_value(0)
+            self.z_control.spinbox.set_value(0)
+            print("Could not move XYZ stage:", e)
 

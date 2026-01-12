@@ -36,6 +36,7 @@ from nspyre import InstrumentServer
 with InstrumentServer() as inserv:
    # add signal generator driver
    # 'sg' will be an instance of the class 'SG396' in the file ./drivers/sg.py. The class __init__ will be run with the given args. 
+   # REQUIRED IMPORT: pyvisa
    if sg_activation_boolean:
       inserv.add(name = 'sg', 
                class_path= _HERE / 'drivers' / 'dr_sg396.py', 

@@ -92,7 +92,7 @@ class Camera():
         # Call the SDK; wrapper gives (ret_code, total_images)
         ret, total = self.sdk.GetTotalNumberImagesAcquired()
 
-        if ret == self.errors.Error_Codes.DRV_SUCCESS:
+        if ret == 20002:
             return ret, total
         else:
             # Surface the driver error for easier debugging
@@ -106,7 +106,7 @@ class Camera():
 
     def get_emccdgain(self):
         ret, gain = self.sdk.GetEMCCDGain()
-        if ret == self.errors.Error_Codes.DRV_SUCCESS:
+        if ret == 20002:
             self.emccdgain = gain
             return ret, gain
 
@@ -121,7 +121,7 @@ class Camera():
 
     def cool_old(self, temp_value):
         ret = self.set_temperature(temp_value)
-        if ret != self.errors.Error_Codes.DRV_SUCCESS:
+        if ret != 20002:
             print(f"SetTemperature({temp_value}) failed (code {ret})")
             return
         else:
@@ -130,7 +130,7 @@ class Camera():
 
 
         ret = self.sdk.CoolerON()
-        if ret != self.errors.Error_Codes.DRV_SUCCESS:
+        if ret != 20002:
             print(f"CoolerON() failed (code {ret})")
             return
         print("CoolerON returned DRV_SUCCESS; waiting for stabilization…")

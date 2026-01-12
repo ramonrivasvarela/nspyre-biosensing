@@ -236,17 +236,17 @@ class InstWidget(QWidget):
                 self.label.setText(f"{self.value:.2f}")
                 self.slider.setValue(int((self.value + 1) * 100))
 
-        self.q_analog = Analogs("Q")
-        self.i_analog = Analogs("I")
+        self.analog0 = Analogs("Analog 0 (Q)")
+        self.analog1 = Analogs("Analog 1 (I)")
 
-        self.q_analog.slider.valueChanged.connect(lambda: self.q_analog.slider_changed())
-        self.q_analog.slider.sliderReleased.connect(lambda: self.change_experiment_state())
-        self.q_analog.label.editingFinished.connect(lambda: self.q_analog.text_changed())
-        self.q_analog.label.editingFinished.connect(lambda: self.change_experiment_state())
-        self.i_analog.slider.valueChanged.connect(lambda: self.i_analog.slider_changed())
-        self.i_analog.slider.sliderReleased.connect(lambda: self.change_experiment_state())
-        self.i_analog.label.editingFinished.connect(lambda: self.i_analog.text_changed())
-        self.i_analog.label.editingFinished.connect(lambda: self.change_experiment_state())
+        self.analog0.slider.valueChanged.connect(lambda: self.analog0.slider_changed())
+        self.analog0.slider.sliderReleased.connect(lambda: self.change_experiment_state())
+        self.analog0.label.editingFinished.connect(lambda: self.analog0.text_changed())
+        self.analog0.label.editingFinished.connect(lambda: self.change_experiment_state())
+        self.analog1.slider.valueChanged.connect(lambda: self.analog1.slider_changed())
+        self.analog1.slider.sliderReleased.connect(lambda: self.change_experiment_state())
+        self.analog1.label.editingFinished.connect(lambda: self.analog1.text_changed())
+        self.analog1.label.editingFinished.connect(lambda: self.change_experiment_state())
         self.reset_button=QPushButton("Stop")
         self.reset_button.clicked.connect(lambda:self.reset_function())
 
@@ -332,13 +332,13 @@ class InstWidget(QWidget):
         self.pulse_layout.addWidget(self.mirror_button,6,1,1,1)
         self.pulse_layout.addWidget(self.switch_button,6,2,1,1) 
 
-        self.pulse_layout.addWidget(self.q_analog.title,7,1,1,1)
-        self.pulse_layout.addWidget(self.q_analog.slider,8,2,1,2)
-        self.pulse_layout.addWidget(self.q_analog.label,8,1,1,1)     
+        self.pulse_layout.addWidget(self.analog0.title,7,1,1,1)
+        self.pulse_layout.addWidget(self.analog0.slider,8,2,1,2)
+        self.pulse_layout.addWidget(self.analog0.label,8,1,1,1)     
 
-        self.pulse_layout.addWidget(self.i_analog.title,9,1,1,1)
-        self.pulse_layout.addWidget(self.i_analog.slider,10,2,1,2)
-        self.pulse_layout.addWidget(self.i_analog.label,10,1,1,1)
+        self.pulse_layout.addWidget(self.analog1.title,9,1,1,1)
+        self.pulse_layout.addWidget(self.analog1.slider,10,2,1,2)
+        self.pulse_layout.addWidget(self.analog1.label,10,1,1,1)
         
         self.pulse_layout.addWidget(self.reset_button,11,1,1,1)
         self.pulse_layout.addWidget(self.pulser_refresh_button,11,2,1,1)
@@ -369,34 +369,54 @@ class InstWidget(QWidget):
     INTERACTIVE WIDGET FUNCTIONS
     '''
     def toggle_DLnsec(self, b):
-        with InstrumentManager() as mgr:
+        try:
+            with InstrumentManager() as mgr:
 
+                match b.text():
+                    case 'ON':
+                        if b.isChecked() == True:
+                            mgr.DLnsec.on()
+                        else:
+                            mgr.DLnsec.off()
+                    case 'OFF':
+                        if b.isChecked() == True:
+                            mgr.DLnsec.off()
+                        else:
+                            mgr.DLnsec.on()
+        except Exception as e:
             match b.text():
                 case 'ON':
-                    if b.isChecked() == True:
-                        mgr.DLnsec.on()
-                    else:
-                        mgr.DLnsec.off()
+                    b.setChecked(False)
                 case 'OFF':
-                    if b.isChecked() == True:
-                       mgr.DLnsec.off()
-                    else:
-                        mgr.DLnsec.on()
+                    b.setChecked(True)
+            print("Could not toggle DLnsec:", e)
+            return
 
     def DLnsec_mode(self, mode):
-        with InstrumentManager() as mgr:
-            if mode == "LAS":
-                mgr.DLnsec.LAS()
-                self.DLnsec_status_label.setText("Trigger: LAS")
-            elif mode == "EXT":
-                mgr.DLnsec.EXT()
-                self.DLnsec_status_label.setText("Trigger: EXT")
+        try:
+            with InstrumentManager() as mgr:
+                if mode == "LAS":
+                    mgr.DLnsec.LAS()
+                    self.DLnsec_status_label.setText("Trigger: LAS")
+                elif mode == "EXT":
+                    mgr.DLnsec.EXT()
+                    self.DLnsec_status_label.setText("Trigger: EXT")
+        except Exception as e:
+            print("Could not set DLnsec mode:", e)
+            self.DLnsec_status_label.setText("ERROR")
+            return
     
     def DLnsec_pwr_changed(self):
-        self.DLnsec_pwr = self.DLnsec_pwr_slider.value()
+        try:
+            with InstrumentManager() as mgr:
+                self.DLnsec_pwr = self.DLnsec_pwr_slider.value()
+                mgr.DLnsec.power_settings(self.DLnsec_pwr)
+                
+        except Exception as e:
+            self.DLnsec_pwr = 0
+            self.DLnsec_pwr_slider.setValue(self.DLnsec_pwr)
+            print("Could not change DLnsec power:", e)
         self.DLnsec_pwr_label.setText(str(self.DLnsec_pwr) + "%")
-        with InstrumentManager() as mgr:
-            mgr.DLnsec.power_settings(self.DLnsec_pwr)
 
     def DLnsec_pwr_text_changed(self): # Makes sure text is valid, then sends off the value to the slider
         text = self.DLnsec_pwr_label.text()
@@ -405,11 +425,17 @@ class InstWidget(QWidget):
         if text.isnumeric():
             val=int(text)
             if val >= 0 and val <= 100:
-                self.DLnsec_pwr_label.setText(f"{val}%")
-                self.DLnsec_pwr_slider.setValue(val)
-                self.DLnsec_pwr = val
-                with InstrumentManager() as mgr:
-                    mgr.DLnsec.power_settings(self.DLnsec_pwr)
+                try:
+                    with InstrumentManager() as mgr:
+                        mgr.DLnsec.power_settings(self.DLnsec_pwr)
+                    self.DLnsec_pwr = val
+                
+                except Exception as e:
+                    self.DLnsec_pwr = 0
+                    
+                    print("Could not change DLnsec power:", e)
+                self.DLnsec_pwr_slider.setValue(self.DLnsec_pwr)    
+                self.DLnsec_pwr_label.setText(f"{self.DLnsec_pwr}%")
             else:
                 self.DLnsec_pwr_label.setText(f"{self.DLnsec_pwr}%")
                 print("Invalid input, please enter a number between 0 and 100")
@@ -420,8 +446,12 @@ class InstWidget(QWidget):
         
     
     def DLnsec_reboot(self):
-        with InstrumentManager() as mgr:
-            mgr.DLnsec.reboot()
+        try:
+            with InstrumentManager() as mgr:
+                mgr.DLnsec.reboot()
+        except Exception as e:
+            print("Could not reboot DLnsec:", e)
+            return
 
 
 
@@ -433,16 +463,25 @@ class InstWidget(QWidget):
     
 
     def change_experiment_state(self): 
-        with InstrumentManager() as mgr:
-            dig_chan=[]
-            if self.green_laser_on_button.isChecked():
-                dig_chan.append(7)
-            if self.blue_laser_on_button.isChecked():
-                dig_chan.append(3)
-            if self.switch_on_button.isChecked():
-                dig_chan.append(6)
-            if self.i_analog.value<=1 and self.i_analog.value>=-1 and self.q_analog.value<=1 and self.q_analog.value>=-1:
-                mgr.Pulser.set_state(dig_chan, self.q_analog.value, self.i_analog.value)
+        try:
+            with InstrumentManager() as mgr:
+                dig_chan=[]
+                if self.green_laser_on_button.isChecked():
+                    dig_chan.append(7)
+                if self.blue_laser_on_button.isChecked():
+                    dig_chan.append(3)
+                if self.switch_on_button.isChecked():
+                    dig_chan.append(6)
+                if self.analog1.value<=1 and self.analog1.value>=-1 and self.analog0.value<=1 and self.analog0.value>=-1:
+                    mgr.Pulser.set_state(dig_chan, self.analog0.value, self.analog1.value)
+        except Exception as e:
+            self.green_laser_off_button.setChecked(True)
+            self.blue_laser_off_button.setChecked(True)
+            self.switch_off_button.setChecked(True)
+            self.analog0.set_value(0)
+            self.analog1.set_value(0)
+            print("Could not change experiment state:", e)
+            return
         self.refresh_pulser()
     
     
@@ -460,9 +499,13 @@ class InstWidget(QWidget):
             self.mirror_button.setText("Down")
     
     def flip_mirror(self):
-        self.mirror_boolean=not self.mirror_boolean
-        with InstrumentManager() as mgr:
-            mgr.Pulser.flip_mirror()
+        try:
+            with InstrumentManager() as mgr:
+                mgr.Pulser.flip_mirror()
+            self.mirror_boolean=not self.mirror_boolean
+        except Exception as e:
+            print("Could not flip mirror:", e)
+            return
         self.change_button_style()
         self.reset_function()
 
@@ -476,23 +519,26 @@ class InstWidget(QWidget):
         if self.switch_on_button.isChecked():
             dig_chan.append(6)
         with InstrumentManager() as mgr:
-            mgr.Pulser.flip_mirror(dig_chan, self.q_analog.value, self.i_analog.value)
+            mgr.Pulser.flip_mirror(dig_chan, self.analog0.value, self.analog1.value)
 
             
     
 
     def reset_function(self):
-        with InstrumentManager() as mgr:
-            self.q_analog.set_value(0)
-            self.i_analog.set_value(0)
-            self.green_laser_off_button.setChecked(True)
-            self.blue_laser_off_button.setChecked(True)
-            self.switch_off_button.setChecked(True)
+        self.analog0.set_value(0)
+        self.analog1.set_value(0)
+        self.green_laser_off_button.setChecked(True)
+        self.blue_laser_off_button.setChecked(True)
+        self.switch_off_button.setChecked(True)
+        try: 
             with InstrumentManager() as mgr:
                 mgr.Pulser.set_state_off()
-            # self.q_analog.label.setText("0.00")
-            # self.i_analog.label.setText("0.00")
-            # mgr.Pulser.set_state_off()
+        except Exception as e:
+            print("Could not reset pulser:", e)
+            return
+        # self.analog0.label.setText("0.00")
+        # self.analog1.label.setText("0.00")
+        # mgr.Pulser.set_state_off()
             
     def closeEvent(self, event):
         with InstrumentManager() as mgr:
@@ -501,7 +547,7 @@ class InstWidget(QWidget):
             event.accept()
 
     def refresh_pulser(self):
-        if pulser_activation_boolean:
+        try:
             with InstrumentManager() as mgr:
                 if mgr.Pulser.green_laser_on:
                     self.green_laser_on_button.setChecked(True)
@@ -515,14 +561,15 @@ class InstWidget(QWidget):
                     self.switch_on_button.setChecked(True)
                 else:
                     self.switch_off_button.setChecked(True)
-                self.q_analog.set_value(mgr.Pulser.q_analog)
-                self.i_analog.set_value(mgr.Pulser.i_analog)
-        else:
+                self.analog0.set_value(mgr.Pulser.analog0)
+                self.analog1.set_value(mgr.Pulser.analog1)
+        except Exception as e:
             self.green_laser_off_button.setChecked(True)
             self.blue_laser_off_button.setChecked(True)
             self.switch_off_button.setChecked(True)
-            self.q_analog.set_value(0)
-            self.i_analog.set_value(0)
+            self.analog0.set_value(0)
+            self.analog1.set_value(0)
+            print("Could not connect to pulser:", e)
 
     def trigger_camera(self):
         """

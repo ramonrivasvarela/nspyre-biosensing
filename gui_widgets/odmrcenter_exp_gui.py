@@ -121,7 +121,7 @@ class ODMRCenterWidget(ExperimentWidget):
             },
             'PID': {
                 'display_text': 'PID (kp, ki, kd)',
-                'widget': QLineEdit("(1.0, 0.0, 0.0)"),
+                'widget': QLineEdit("(100000000, 30000, 0.0)"),
             
             },
             'rf_amplitude': {
@@ -200,3 +200,20 @@ class ODMRCenterPlotWidget(FlexLinePlotWidget):
         legend.setOffset((-10, -50))
 
         self.datasource_lineedit.setText('odmrcenter')
+
+class ODMRCenterTrackPlotWidget(FlexLinePlotWidget):
+    """Add some default settings to the FlexSinkLinePlotWidget."""
+    def __init__(self):
+        super().__init__()
+        # create some default signal plots
+        self.add_plot('left_contrast',        series='left_contrast',   scan_i='',     scan_j='',  processing='Append')
+        self.add_plot('right_contrast',       series='right_contrast',  scan_i='',     scan_j='',  processing='Append')
+        self.add_plot('frequency',            series='frequency',       scan_i='',     scan_j='',  processing='Append')
+
+ 
+        # retrieve legend object
+        legend = self.line_plot.plot_widget.addLegend()
+        # set the legend location
+        legend.setOffset((-10, -50))
+
+        self.datasource_lineedit.setText('tracking_odmr_center')

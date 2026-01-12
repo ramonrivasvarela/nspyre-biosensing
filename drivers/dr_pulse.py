@@ -26,8 +26,8 @@ class PulserClass():
         self.green_laser_on=False
         self.blue_laser_on=False
         self.switch_on=False
-        self.q_analog=0
-        self.i_analog=0
+        self.analog0=0
+        self.analog1=0
 
 #### IQ params
         # Should change it according to crosstalk between I and Q, calibrated using oscilloscope. If no crosstalk should be 0.5 and 0
@@ -43,7 +43,7 @@ class PulserClass():
         self.IQright = [0.357, 0.350]
         self.channel_dict = {"clock": 0, "camera": 1, "405": 2, "488":3, "647": 4, "mirror": 5, "switch": 6, "laser": 7, "": None}
 
-    def change_state(self, dig_chan:list, q:float=0.0, i:float=0.0):
+    def change_state(self, dig_chan:list, analog0:float=0.0, analog1:float=0.0):
         """
         Change the state of the pulser.
         """
@@ -57,8 +57,8 @@ class PulserClass():
                 self.green_laser_on = True
             if chan==6:
                 self.switch_on = True
-        self.q_analog = q
-        self.i_analog = i
+        self.analog0 = analog0
+        self.analog1 = analog1
 
     
     
@@ -75,9 +75,9 @@ class PulserClass():
         sequence = self.Pulser.createSequence()
         return sequence
 
-    def set_state(self, dig_chan, q=0.0, i=0.0):
-        self.change_state(dig_chan, q, i)
-        self.Pulser.constant((dig_chan, q, i))
+    def set_state(self, dig_chan, analog0=0.0, analog1=0.0):
+        self.change_state(dig_chan, analog0, analog1)
+        self.Pulser.constant((dig_chan, analog0, analog1))
     
     def set_state_off(self):
         self.change_state([], 0, 0)
@@ -86,8 +86,8 @@ class PulserClass():
     def stream(
         self,
         couples: list[tuple[int, list[int]]],
-        i: float = 0.0,
         q: float = 0.0,
+        i: float = 0.0,
         n_runs: int = 1,
     ) -> None:
         """
@@ -132,8 +132,8 @@ class PulserClass():
             # (Optional) self.change_state(dig_chans, q=i, i=q)  # if tracking needed
 
         # Apply constant analogue levels for the full combined duration
-        seq.setAnalog(0, [(total_duration, i)])
-        seq.setAnalog(1, [(total_duration, q)])
+        seq.setAnalog(0, [(total_duration, q)])
+        seq.setAnalog(1, [(total_duration, di)])
 
         # Stream sequence
         self.Pulser.stream(seq, n_runs)
@@ -194,7 +194,8 @@ class PulserClass():
             digital_set.append(self.channel_dict['laser'])
         analog_set = -1 if AM else 0
         self.Pulser.stream(sequence,n_runs, final = OutputState(digital_set, analog_set,0))
-        self.change_state(digital_set, analog_set, 0)
+        self.change_state(digital_set, 0, analog_set)
+
     def stream_converted_sequence(self, seqs, n_runs):
         self.Pulser.stream(self.convert_sequence(seqs), n_runs)
     def convert_sequence(self, seqs):
@@ -220,10 +221,10 @@ class PulserClass():
         fin = sub_df.rename(columns = rev_dict)
         return fin
     
-    def flip_mirror(self, output=[], i=0, q=0, n_runs=1):
+    def flip_mirror(self, output=[], i=0, q=0):
         pulse = [(1000000, [5], 0, 0)]
-        self.Pulser.stream(pulse, n_runs, final=OutputState(output, i, q))
-        self.change_state(output, q, i)
+        self.Pulser.stream(pulse, final=OutputState(output, i, q))
+        self.change_state(output, i, q)
 
     def reset(self):
         self.Pulser.reset()

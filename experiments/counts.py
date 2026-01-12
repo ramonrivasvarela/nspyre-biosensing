@@ -98,12 +98,13 @@ class CountsTime:
                 # TODO: experiment with making the above line of code less disgusting. Depends on how particular NSpyre is about having np.arrays.
                 APD_counts.updated_item(-1)
 
-                counts_data.push({'params': {'n_points': n_points, 'probe_time': probe_time, 'clock_time': clock_time},
-                                'title': 'Counts vs Time (Confocal)',
-                                'xlabel': 'Time (s)',
-                                'ylabel': 'Counts (/s)',
-                                'datasets': {'counts' : APD_counts,
-                                            }
+                counts_data.push({
+                'params': {'n_points': n_points, 
+                            'probe_time': probe_time, 'clock_time': clock_time},
+                'title': 'Counts vs Time (Confocal)',
+                'xlabel': 'Time (s)',
+                'ylabel': 'Counts (/s)',
+                'datasets': {'counts' : APD_counts,}
                 })
 
                 
