@@ -66,8 +66,8 @@ class SpatialFeedback():
         """Perform experiment teardown."""
         _logger.info('Destroyed PlaneScan instance.')
 
-    def spatial_feedback(self, do_z, xyz_step,
-            shrink_every_x_iter, starting_point, probe_time=0.04, initial_position={'x': 0, 'y': 0, 'z': 10}, n_points=10, counter_already_exists=False):
+    def spatial_feedback(self, do_z=True, xyz_step=0.05,
+            shrink_every_x_iter=1, starting_point='default', probe_time=0.40, initial_position={'x': 0, 'y': 0, 'z': 10}, n_points=1, counter_already_exists=False):
         self.n_points=n_points
         self.ns_clock_time = 10
 

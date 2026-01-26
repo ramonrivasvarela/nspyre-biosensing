@@ -35,7 +35,7 @@ class ODMRCenterWidget(ExperimentWidget):
         rf_amplitude_sb = QSpinBox()
         rf_amplitude_sb.setMinimum(-100)
         rf_amplitude_sb.setMaximum(7)
-        rf_amplitude_sb.setValue(-20)
+        rf_amplitude_sb.setValue(-15)
 
         mode_cb = QComboBox()
         mode_cb.addItems(['QAM', 'AM'])
@@ -44,7 +44,17 @@ class ODMRCenterWidget(ExperimentWidget):
         n_steps_sb = QSpinBox()
         n_steps_sb.setMinimum(1)
         n_steps_sb.setMaximum(MAXIMUM)
-        n_steps_sb.setValue(100)
+        n_steps_sb.setValue(20)
+
+        sb_every_sb = QSpinBox()
+        sb_every_sb.setMinimum(1)
+        sb_every_sb.setMaximum(MAXIMUM)
+        sb_every_sb.setValue(50)
+
+        factor_sb = SpinBox()
+        factor_sb.setMinimum(0)
+        factor_sb.setMaximum(1)
+        factor_sb.setValue(0.9)
         
         params_config = {
             'runs': {
@@ -136,6 +146,14 @@ class ODMRCenterWidget(ExperimentWidget):
                 'display_text': 'Data Set',
                 'widget': QtWidgets.QLineEdit('odmrcenter'),
             },
+            'sb_every': {
+                'display_text': 'Spatial Feedback Every N Runs',
+                'widget': sb_every_sb
+            },
+            'factor': {
+                'display_text': 'Multiply integrant by',
+                'widget': factor_sb
+            }
         }
 
         super().__init__(params_config, 

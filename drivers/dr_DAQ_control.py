@@ -477,15 +477,30 @@ class DAQCounter:
     def odmr_center_read_process_data(self, n_steps, runs, timeout=10):
         data=self.read_to_data_array(timeout=timeout)
         diff_data = np.diff(data)
-        data_final=[]
-        for i in range(4*n_steps):
-            data_final.append(np.sum(diff_data[i*runs:(i+1)*runs]))
+        
+        background_left = []
+        signal_left = []
+        background_right = []
+        signal_right = []
+        for i in range(2*n_steps):
+            current_bg=np.sum(diff_data[2*i*runs:2*(i+1)*runs:2])
+            current_sg=np.sum(diff_data[2*i*runs+1:2*(i+1)*runs:2])
+
+            
+            if i%2==0:
+                background_left.append(current_bg)
+                signal_left.append(current_sg)
+                
+            else:
+                background_right.append(current_bg)
+                signal_right.append(current_sg)
+            
 
         # Apply buffer_to_data logic to each row and sum the differences
-        background_left = data_final[0::4]
-        signal_left = data_final[1::4]
-        background_right = data_final[2::4]
-        signal_right = data_final[3::4]
+        # background_left = data_final[0::4]
+        # signal_left = data_final[1::4]
+        # background_right = data_final[2::4]
+        # signal_right = data_final[3::4]
         print('background_left:', background_left)
         print('signal_left:', signal_left)
         print('background_right:', background_right)

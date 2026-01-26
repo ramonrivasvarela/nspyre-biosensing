@@ -883,7 +883,7 @@ class PulserClass():
         
         laser = [(probe_time_ns*(n_steps*runs*4+1), 1)]
         clock = (n_steps*runs*4+1)*[(clock_time_ns, 1), (probe_time_ns - clock_time_ns, 0)] 
-        switch = 2*n_steps * [ (probe_time_ns*runs, 1), (probe_time_ns*runs, 0)] + [(probe_time_ns, 1)]
+        switch = 2*n_steps * runs* [ (probe_time_ns, 1), (probe_time_ns, 0)] + [(probe_time_ns, 1)]
         q_channel=[(clock_time_ns, 0)]+[(2*probe_time_ns*runs, val) for q in q_values_up for val in (q, -q)]+ [(probe_time_ns-clock_time_ns, 0)]
 
         # ----- analog channels (vectorised) -----

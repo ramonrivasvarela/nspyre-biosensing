@@ -44,7 +44,7 @@ class SpatialFeedbackWidget(ExperimentWidget):
         n_points_sb = QSpinBox()
         n_points_sb.setMinimum(1)
         n_points_sb.setMaximum(1000)
-        n_points_sb.setValue(10)
+        n_points_sb.setValue(1)
 
         params_config = {
             'initial_position': {
@@ -58,7 +58,7 @@ class SpatialFeedbackWidget(ExperimentWidget):
             'probe_time': {
                 'display_text': 'Probe Time',
                 'widget': SpinBox(
-                    value=0.04,
+                    value=0.40,
                     suffix='s',
                     siPrefix=True,
                     dec=True,

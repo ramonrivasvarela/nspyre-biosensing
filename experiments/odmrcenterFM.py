@@ -10,6 +10,7 @@ import time
 import numpy as np
 import rpyc.utils.classic
 ####
+from experiments import spatialfb
 
 _HERE = Path(__file__).parent
 _logger = logging.getLogger(__name__)
@@ -50,7 +51,7 @@ class ODMRCenter:
         """Perform experiment teardown."""
         _logger.info('Destroyed Experiment instance.')
 
-    def main(self, runs, n_steps, initial_odmr, odmr_span, sweep_time, PID, probe_time, clock_time, laser_pause, timeout_counter, rf_amplitude,  dataset):
+    def main(self, runs, n_steps, initial_odmr, odmr_span, sweep_time, PID, probe_time, clock_time, laser_pause, timeout_counter, rf_amplitude,  dataset, sb_every, factor):
         params={'runs':runs, 
                 'n_steps':n_steps,
                 'initial_odmr':initial_odmr, 
@@ -62,7 +63,9 @@ class ODMRCenter:
                 'laser_pause':laser_pause, 
                 'timeout_counter':timeout_counter, 
                 'rf_amplitude':rf_amplitude,
-                'dataset':dataset}
+                'dataset':dataset, 
+                'sb_every':sb_every,
+                'factor': factor}
         kp, ki, kd=eval(PID)
         with InstrumentManager() as mgr, DataSource(dataset) as ds , DataSource("tracking_odmr_center") as track_ds:
             counter=0
@@ -114,19 +117,19 @@ class ODMRCenter:
                 left_sg_sweeps.updated_item(-1)
                 right_sg_sweeps.append(np.stack([np.linspace(0, 1, n_steps), right_signal_r]))
                 right_sg_sweeps.updated_item(-1)
-                right_background_r=right_background_r[:-1]
-                right_signal_r=right_signal_r[:-1]
+                right_background_r=right_background_r[1:]
+                right_signal_r=right_signal_r[1:]
                 left_background=float(np.sum(left_background_r))
                 left_signal=float(np.sum(left_signal_r))
                 right_background=float(np.sum(right_background_r))
                 right_signal=float(np.sum(right_signal_r))
                 print(f"Left background: {left_background}, Left signal: {left_signal}, Right background: {right_background}, Right signal: {right_signal}")
-                left_contrast=(left_background-left_signal)/left_background
-                right_contrast=(right_background-right_signal)/right_background
+                left_contrast=np.abs((left_background-left_signal)/left_background)
+                right_contrast=np.abs((right_background-right_signal)/right_background)
                 print(f"Left contrast: {left_contrast}, Right contrast: {right_contrast}")
                 
                 # PID control to adjust ODMR frequency
-                frequency_adjustment = self.pid_control(left_contrast, right_contrast, kp, ki, kd)
+                frequency_adjustment = self.pid_control(left_contrast, right_contrast, kp, ki, kd, factor)
                 odmr_freq += frequency_adjustment
                 search = abs(frequency_adjustment)  # Update search value based on adjustment magnitude
                 if odmr_freq< initial_odmr - odmr_span:
@@ -168,8 +171,13 @@ class ODMRCenter:
                             'frequency': freq_track,
                          },
                 })
+                
                 if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
                     return self.finalize(mgr)
+                if counter % sb_every ==0:
+                    self.SpatialFeedback=spatialfb.SpatialFeedback(self.queue_to_exp, self.queue_from_exp)
+                    self.SpatialFeedback.spatial_feedback(counter_already_exists=True)
+                    mgr.DAQcontrol.prepare_counting(2/self.new_probe_time, 4*n_steps*runs)
             return self.finalize(mgr)
 
     def initialize(self, mgr, runs,n_steps, odmr_span, sweep_time, probe_time, clock_time, laser_pause,  rf_amplitude):
@@ -186,12 +194,12 @@ class ODMRCenter:
         # import pickle, os
         # print(f'saving sequence to seq.pkl in {os.getcwd()}')
         # pickle.dump(self.sequence, open('seq.pkl', 'wb'))
-        new_probe_time=probe_time_ns*1e-9
-        self.reader_timeout=new_probe_time* (4*n_steps*runs+1)*1.5
+        self.new_probe_time=probe_time_ns*1e-9
+        self.reader_timeout=self.new_probe_time* (4*n_steps*runs+1)*1.5
         mgr.DAQcontrol.create_counter()
         print("buffer size:", (4*n_steps*runs+1))
-        print("new probe time:", new_probe_time)
-        mgr.DAQcontrol.prepare_counting(2/new_probe_time, 4*n_steps*runs)
+        print("new probe time:", self.new_probe_time)
+        mgr.DAQcontrol.prepare_counting(2/self.new_probe_time, 4*n_steps*runs)
         print(len(mgr.DAQcontrol.ctr_buffer))
 
         # SG settings: 
@@ -216,7 +224,7 @@ class ODMRCenter:
         return
 
     
-    def pid_control(self, left_contrast, right_contrast, kp, ki, kd):
+    def pid_control(self, left_contrast, right_contrast, kp, ki, kd, factor):
         """
         PID controller to determine frequency adjustment based on contrast difference.
         Target is to make left_contrast == right_contrast.
@@ -227,6 +235,7 @@ class ODMRCenter:
         proportional = kp * error
         
         # Integral term
+        self.integral*=factor
         self.integral += error
         integral_term = ki * self.integral
         
