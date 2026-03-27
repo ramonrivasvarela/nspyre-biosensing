@@ -6,7 +6,6 @@ from nspyre import DataSink
 from pyqtgraph import SpinBox
 from pyqtgraph.Qt import QtWidgets
 from PyQt6.QtWidgets import QSpinBox, QLineEdit, QCheckBox, QComboBox
-from special_widgets import unit_widgets
 
 import experiments.WFTracking
 
@@ -18,13 +17,7 @@ from special_widgets.heat_map_plot_widget import HeatMapPlotWidget
 
 cmap = pg.colormap.get('viridis')  
 
-get_param_value_funs={
-    SpinBox: lambda w: w.value() if w.opts.get('suffix', '') != 'm' else w.value()*1e6,
-    QSpinBox: lambda w: w.value(),
-    QLineEdit: lambda w: w.text(),
-    QCheckBox: lambda w: w.isChecked(),
-    QComboBox: lambda w: w.currentText(),
-}
+
 
 class WFTrackingWidget(ExperimentWidget):
     def __init__(self):
@@ -183,6 +176,5 @@ class WFTrackingWidget(ExperimentWidget):
             experiments.WFTracking,
             'WFTracking',
             'wftracking',
-            title='Wide Field Tracking',
-            get_param_value_funs=get_param_value_funs
+            title='Wide Field Tracking'
         )

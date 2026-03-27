@@ -67,14 +67,14 @@ class SpatialFeedback():
         _logger.info('Destroyed PlaneScan instance.')
 
     def spatial_feedback(self, do_z=True, xyz_step=0.05,
-            shrink_every_x_iter=1, starting_point='default', probe_time=0.40, initial_position={'x': 0, 'y': 0, 'z': 10}, n_points=1, counter_already_exists=False):
+            shrink_every_x_iter=1, starting_point='default', probe_time=0.40, initial_position="(0,0,50)", n_points=1, counter_already_exists=False):
         self.n_points=n_points
         self.ns_clock_time = 10
 
         self.probe_time = probe_time
         self.ns_probe_time = int(round(self.probe_time * 1e9))
         with InstrumentManager() as mgr:
-            
+            initial_position=eval(initial_position)
             self.initialize(mgr, initial_position, starting_point, counter_already_exists)
             x_center = self.init_x
             y_center = self.init_y
@@ -196,7 +196,7 @@ class SpatialFeedback():
     def initialize(self, mgr, initial_position, starting_point, counter_already_exists):
         
         if starting_point == 'user_input':            
-            mgr.DAQcontrol.move(initial_position)
+            mgr.DAQcontrol.move({'x': initial_position[0], 'y': initial_position[1], 'z': initial_position[2]})
         current_position = mgr.DAQcontrol.get_position()
         self.init_x = current_position['x']
         self.init_y = current_position['y']

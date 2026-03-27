@@ -6,7 +6,6 @@ from nspyre import ExperimentWidget
 from nspyre import DataSink
 from pyqtgraph.Qt import QtWidgets
 from PyQt6.QtWidgets import QSpinBox, QLineEdit, QCheckBox, QComboBox
-from special_widgets import unit_widgets
 from pyqtgraph import SpinBox
 
 import experiments.confocalODMR
@@ -17,11 +16,6 @@ import pyqtgraph as pg
 from special_widgets.heat_map_plot_widget import HeatMapPlotWidget
 
 cmap = pg.colormap.get('viridis')  
-
-get_param_value_funs={
-            QSpinBox: lambda w: w.value(),
-            SpinBox: lambda w: w.value() if w.opts.get('suffix', '') != 'm' else w.value()*1e6,
-        }
 
 MAXIMUM=2147483647 # There has to be a better way...
 class ConfocalODMRWidget(ExperimentWidget):
@@ -235,8 +229,7 @@ class ConfocalODMRWidget(ExperimentWidget):
             experiments.confocalODMR,  # Ensure that experiments.ConfocalODMR exists in your experiments folder
             'ConfocalODMR',
             'confocal_odmr',
-            title='Confocal ODMR',
-            get_param_value_funs=get_param_value_funs
+            title='Confocal ODMR'
         )
 
 def double_lorentzian(x, A1, x1, w1, A2, x2, w2, offset):

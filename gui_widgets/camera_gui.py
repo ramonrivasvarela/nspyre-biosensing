@@ -361,7 +361,7 @@ class CameraWidget(QWidget):
         goal = self.cool_input.value
         print(f"Cooling to {goal} °C")
         ret = self.camera.cool_old(int(goal))
-        
+        self.check_temperature_status()
         # Start monitoring with QTimer
         self.cooling_timer = QTimer()
         self.cooling_timer.timeout.connect(self.monitor_cooling)

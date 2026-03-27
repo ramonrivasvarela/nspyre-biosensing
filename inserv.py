@@ -38,17 +38,26 @@ with InstrumentServer() as inserv:
    # 'sg' will be an instance of the class 'SG396' in the file ./drivers/sg.py. The class __init__ will be run with the given args. 
    # REQUIRED IMPORT: pyvisa
    if sg_activation_boolean:
-      inserv.add(name = 'sg', 
-               class_path= _HERE / 'drivers' / 'dr_sg396.py', 
-               class_name= 'SG396',
-               args = ['TCPIP::10.135.70.67::inst0::INSTR'])
+      try:
+         inserv.add(name = 'sg', 
+                  class_path= _HERE / 'drivers' / 'dr_sg396.py', 
+                  class_name= 'SG396',
+                  args = ['TCPIP::10.135.70.67::inst0::INSTR'])
+      except:
+         import time
+         print("Failed to connect to SG396. Retrying in 2 seconds...")
+         time.sleep(2)
+         inserv.add(name = 'sg', 
+                  class_path= _HERE / 'drivers' / 'dr_sg396.py', 
+                  class_name= 'SG396',
+                  args = ['TCPIP::10.135.70.67::inst0::INSTR'])
    
    # REQUIRED IMPORT: pyserial
    if dlnsec_activation_boolean:
       inserv.add(name = 'DLnsec', 
                   class_path= _HERE / 'drivers' / 'dr_dlnsec.py', 
                   class_name= 'DLnsec',
-                  args= ['COM3'])
+                  args= ['COM6'])
 
    #REQUIRED IMPORT: pulsestreamer
 
@@ -60,7 +69,6 @@ with InstrumentServer() as inserv:
 
                )
       
-      #REQUIRED IMPORT: lantz-drivers
    if xyz_activation_boolean:
       
 

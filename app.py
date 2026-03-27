@@ -21,7 +21,7 @@ from nspyre import nspyreApp
 from gui_widgets import laser_gui
 from gui_widgets import instrument_gui
 from gui_widgets import camera_gui
-from gui_widgets import counts_exp_gui, picture_exp_gui, planescan_exp_gui, widefield_odmr_exp_gui, confocal_odmr_exp_gui, spatial_feedback_exp_gui, i1i2_exp_gui, temptime_exp_gui, triple_exp_gui, odmrcenter_exp_gui, testing_axis_exp_gui
+from gui_widgets import counts_exp_gui, picture_exp_gui, planescan_exp_gui, confocal_odmr_exp_gui, spatial_feedback_exp_gui, i1i2_exp_gui, temptime_exp_gui, triple_exp_gui, odmrcenter_exp_gui, testing_axis_exp_gui
 
 from nspyre import InstrumentManager
 
@@ -81,7 +81,6 @@ def main():
                 'Experiments': {
                     'Counts vs Time' : MainWidgetItem(counts_exp_gui, 'CountsWidget', stretch=(1, 1)),
                     'Planescan' : MainWidgetItem(planescan_exp_gui, 'PlaneScanWidget', stretch=(1, 1)),
-                    'Wide Field ODMR': MainWidgetItem(widefield_odmr_exp_gui, 'WideFieldWidget', stretch=(1, 1)),
                     'Spatial Feedback': MainWidgetItem(spatial_feedback_exp_gui, 'SpatialFeedbackWidget', stretch=(1, 1)),
                     'Pictures': MainWidgetItem(picture_exp_gui, 'PicturesWidget', stretch=(1, 1)),
                     'Confocal ODMR': MainWidgetItem(confocal_odmr_exp_gui, 'ConfocalODMRWidget', stretch=(1, 1)),
@@ -96,7 +95,6 @@ def main():
                     'Counts Flex Line Plot': MainWidgetItem(counts_exp_gui, 'CountsPlotWidget', stretch=(1, 1)),
                     'Plane Scan Heat Map': MainWidgetItem(planescan_exp_gui, 'PlaneScanHeatMapWidget', stretch=(1, 1)),
                     'Pictures Heat Map': MainWidgetItem(picture_exp_gui, 'PicturesHeatMapWidget', stretch=(1, 1)),
-                    'Wide Field ODMR Flex Line Plot': MainWidgetItem(widefield_odmr_exp_gui, 'WFODMRPlotWidget', stretch=(1, 1)),
                     'Confocal ODMR Flex Line Plot': MainWidgetItem(confocal_odmr_exp_gui, 'ConfocalODMRPlotWidget', stretch=(1, 1)),
                     'Confocal I1I2 Flex Line Plot': MainWidgetItem(i1i2_exp_gui, 'I1I2PlotWidget', stretch=(1, 1)),
                     'Confocal TempVsTime Flex Line Plot': MainWidgetItem(temptime_exp_gui, 'TempTimePlotWidget', stretch=(1, 1)),

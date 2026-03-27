@@ -443,6 +443,7 @@ class DAQCounter:
         start_volts = np.array([])
         stop_volts = np.array([])
         for axis in self.axes:
+            print(start_volts, self.axes[axis].units_to_volts(start_pt[axis]), np.append(start_volts, obtain(self.axes[axis].units_to_volts(start_pt[axis]))))
             start_volts = np.append(start_volts, self.axes[axis].units_to_volts(start_pt[axis]))
             stop_volts = np.append(stop_volts, self.axes[axis].units_to_volts(stop_pt[axis]))
         linear_steps = np.linspace(0.0, 1.0, steps)

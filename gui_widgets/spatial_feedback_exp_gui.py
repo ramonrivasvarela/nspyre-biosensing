@@ -19,14 +19,7 @@ from special_widgets.heat_map_plot_widget import HeatMapPlotWidget
 
 cmap = pg.colormap.get('viridis')  
 
-get_param_value_funs={
-            SpinBox: lambda w: w.value() if w.opts.get('suffix', '') != 'm' else w.value()*1e6,
-            QSpinBox: lambda w: w.value(),
-            QLineEdit: lambda w: w.text(),
-            QCheckBox: lambda w: w.isChecked(),
-            QComboBox: lambda w: w.currentText(),
-            unit_widgets.PointWidget: lambda w: w.get_point(),
-        }
+
 
 class SpatialFeedbackWidget(ExperimentWidget):
     def __init__(self):
@@ -49,7 +42,7 @@ class SpatialFeedbackWidget(ExperimentWidget):
         params_config = {
             'initial_position': {
                 'display_text': 'Initial position',
-                'widget': unit_widgets.PointWidget(0, 0, 10),
+                'widget': QLineEdit("(0, 0, 50)"),
             },
             'do_z': {
                 'display_text': 'Do Z',
@@ -94,5 +87,5 @@ class SpatialFeedbackWidget(ExperimentWidget):
             experiments.spatialfb,
             'SpatialFeedback',
             'spatial_feedback',
-            title='Spatial Feedback', get_param_value_funs=get_param_value_funs
+            title='Spatial Feedback'
         )

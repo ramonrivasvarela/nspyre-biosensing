@@ -4,7 +4,6 @@ import numpy as np
 from nspyre import ExperimentWidget
 from pyqtgraph.Qt import QtWidgets
 from PyQt6.QtWidgets import QSpinBox, QLineEdit, QCheckBox
-from special_widgets import unit_widgets
 
 
 import experiments.picture
@@ -34,7 +33,7 @@ class PicturesWidget(ExperimentWidget):
             experiments.picture,
             'Pictures',
             'take_picture',
-            title='Pictures', get_param_value_funs=get_param_value_funs
+            title='Pictures'
         )
 
 class PicturesHeatMapWidget(HeatMapPlotWidget):

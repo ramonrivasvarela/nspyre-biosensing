@@ -4,7 +4,6 @@ from pyqtgraph import SpinBox
 from PyQt6.QtWidgets import QLineEdit
 import experiments.i1i2
 from nspyre import ExperimentWidget, FlexLinePlotWidget
-from special_widgets import unit_widgets
 import pyqtgraph as pg
   
 
@@ -230,15 +229,7 @@ class I1I2Widget(ExperimentWidget):
             experiments.i1i2,
             'I1I2',
             'i1i2',
-            title='I1I2 Experiment',
-            get_param_value_funs={
-                # Insert the appropriate mapping functions here for each widget type.
-                SpinBox: lambda w: w.value() if w.opts.get('suffix', '') != 'm' else w.value()*1e6,
-                QSpinBox: lambda w: w.value(),
-                QLineEdit: lambda w: w.text(),
-                QCheckBox: lambda w: w.isChecked(),
-                QComboBox: lambda w: w.currentText(),
-            }
+            title='I1I2 Experiment'
         )
 
 class I1I2PlotWidget(FlexLinePlotWidget):

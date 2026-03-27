@@ -177,6 +177,7 @@ class PlaneScan:
                             print('s:', s)
                             line_scan_start_pt = line_scan_stop_pt#-scan_vector/(line_scan_steps)
                             line_scan_stop_pt = origin + s/(extent_steps) * extent_vector#-scan_vector/(line_scan_steps)
+                        
 
                         line_data = mgr.DAQcontrol.line_scan({'x': line_scan_start_pt[0],
                                                                 'y': line_scan_start_pt[1],

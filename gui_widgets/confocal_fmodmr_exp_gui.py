@@ -3,9 +3,7 @@ import numpy as np
 from nspyre import FlexLinePlotWidget
 from nspyre import ExperimentWidget
 from nspyre import DataSink
-from pyqtgraph.Qt import QtWidgets
 from PyQt6.QtWidgets import QSpinBox, QLineEdit, QCheckBox, QComboBox
-from special_widgets import unit_widgets
 from pyqtgraph import SpinBox
 
 import experiments.confocalODMR
@@ -17,18 +15,11 @@ from special_widgets.heat_map_plot_widget import HeatMapPlotWidget
 
 cmap = pg.colormap.get('viridis')  
 
-get_param_value_funs={
-            SpinBox: lambda w: w.value() if w.suffix() != 'm' else w.value()*1e6,
-            QSpinBox: lambda w: w.value(),
-            QLineEdit: lambda w: w.text(),
-            QCheckBox: lambda w: w.isChecked(),
-            QComboBox: lambda w: w.currentText(),
-        }
+
 
 MAXIMUM=2147483647 # There has to be a better way...
 class ConfocalFMODMRWidget(ExperimentWidget):
     def __init__(self):
-        from PyQt6.QtWidgets import QLineEdit, QSpinBox, QCheckBox, QComboBox
 
         # Define widgets that require extra configuration outside of params:
         
@@ -180,8 +171,7 @@ class ConfocalFMODMRWidget(ExperimentWidget):
             experiments.confocalODMR,  # Ensure that experiments.ConfocalODMR exists in your experiments folder
             'ConfocalFMODMR',
             'confocal_fmodmr',
-            title='Confocal FMODMR',
-            get_param_value_funs=get_param_value_funs
+            title='Confocal FMODMR'
         )
 
 def process_ODMR_data(sink: DataSink):

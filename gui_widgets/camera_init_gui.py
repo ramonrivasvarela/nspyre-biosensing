@@ -7,13 +7,6 @@ from PyQt6.QtWidgets import QSpinBox, QLineEdit, QCheckBox, QComboBox
 
 import experiments.initializecamera
 
-get_param_value_funs = {
-    QSpinBox: lambda w: w.value(),
-    QLineEdit: lambda w: w.text(),
-    QCheckBox: lambda w: w.isChecked(),
-    SpinBox: lambda w: w.value(),
-    QComboBox: lambda w: w.currentText(),
-}
 
 class CameraInitWidget(ExperimentWidget):
     def __init__(self):
@@ -85,6 +78,5 @@ class CameraInitWidget(ExperimentWidget):
             experiments.initializecamera,
             'CameraInitialization',
             'initialize_camera',
-            title='Camera Initialization',
-            get_param_value_funs=get_param_value_funs
+            title='Camera Initialization'
         )

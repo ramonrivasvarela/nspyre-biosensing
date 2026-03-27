@@ -1,3 +1,6 @@
+"""Written by Ramon Rivas
+Based on Andor's SDK documentation and example code, as well as the pyAndorSDK2 wrapper."""
+
 from pyAndorSDK2 import atmcd, atmcd_codes, atmcd_errors
 import time
 import numpy as np
@@ -7,7 +10,7 @@ import ctypes
 
 class Camera():
     def __init__(self):
-        self.sdk=atmcd("")
+        self.sdk=None
         self.errors=atmcd_errors
         self.exposure_time=0.075
         self.accumulation_time=None
@@ -32,11 +35,14 @@ class Camera():
         
 
     def initialize(self):
+        self.sdk=atmcd("")
         ret=self.sdk.Initialize("")
         return ret
         
         
     def set_trigger_mode(self, trigger_mode):
+        if self.sdk is None:
+            return 20000  # Not initialized
         if type(trigger_mode) is str:
             mode = trigger_mode.lower().replace("-", " ").replace("(", "").replace(")", "")
         if mode == "internal" or mode == 0:
@@ -57,39 +63,55 @@ class Camera():
 
 
     def set_temperature(self, temp_value:int):
+        if self.sdk is None:
+            return 20000  # Not initialized
         ret=self.sdk.SetTemperature(temp_value)
         if ret==20002:
             self.temperature_goal=temp_value
         return ret
 
     def cool(self):
+        if self.sdk is None:
+            return 20000  # Not initialized
         ret=self.sdk.CoolerON()
         return ret
     
     def stop_cooling(self):
+        if self.sdk is None:
+            return 20000  # Not initialized
         ret=self.sdk.CoolerOFF()
         return ret
 
     def get_temperature_status(self):
+        if self.sdk is None:
+            return 20000, None  # Not initialized
         err, temp = self.sdk.GetTemperatureF()
         return err, temp
 
  
 
     def start_acquisition(self):
+        if self.sdk is None:
+            return 20000  # Not initialized
         ret=self.sdk.StartAcquisition()
         return ret
         
     def prepare_acquisition(self):
+        if self.sdk is None:
+            return 20000  # Not initialized
         ret=self.sdk.PrepareAcquisition()
         return ret
     
     def abort_acquisition(self):
+        if self.sdk is None:
+            return 20000  # Not initialized
         ret=self.sdk.AbortAcquisition()
         return ret
     
     def get_total_number_images_acquired(self):
         # Call the SDK; wrapper gives (ret_code, total_images)
+        if self.sdk is None:
+            return 20000, None  # Not initialized
         ret, total = self.sdk.GetTotalNumberImagesAcquired()
 
         if ret == 20002:
@@ -99,12 +121,16 @@ class Camera():
             raise RuntimeError(f"GetTotalNumberImagesAcquired failed (code {ret})")
 
     def set_emccdgain(self, gain:int):
+        if self.sdk is None:
+            return 20000  # Not initialized
         ret=self.sdk.SetEMCCDGain(gain)
         if ret==20002:
             self.emccdgain=gain
         return ret
 
     def get_emccdgain(self):
+        if self.sdk is None:
+            return 20000, None  # Not initialized
         ret, gain = self.sdk.GetEMCCDGain()
         if ret == 20002:
             self.emccdgain = gain
@@ -113,17 +139,20 @@ class Camera():
 
 
     def get_status(self):
-
+        if not self.sdk:
+            return 20000, None
         # Call GetStatus; this will return DRV_NOT_INITIALIZED if Initialize() was never called
         ret, state = self.sdk.GetStatus()
 
         return ret, state
 
     def cool_old(self, temp_value):
+        if self.sdk is None:
+            return 20000  # Not initialized
         ret = self.set_temperature(temp_value)
         if ret != 20002:
             print(f"SetTemperature({temp_value}) failed (code {ret})")
-            return
+            return ret
         else:
             self.temperature_goal = temp_value
         print(f"SetTemperature returned {ret}, target = {temp_value}°C")
@@ -132,7 +161,7 @@ class Camera():
         ret = self.sdk.CoolerON()
         if ret != 20002:
             print(f"CoolerON() failed (code {ret})")
-            return
+            return ret
         print("CoolerON returned DRV_SUCCESS; waiting for stabilization…")
 
 
@@ -148,12 +177,16 @@ class Camera():
         return ret
 
     def set_exposure_time(self, exp_time:float):
+        if self.sdk is None:
+            return 20000  # Not initialized
         ret=self.sdk.SetExposureTime(exp_time)
         if ret==20002:
             self.exposure_time=exp_time
             print(f"Exposure time set to {exp_time} seconds.")
 
     def get_images_16(self, first, last, size):
+        if self.sdk is None:
+            return 20000, None, None, None  # Not initialized
         ret, all_data, validfirst, validlast=self.sdk.GetImages16(first, last, size)
         return ret, all_data, validfirst, validlast
     
@@ -162,10 +195,15 @@ class Camera():
         return ret, all_data, validfirst, validlast
     
     def shutdown(self):
+        if self.sdk is None:
+            return 20000  # Not initialized
         ret=self.sdk.ShutDown()
+        self.sdk=None
         return ret
 
     def set_number_kinetics(self, number_kinetics:int): 
+        if self.sdk is None:
+            return 20000  # Not initialized
         ret = self.sdk.SetNumberKinetics(number_kinetics)
         if ret == 20002:
             self.number_kinetics = number_kinetics
@@ -175,6 +213,8 @@ class Camera():
             raise RuntimeError(f"SetNumberKinetics failed with error code {ret}.")
     
     def set_number_accumulations(self, number_accumulations:int):
+        if self.sdk is None:
+            return 20000  # Not initialized
         ret = self.sdk.SetNumberAccumulations(number_accumulations) 
         if ret == 20002:
             self.number_accumulations = number_accumulations
@@ -184,6 +224,8 @@ class Camera():
             raise RuntimeError(f"SetNumberAccumulations failed with error code {ret}.")
 
     def set_shutter(self, mode):
+        if self.sdk is None:
+            return 20000  # Not initialized
         if type(mode) is str:
             mode = mode.lower().replace("-", " ")
         if mode == "auto" or mode=="automatic" or mode == 0:
@@ -207,6 +249,8 @@ class Camera():
         """
         Check if the cooler is on.
         """
+        if self.sdk is None:
+            return 20000, None  # Not initialized
         ret, status = self.sdk.IsCoolerOn()
         return status
     
@@ -214,6 +258,8 @@ class Camera():
         """
         Turn the cooler on.
         """
+        if self.sdk is None:
+            return 20000  # Not initialized
         ret = self.sdk.CoolerON()
         return ret
 
@@ -221,6 +267,8 @@ class Camera():
         """
         Turn the cooler off.
         """
+        if self.sdk is None:
+            return 20000  # Not initialized
         ret = self.sdk.CoolerOFF()
         return ret
     
@@ -228,10 +276,14 @@ class Camera():
         """
         Get the total number of images acquired.
         """
+        if self.sdk is None:
+            return 20000, None  # Not initialized
         ret, total = self.sdk.GetTotalNumberImagesAcquired()
         return ret, total
 
     def set_read_mode(self, mode):
+        if self.sdk is None:
+            return 20000  # Not initialized
         if type(mode) is str:
             mode = mode.lower().replace("-", " ")
         if mode == "full vertical binning" or mode == 0:
@@ -257,6 +309,8 @@ class Camera():
             return ret
 
     def set_frame_transfer_mode(self, mode):
+        if self.sdk is None:
+            return 20000  # Not initialized
         if type(mode) is str:
             mode = mode.lower().replace("-", " ")
         if mode == "off" or mode=="conventional" or mode == 0:
@@ -273,6 +327,8 @@ class Camera():
             return ret
 
     def set_acquisition_mode(self, mode):
+        if self.sdk is None:
+            return 20000  # Not initialized
         if type(mode) is str:
             mode = mode.lower().replace("-", " ")
         if mode == "single scan" or mode == 1:
@@ -301,6 +357,8 @@ class Camera():
         """
         Get the detector size.
         """
+        if self.sdk is None:
+            return 20000, None, None  # Not initialized
         ret, width, height = self.sdk.GetDetector()
         if ret == 20002:
             self.width = width
@@ -313,6 +371,8 @@ class Camera():
         """
         Set the image.
         """
+        if self.sdk is None:
+            return 20000  # Not initialized
         if width is not None:
             self.width = width
         if height is not None:
@@ -331,6 +391,8 @@ class Camera():
         """
         Get the acquisition timings.
         """
+        if self.sdk is None:
+            return 20000, None, None, None  # Not initialized
         ret, exp_time, acc_time, kin_time = self.sdk.GetAcquisitionTimings()
         if ret == 20002:
             self.exposure_time = exp_time

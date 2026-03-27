@@ -7,7 +7,6 @@ from pyqtgraph import SpinBox
 from pyqtgraph.Qt import QtWidgets
 from PyQt6.QtWidgets import QSpinBox, QLineEdit, QCheckBox, QComboBox
 
-from special_widgets import unit_widgets
 
 import experiments.WFODMR
 
@@ -17,13 +16,7 @@ from special_widgets.heat_map_plot_widget import HeatMapPlotWidget
 
 cmap = pg.colormap.get('viridis')  
 
-get_param_value_funs={
-    SpinBox: lambda w: w.value() if w.opts.get('suffix', '') != 'm' else w.value()*1e6,
-    QSpinBox: lambda w: w.value(),
-    QLineEdit: lambda w: w.text(),
-    QCheckBox: lambda w: w.isChecked(),
-    QComboBox: lambda w: w.currentText(),
-}
+
 
 class WideFieldWidget(ExperimentWidget):
     def __init__(self):
@@ -187,8 +180,7 @@ class WideFieldWidget(ExperimentWidget):
             experiments.WFODMR,
             'WideFieldODMR',
             'widefield',
-            title='Wide Field Imaging', 
-            get_param_value_funs=get_param_value_funs
+            title='Wide Field Imaging'
         )
 
 class WFODMRPlotWidget(FlexLinePlotWidget):

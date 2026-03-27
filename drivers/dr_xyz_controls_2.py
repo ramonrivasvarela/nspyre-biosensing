@@ -5,6 +5,9 @@ from nidaqmx.stream_writers import AnalogMultiChannelWriter
 from nidaqmx.stream_readers import CounterReader
 
 #from lantz import Driver          # nspyre ≥ 2.0
+'''
+DEPRECATED!!!!!!!
+'''
 
 
 # ---------- low-level helpers ----------

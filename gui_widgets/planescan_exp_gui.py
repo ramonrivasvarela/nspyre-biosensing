@@ -16,12 +16,7 @@ from special_widgets.heat_map_plot_widget import HeatMapPlotWidget
 
 cmap = pg.colormap.get('viridis')  
 
-get_param_value_funs={
-            SpinBox: lambda w: w.value() if w.opts.get('suffix', '') != 'm' else w.value()*1e6,
-            QSpinBox: lambda w: w.value(),
-            QLineEdit: lambda w: w.text(),
-            QCheckBox: lambda w: w.isChecked(),
-        }
+
 
 class PlaneScanWidget(ExperimentWidget):
     def __init__(self):
@@ -130,8 +125,7 @@ class PlaneScanWidget(ExperimentWidget):
                          experiments.planescan,
                          'PlaneScan',
                          'planescan',
-                         title='Plane Scan', 
-                         get_param_value_funs=get_param_value_funs)
+                         title='Plane Scan')
 
     
 

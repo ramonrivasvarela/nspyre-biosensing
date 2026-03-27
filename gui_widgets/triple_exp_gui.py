@@ -1,19 +1,12 @@
 import numpy as np
 from PyQt6.QtWidgets import QLineEdit, QSpinBox, QCheckBox, QComboBox
 from pyqtgraph import SpinBox
-from special_widgets import unit_widgets
 import experiments.triple_experiment
 from nspyre import ExperimentWidget
 
 MAXIMUM=2147483647 
 
-get_param_value_funs={
-    SpinBox: lambda w: w.value() if w.opts.get('suffix', '') != 'm' else w.value()*1e6,
-    QSpinBox: lambda w: w.value(),
-    QLineEdit: lambda w: w.text(),
-    QCheckBox: lambda w: w.isChecked(),
-    QComboBox: lambda w: w.currentText(),
-}
+
 
 class TripleExperimentWidget(ExperimentWidget):
     def __init__(self):
@@ -176,6 +169,5 @@ class TripleExperimentWidget(ExperimentWidget):
             experiments.triple_experiment,
             'TripleExperiment',
             'main',
-            title='Triple Experiment',
-            get_param_value_funs=get_param_value_funs
+            title='Triple Experiment'
         )

@@ -1,19 +1,12 @@
 import numpy as np
 from PyQt6.QtWidgets import QLineEdit, QSpinBox, QCheckBox, QComboBox
 from pyqtgraph import SpinBox
-from special_widgets import unit_widgets
 import experiments.temptime
 from nspyre import ExperimentWidget, FlexLinePlotWidget
 
 MAXIMUM=2147483647 
 
-get_param_value_funs={
-    SpinBox: lambda w: w.value() if w.opts.get('suffix', '') != 'm' else w.value()*1e6,
-    QSpinBox: lambda w: w.value(),
-    QLineEdit: lambda w: w.text(),
-    QCheckBox: lambda w: w.isChecked(),
-    QComboBox: lambda w: w.currentText(),
-}
+
 
 class TempTimeWidget(ExperimentWidget):
     def __init__(self):
@@ -310,8 +303,7 @@ class TempTimeWidget(ExperimentWidget):
             experiments.temptime,
             'TemperatureVsTime',
             'temptime',
-            title='Temperature vs Time',
-            get_param_value_funs=get_param_value_funs
+            title='Temperature vs Time'
         )
 
 class TempTimePlotWidget(FlexLinePlotWidget):

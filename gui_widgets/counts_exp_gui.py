@@ -18,9 +18,6 @@ from special_widgets.heat_map_plot_widget import HeatMapPlotWidget
 
 cmap = pg.colormap.get('viridis')  
 
-get_param_value_funs={
-            QSpinBox: lambda w: w.value(),
-        }
 
 class CountsWidget(ExperimentWidget):
     def __init__(self):
@@ -64,7 +61,7 @@ class CountsWidget(ExperimentWidget):
                         experiments.counts,
                         'CountsTime',
                         'confocal_counts_time',
-                        title='counts vs time', get_param_value_funs=get_param_value_funs)
+                        title='counts vs time')
 
 
 class CountsPlotWidget(FlexLinePlotWidget):

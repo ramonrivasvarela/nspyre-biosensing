@@ -1041,7 +1041,7 @@ class _HeatMapPlotWidget(HeatMapWidget):
     def _new_source_callback(self, title, xlabel, ylabel):
         """Callback for when a new data source connects."""
         if title is not None:
-            self.heatmap.plot_item.setTitle(title)
+            self.plot_item.setTitle(title)
         if xlabel is not None:
             self.btm_axis.setLabel(text=xlabel)
         if ylabel is not None:

@@ -5,7 +5,6 @@ from nspyre import ExperimentWidget
 from pyqtgraph import SpinBox
 from pyqtgraph.Qt import QtWidgets
 from PyQt6.QtWidgets import QSpinBox, QLineEdit, QComboBox
-from special_widgets import unit_widgets
 from nspyre import DataSink
 
 import experiments.odmrcenterFM
@@ -18,10 +17,6 @@ from special_widgets.heat_map_plot_widget import HeatMapPlotWidget
 cmap = pg.colormap.get('viridis')  
 MAXIMUM=2147483647
 
-get_param_value_funs={
-            QSpinBox: lambda w: w.value(),
-            SpinBox: lambda w: w.value() if w.opts.get('suffix', '') != 'm' else w.value()*1e6,
-        }
 
 class ODMRCenterWidget(ExperimentWidget):
     def __init__(self):
@@ -160,7 +155,7 @@ class ODMRCenterWidget(ExperimentWidget):
                         experiments.odmrcenterFM,
                         'ODMRCenter',
                         'main',
-                        title='odmr center', get_param_value_funs=get_param_value_funs)
+                        title='odmr center')
 
 
 def process_ODMR_data(sink: DataSink):

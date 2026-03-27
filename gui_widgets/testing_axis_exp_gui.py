@@ -5,7 +5,6 @@ from nspyre import ExperimentWidget
 from pyqtgraph import SpinBox
 from pyqtgraph.Qt import QtWidgets
 from PyQt6.QtWidgets import QSpinBox, QLineEdit, QCheckBox
-from special_widgets import unit_widgets
 
 import experiments.testing_axis
 
@@ -17,9 +16,6 @@ from special_widgets.heat_map_plot_widget import HeatMapPlotWidget
 
 cmap = pg.colormap.get('viridis')  
 
-get_param_value_funs={
-            QSpinBox: lambda w: w.value(),
-        }
 
 class TestingAxisWidget(ExperimentWidget):
     def __init__(self):
@@ -80,7 +76,7 @@ class TestingAxisWidget(ExperimentWidget):
                         experiments.testing_axis,
                         'TestingAxis',
                         'main',
-                        title='testing axis', get_param_value_funs=get_param_value_funs)
+                        title='testing axis')
 
 class TestingAxisPlotWidget(FlexLinePlotWidget):
     """Add some default settings to the FlexSinkLinePlotWidget."""

@@ -133,7 +133,7 @@ class PulserClass():
 
         # Apply constant analogue levels for the full combined duration
         seq.setAnalog(0, [(total_duration, q)])
-        seq.setAnalog(1, [(total_duration, di)])
+        seq.setAnalog(1, [(total_duration, i)])
 
         # Stream sequence
         self.Pulser.stream(seq, n_runs)

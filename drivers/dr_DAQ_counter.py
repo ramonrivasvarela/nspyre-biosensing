@@ -3,6 +3,8 @@ nidaqmx driver/wrapper designed for ease of reading from a DAQ counter channel.
 
 Written by: David Ovetsky
 6/25/2025
+
+DEPRECATED!!!!!!!!!!!!!!!!!
 '''
 
 import nidaqmx
