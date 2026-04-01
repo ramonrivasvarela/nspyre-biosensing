@@ -490,17 +490,37 @@ np.array([[4, 5, 6], [3.4, 3.6, 3.5]])])
         self.fitting_manager.create_fit.connect(self._create_fit)
 
         # splitter
-        top_splitter = QtWidgets.QSplitter()
-        top_splitter.setOrientation(QtCore.Qt.Orientation.Horizontal)
-        top_splitter.addWidget(self.line_plot)
-        top_splitter.addWidget(self.fitting_manager)
+        self.fitting_splitter = QtWidgets.QSplitter()
+        self.fitting_splitter.setOrientation(QtCore.Qt.Orientation.Horizontal)
+        self.fitting_splitter.addWidget(self.line_plot)
+        self.fitting_splitter.addWidget(self.fitting_manager)
+        self.fitting_splitter.setCollapsible(0, False)
+        self.fitting_splitter.setCollapsible(1, True)
+        self.fitting_splitter.setSizes([1, 0])
+        QtCore.QTimer.singleShot(
+            0, lambda: self.fitting_splitter.setSizes([1, 0])
+        )
 
         splitter = QtWidgets.QSplitter()
         splitter.setOrientation(QtCore.Qt.Orientation.Vertical)
-        splitter.addWidget(top_splitter)
+        splitter.setCollapsible(0, False)
+        splitter.setCollapsible(1, False)
+        splitter.addWidget(self.fitting_splitter)
         layout_container = QtWidgets.QWidget()
         layout_container.setLayout(self.layout_tree.layout)
         splitter.addWidget(layout_container)
+        bottom_min_height = max(1, layout_container.minimumSizeHint().height())
+        splitter.setSizes([1, bottom_min_height])
+
+        def _apply_bottom_min_height():
+            total_height = splitter.size().height()
+            if total_height <= 0:
+                splitter.setSizes([1, bottom_min_height])
+                return
+            top_height = max(1, total_height - bottom_min_height)
+            splitter.setSizes([top_height, bottom_min_height])
+
+        QtCore.QTimer.singleShot(0, _apply_bottom_min_height)
 
         # main layout
         layout = QtWidgets.QVBoxLayout()
