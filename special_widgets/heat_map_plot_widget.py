@@ -454,6 +454,7 @@ np.array([[4, 5, 6], [3.4, 3.6, 3.5]])])
         self.crosshair_manager = CrosshairManager()
         self.crosshair_manager.delete_crosshair.connect(self._delete_crosshair)
         self.crosshair_manager.update_crosshair.connect(self._update_crosshair_position)
+        
         self.layout_tree = tree_layout(settings_layout_config)
         # make the plots list (index=2) take up all extra space (stretch=1)
         heatmap_with_crosshair_layout=QtWidgets.QVBoxLayout()

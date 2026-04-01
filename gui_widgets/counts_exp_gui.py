@@ -1,6 +1,6 @@
 import numpy as np
 
-from nspyre import FlexLinePlotWidget
+from special_widgets.flex_line_plot_widget_fitting import FlexLinePlotWidget
 from nspyre import ExperimentWidget
 from pyqtgraph import SpinBox
 from pyqtgraph.Qt import QtWidgets
