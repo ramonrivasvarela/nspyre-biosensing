@@ -503,24 +503,10 @@ np.array([[4, 5, 6], [3.4, 3.6, 3.5]])])
 
         splitter = QtWidgets.QSplitter()
         splitter.setOrientation(QtCore.Qt.Orientation.Vertical)
-        splitter.setCollapsible(0, False)
-        splitter.setCollapsible(1, False)
         splitter.addWidget(self.fitting_splitter)
         layout_container = QtWidgets.QWidget()
         layout_container.setLayout(self.layout_tree.layout)
         splitter.addWidget(layout_container)
-        bottom_min_height = max(1, layout_container.minimumSizeHint().height())
-        splitter.setSizes([1, bottom_min_height])
-
-        def _apply_bottom_min_height():
-            total_height = splitter.size().height()
-            if total_height <= 0:
-                splitter.setSizes([1, bottom_min_height])
-                return
-            top_height = max(1, total_height - bottom_min_height)
-            splitter.setSizes([top_height, bottom_min_height])
-
-        QtCore.QTimer.singleShot(0, _apply_bottom_min_height)
 
         # main layout
         layout = QtWidgets.QVBoxLayout()
