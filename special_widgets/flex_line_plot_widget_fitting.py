@@ -37,6 +37,9 @@ def double_lorentzian_model(
         + A2 / (1.0 + ((x - x_2) / gamma2) ** 2)
     )
 
+def expontential_decay_model(x: np.ndarray, A: float, tau: float, C: float) -> np.ndarray:
+    return C + A * np.exp(-x / tau)
+
 
 class _FlexLinePlotSeriesSettings:
     """Contain the settings for a single plot."""
@@ -183,6 +186,11 @@ class FittingManager(QtWidgets.QWidget):
                 'gamma2': 1e6,
                 'C': 1,
             },
+            'Exponential Decay': {
+                'A': 1,
+                'tau': 1,
+                'C': 0,
+            },
         }
         self.current_fitting = 'Linear'
 
@@ -191,11 +199,10 @@ class FittingManager(QtWidgets.QWidget):
         self.fitting_dropdown=QtWidgets.QComboBox()
         self.fitting_dropdown.addItem('Linear')
         self.fitting_dropdown.addItem('Double Lorentzian')
+        self.fitting_dropdown.addItem('Exponential Decay')
         self.fitting_dropdown.setCurrentText(self.current_fitting)
-        self.select_button=QtWidgets.QPushButton('Select')
-        self.select_button.clicked.connect(self._select_fitting_clicked)
+        self.fitting_dropdown.currentTextChanged.connect(self._open_fitting)
         self.selector_layout.addWidget(self.fitting_dropdown)
-        self.selector_layout.addWidget(self.select_button)
 
         # Scroll area will contain the fitting argument widgets
         self.scroll_area = QtWidgets.QScrollArea()
@@ -225,7 +232,7 @@ class FittingManager(QtWidgets.QWidget):
 
 
 
-    def _select_fitting_clicked(self):
+    def _open_fitting(self):
         self._new_fitting_widget(self.fitting_dropdown.currentText())
 
     def _add_fitting_widget(self, fitting_type: str):
@@ -268,12 +275,16 @@ class FittingManager(QtWidgets.QWidget):
             model_fn = linear_model
         elif self.current_fitting == 'Double Lorentzian':
             model_fn = double_lorentzian_model
+        elif self.current_fitting == 'Exponential Decay':
+            model_fn = expontential_decay_model
         else:
             _logger.error(f'Unsupported fitting type [{self.current_fitting}].')
             return
 
         initial_params = dict(self.fitting_parameters[self.current_fitting])
         self.create_fit.emit(data_series, fit_series, model_fn, initial_params)
+    
+        
 
 
 class FlexLinePlotWidget(QtWidgets.QWidget):
@@ -331,13 +342,9 @@ np.array([[4, 5, 6], [3.4, 3.6, 3.5]])])
         """
         super().__init__()
 
-        self._fit_mutex = QtCore.QMutex()
-        # mapping: fit_series_name -> (data_series_name, model_fn, params_dict)
-        self._fit_requests: dict[str, tuple[str, object, dict[str, float]]] = {}
-        self._user_data_processing_func = data_processing_func
 
         self.line_plot = _FlexLinePlotWidget(
-            timeout=timeout, data_processing_func=self._data_processing_func
+            timeout=timeout, data_processing_func=data_processing_func
         )
         """Underlying LinePlotWidget."""
 
@@ -730,111 +737,37 @@ np.array([[4, 5, 6], [3.4, 3.6, 3.5]])])
         """Called when the user clicks the connect button."""
         self.line_plot.new_source(self.datasource_lineedit.text())
 
+    def _create_fit(self, data_series: str, fit_series: str, model_fn: Callable, initial_params: dict):
+        """Called when the user creates a new fit from the fitting manager."""
+        try:
+
+            fitted_params = self.line_plot._create_fit(
+                data_series,
+                fit_series,
+                model_fn,
+                initial_params,     
+            )
+        except Exception as err:
+            _logger.error(f'Error creating fit: {err}')
+            return
+        self.fitting_manager.fitting_parameters[
+            self.fitting_manager.current_fitting
+        ].update(fitted_params)
+
+        self.fitting_manager._open_fitting()
+        if fit_series in self.line_plot.plot_settings.series_settings:
+            self.remove_plot(fit_series)
+        self.add_plot(
+            name=fit_series,
+            series=fit_series,
+            scan_i='',
+            scan_j='',
+            processing='Append',
+        )
+
     # Fitting functions
 
-    def _create_fit(self, data_series, fitting_data_series, fitting_function, initial_params):
-        # store/replace the fit request; actual fit is applied during the update()
-        with QtCore.QMutexLocker(self._fit_mutex):
-            self._fit_requests[fitting_data_series] = (
-                data_series,
-                fitting_function,
-                dict(initial_params),
-            )
-
-        # kick the plot update loop
-        self.line_plot.plot_settings.run_safe(self._force_plot_update)
-
-    def _force_plot_update(self):
-        self.line_plot.plot_settings.force_update = True
-
-    def _data_processing_func(self, sink: DataSink):
-        # preserve any user-supplied processing first
-        if self._user_data_processing_func is not None:
-            self._user_data_processing_func(sink)
-
-        # then inject fit series
-        with QtCore.QMutexLocker(self._fit_mutex):
-            fit_items = list(self._fit_requests.items())
-
-        for fit_series_name, (data_series, model_fn, params_dict) in fit_items:
-            try:
-                self._apply_fit_to_sink(
-                    sink,
-                    data_series=data_series,
-                    fit_series_name=fit_series_name,
-                    model_fn=model_fn,
-                    initial_params=params_dict,
-                )
-            except Exception:
-                _logger.exception(
-                    f'Failed generating fit series [{fit_series_name}] from [{data_series}].'
-                )
-
-    def _apply_fit_to_sink(
-        self,
-        sink: DataSink,
-        data_series: str,
-        fit_series_name: str,
-        model_fn,
-        initial_params: dict[str, float],
-    ):
-        # Get latest scan of the data series
-        try:
-            series_list = sink.datasets[data_series]
-        except Exception as err:
-            raise RuntimeError(f'Data series [{data_series}] not found in sink.') from err
-
-        if not isinstance(series_list, list) or len(series_list) == 0:
-            raise RuntimeError(f'Data series [{data_series}] is empty or invalid.')
-
-        arr = series_list[-1]
-        if not isinstance(arr, np.ndarray) or arr.ndim != 2 or arr.shape[0] != 2:
-            raise RuntimeError(
-                f'Data series [{data_series}] last element must be numpy array of shape (2, n).'
-            )
-
-        x = np.asarray(arr[0], dtype=float)
-        y = np.asarray(arr[1], dtype=float)
-
-        mask = np.isfinite(x) & np.isfinite(y)
-        x_fit = x[mask]
-        y_fit = y[mask]
-        if x_fit.size < 3:
-            raise RuntimeError('Not enough finite points to fit.')
-
-        # Fit using scipy if available; otherwise just evaluate using initial params
-        param_names = list(initial_params.keys())
-        p0 = np.array([float(initial_params[k]) for k in param_names], dtype=float)
-
-        def model_for_curve_fit(x_in: np.ndarray, *p) -> np.ndarray:
-            # prefer kwargs-style model functions
-            try:
-                kwargs = dict(zip(param_names, p))
-                return np.asarray(model_fn(x_in, **kwargs), dtype=float)
-            except TypeError:
-                return np.asarray(model_fn(x_in, *p), dtype=float)
-
-        popt = p0
-        try:
-            from scipy.optimize import curve_fit  # type: ignore
-
-            popt, _ = curve_fit(model_for_curve_fit, x_fit, y_fit, p0=p0, maxfev=20000)
-        except ModuleNotFoundError:
-            _logger.warning('scipy not installed; using initial parameters without optimization.')
-        except Exception as err:
-            _logger.warning(f'Fit optimization failed; using initial parameters. Error: {err}')
-
-        y_fit_full = model_for_curve_fit(x, *popt)
-
-        fit_arr = np.vstack([x, y_fit_full])
-        sink.datasets[fit_series_name] = [fit_arr]
-
-        # update stored initial params to the last successful parameters
-        with QtCore.QMutexLocker(self._fit_mutex):
-            if fit_series_name in self._fit_requests:
-                updated = {k: float(v) for k, v in zip(param_names, popt)}
-                ds, mf, _ = self._fit_requests[fit_series_name]
-                self._fit_requests[fit_series_name] = (ds, mf, updated)
+    
 
 
 
@@ -998,7 +931,7 @@ class _FlexLinePlotWidget(LinePlotWidget):
                     try:
                         data = self.plot_settings.sink.datasets[series]
                     except KeyError:
-                        _logger.error(f'Data series [{series}] does not exist.')
+                        #_logger.error(f'Data series [{series}] does not exist.')
                         continue
 
                     if not isinstance(data, list):
@@ -1059,3 +992,130 @@ class _FlexLinePlotWidget(LinePlotWidget):
 
                     # update the plot
                     self.set_data(plot_name, processed_data[0], processed_data[1])
+
+
+    def _create_fit(
+        self,
+        data_series: str,
+        fit_series_name: str,
+        model_fn,
+        initial_params: dict[str, float],
+    ):
+        # Get latest scan of the data series
+        try:
+            sink=self.plot_settings.sink
+        except AttributeError:
+            raise RuntimeError('No data source connected.') from None
+        try:
+            settings = self.plot_settings.series_settings[data_series]
+            series = settings.series
+            scan_i = settings.scan_i
+            scan_j = settings.scan_j
+            processing = settings.processing
+
+            # pick out the particular data series
+            try:
+                data = self.plot_settings.sink.datasets[series]
+            except KeyError:
+                raise RuntimeError(f'Data series [{series}] does not exist.') from None
+
+            if not isinstance(data, list):
+                raise ValueError(
+                    f'Data series [{series}] must be a list of numpy arrays, '
+                    f'but has type [{type(data)}].'
+                )
+
+            if len(data) == 0:
+                raise RuntimeError(f'Data series [{series}] is empty.')
+            else:
+                # check for numpy array
+                if not isinstance(data[0], np.ndarray):
+                    raise ValueError(
+                        f'Data series [{series}] must be a list of numpy '
+                        'arrays, but the first list element has type '
+                        f'[{type(data[0])}].'
+                    )
+                # check numpy array shape
+                if data[0].shape[0] != 2 or len(data[0].shape) != 2:
+                    raise ValueError(
+                        f'Data series [{series}] first list element has '
+                        f'shape {data.shape}, but should be (2, n).'
+                    )
+
+                try:
+                    if scan_i == '' and scan_j == '':
+                        data_subset = data[:]
+                    elif scan_j == '':
+                        data_subset = data[int(scan_i) :]
+                    elif scan_i == '':
+                        data_subset = data[: int(scan_j)]
+                    else:
+                        data_subset = data[int(scan_i) : int(scan_j)]
+                except IndexError:
+                    raise RuntimeError(f'Data series [{series}] has invalid scan indices [{scan_i}, {scan_j}].')
+
+                if processing == 'Append':
+                    # concatenate the numpy arrays
+                    processed_data = np.concatenate(data_subset, axis=1)
+                elif processing == 'Average':
+                    # create a single numpy array
+                    stacked_data = np.stack(data_subset)
+                    # mask the NaN entries
+                    masked_data = np.ma.array(
+                        stacked_data, mask=np.isnan(stacked_data)
+                    )
+                    # average the numpy arrays
+                    processed_data = np.ma.average(masked_data, axis=0)
+                else:
+                    raise ValueError(
+                        f'Processing has unsupported value [{processing}].'
+                    )
+
+        except Exception as err:
+            raise RuntimeError(f'Data series [{data_series}] not found in sink.') from err
+
+        arr = processed_data
+        if not isinstance(arr, np.ndarray) or arr.ndim != 2 or arr.shape[0] != 2:
+            raise RuntimeError(
+                f'Data series [{data_series}] last element must be numpy array of shape (2, n).'
+            )
+
+        x = np.asarray(arr[0], dtype=float)
+        y = np.asarray(arr[1], dtype=float)
+
+        mask = np.isfinite(x) & np.isfinite(y)
+        x_fit = x[mask]
+        y_fit = y[mask]
+        if x_fit.size < 3:
+            raise RuntimeError('Not enough finite points to fit.')
+
+        # Fit using scipy if available; otherwise just evaluate using initial params
+        param_names = list(initial_params.keys())
+        p0 = np.array([float(initial_params[k]) for k in param_names], dtype=float)
+
+        def model_for_curve_fit(x_in: np.ndarray, *p) -> np.ndarray:
+            # prefer kwargs-style model functions
+            try:
+                kwargs = dict(zip(param_names, p))
+                return np.asarray(model_fn(x_in, **kwargs), dtype=float)
+            except TypeError:
+                return np.asarray(model_fn(x_in, *p), dtype=float)
+
+        popt = p0
+        
+        try:
+            import warnings
+            from scipy.optimize import curve_fit, OptimizeWarning  # type: ignore
+            
+            with warnings.catch_warnings():
+                warnings.simplefilter('error', OptimizeWarning)
+                popt, _ = curve_fit(model_for_curve_fit, x_fit, y_fit, p0=p0, maxfev=20000)
+        except Exception as err:
+            raise RuntimeError(f'Fit optimization failed.') from err
+
+        y_fit_full = model_for_curve_fit(x, *popt)
+
+        fit_arr = np.vstack([x, y_fit_full])
+        sink.datasets[fit_series_name] = [fit_arr]
+
+        return {k: float(v) for k, v in zip(param_names, popt)}

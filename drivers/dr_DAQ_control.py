@@ -239,16 +239,27 @@ class DAQCounter:
     ### MOTION TASKS SECTION ###
     
     def move(self, target: dict):
-        target=obtain(target)
-        for name, axis in self.axes.items():
-            if target[name] < axis.limits[0] or target[name] > axis.limits[1]:
-                raise ValueError(f"{name} position {target[name]} is out of bounds {axis.limits}")
+        target = obtain(target)
+        axis_order = [name for name in ('x', 'y', 'z') if name in self.axes]
+        axis_order += [name for name in self.axes if name not in axis_order]
+
+        resolved_target = {
+            name: target.get(name, self.position[name]) for name in axis_order
+        }
+
+        for name in axis_order:
+            axis = self.axes[name]
+            if resolved_target[name] < axis.limits[0] or resolved_target[name] > axis.limits[1]:
+                raise ValueError(
+                    f"{name} position {resolved_target[name]} is out of bounds {axis.limits}"
+                )
+
         steps = 10
         start_v = np.array([
-            axis.units_to_volts(self.position[name]) for name, axis in self.axes.items()
+            self.axes[name].units_to_volts(self.position[name]) for name in axis_order
         ])
         stop_v = np.array([
-            axis.units_to_volts(target[name]) for name, axis in self.axes.items()
+            self.axes[name].units_to_volts(resolved_target[name]) for name in axis_order
         ])
         voltages = np.linspace(start_v, stop_v, steps).T
 
@@ -267,7 +278,7 @@ class DAQCounter:
         self.ao_motion_task.wait_until_done()
         self.ao_motion_task.stop()
 
-        self.position = target
+        self.position = resolved_target
 
     def move_new(self, target: dict):
         for name, axis in self.axes.items():

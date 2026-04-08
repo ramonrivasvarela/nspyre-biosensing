@@ -11,6 +11,7 @@ from nspyre import DataSink
 from nspyre import QThreadSafeObject
 from nspyre.gui.widgets.layout import tree_layout
 from nspyre import HeatMapWidget
+from nspyre import InstrumentManager
 
 from pyqtgraph.Qt import QtGui
 from pyqtgraph import InfiniteLine
@@ -132,7 +133,7 @@ class CrosshairManager(QtWidgets.QWidget):
     
     delete_crosshair = QtCore.Signal(int)  # Signal emitted when crosshair should be deleted
     update_crosshair = QtCore.Signal(int, float, float)  # Signal emitted when crosshair position should be updated
-    
+    move_to_crosshair = QtCore.Signal(int, float, float)  # Signal emitted when crosshair should be moved to new position
     def __init__(self, parent=None):
         super().__init__(parent)
         self.layout = QtWidgets.QVBoxLayout()
@@ -199,7 +200,12 @@ class CrosshairManager(QtWidgets.QWidget):
         delete_btn.setMaximumWidth(40)
         delete_btn.clicked.connect(lambda: self.delete_crosshair.emit(crosshair_id))
         item_layout.addWidget(delete_btn)
-        
+
+        go_button = QtWidgets.QPushButton("Go")
+        go_button.setMaximumWidth(40)
+        go_button.clicked.connect(lambda: self.move_to_crosshair.emit(crosshair_id, float(x_edit.text()), float(y_edit.text())))
+        item_layout.addWidget(go_button)
+
         item_widget.setLayout(item_layout)
         
         # Insert before the stretch
@@ -456,6 +462,7 @@ np.array([[4, 5, 6], [3.4, 3.6, 3.5]])])
         self.crosshair_manager = CrosshairManager()
         self.crosshair_manager.delete_crosshair.connect(self._delete_crosshair)
         self.crosshair_manager.update_crosshair.connect(self._update_crosshair_position)
+        self.crosshair_manager.move_to_crosshair.connect(self._move_to_crosshair)
         
         self.layout_tree = tree_layout(settings_layout_config)
         # make the plots list (index=2) take up all extra space (stretch=1)
@@ -874,7 +881,14 @@ np.array([[4, 5, 6], [3.4, 3.6, 3.5]])])
             self.crosshair_manager.remove_crosshair(crosshair_id)
             
             print(f"Deleted crosshair #{crosshair_id}")
-    
+
+    def _move_to_crosshair(self, crosshair_id: int, x: float, y: float):
+        """Move the plot view to center on the specified crosshair."""
+        # Center the view on the given coordinates
+        with InstrumentManager() as mgr:
+            mgr.DAQcontrol.move({'x': x, 'y': y})
+        print(f"Moved view to crosshair #{crosshair_id} at ({x:.3f}, {y:.3f})")
+
     def _clear_all_crosshairs(self):
         """Clear all permanent crosshairs."""
         for crosshair_id in list(self.crosshairs.keys()):
