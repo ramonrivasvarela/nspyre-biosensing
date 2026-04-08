@@ -184,23 +184,23 @@ class ODMRCenterPlotWidget(FlexLinePlotWidget):
     def __init__(self):
         super().__init__(data_processing_func=process_ODMR_data)
         # create some default signal plots
-        self.add_plot('left_sig_avg',        series='left_sg',   scan_i='',     scan_j='',  processing='Average')
-        self.add_plot('left_sig_latest',     series='left_sg',   scan_i='-1',   scan_j='',  processing='Average')
+        self.add_plot('left_sig_avg',        series='left_sg',   scan_i='',     scan_j='',  processing='Average', hidden=True)
+        self.add_plot('left_sig_latest',     series='left_sg',   scan_i='-1',   scan_j='',  processing='Average', hidden=True)
 
         # create some default background plots
-        self.add_plot('left_bg_avg',         series='left_bg',   scan_i='',     scan_j='',  processing='Average')
-        self.add_plot('left_bg_latest',      series='left_bg',   scan_i='-1',   scan_j='',  processing='Average')
+        self.add_plot('left_bg_avg',         series='left_bg',   scan_i='',     scan_j='',  processing='Average', hidden=True)
+        self.add_plot('left_bg_latest',      series='left_bg',   scan_i='-1',   scan_j='',  processing='Average', hidden=True)
 
         # create some default diff plots
         self.add_plot('left_div_avg',       series='left_div',  scan_i='',      scan_j='',  processing='Average')
         self.add_plot('left_div_latest',    series='left_div',  scan_i='-1',    scan_j='',  processing='Average')
 
-        self.add_plot('right_sig_avg',        series='right_sg',   scan_i='',     scan_j='',  processing='Average')
-        self.add_plot('right_sig_latest',     series='right_sg',   scan_i='-1',   scan_j='',  processing='Average')
+        self.add_plot('right_sig_avg',        series='right_sg',   scan_i='',     scan_j='',  processing='Average', hidden=True)
+        self.add_plot('right_sig_latest',     series='right_sg',   scan_i='-1',   scan_j='',  processing='Average', hidden=True)
 
         # create some default background plots
-        self.add_plot('right_bg_avg',         series='right_bg',   scan_i='',     scan_j='',  processing='Average')
-        self.add_plot('right_bg_latest',      series='right_bg',   scan_i='-1',   scan_j='',  processing='Average')
+        self.add_plot('right_bg_avg',         series='right_bg',   scan_i='',     scan_j='',  processing='Average', hidden=True)
+        self.add_plot('right_bg_latest',      series='right_bg',   scan_i='-1',   scan_j='',  processing='Average', hidden=True)
 
 
         # create some default diff plots

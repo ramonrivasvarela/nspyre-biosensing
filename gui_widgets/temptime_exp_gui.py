@@ -313,14 +313,14 @@ class TempTimePlotWidget(FlexLinePlotWidget):
         
                 
         super().__init__() 
-        self.add_plot('I1',        series='I1',   scan_i='',     scan_j='',  processing='Append')
-        self.add_plot('I2',        series='I2',   scan_i='',     scan_j='',  processing='Append')
-        self.add_plot('x_pos',      series='x_pos', scan_i='',     scan_j='',  processing='Append')
+        self.add_plot('I1',        series='I1',   scan_i='',     scan_j='',  processing='Append', hidden=True)
+        self.add_plot('I2',        series='I2',   scan_i='',     scan_j='',  processing='Append', hidden=True)
+        self.add_plot('x_pos',      series='x_pos', scan_i='',     scan_j='',  processing='Append', hidden=True)
         
-        self.add_plot('y_pos',      series='y_pos', scan_i='',     scan_j='',  processing='Append')
-        self.add_plot('z_pos',      series='z_pos', scan_i='',     scan_j='',  processing='Append')
+        self.add_plot('y_pos',      series='y_pos', scan_i='',     scan_j='',  processing='Append', hidden=True)
+        self.add_plot('z_pos',      series='z_pos', scan_i='',     scan_j='',  processing='Append', hidden=True)
         self.add_plot('odmr_freq',      series='odmr_freq', scan_i='',     scan_j='',  processing='Append')
-        self.add_plot('total_fluor',      series='total_fluor', scan_i='',     scan_j='',  processing='Append')
+        self.add_plot('total_fluor',      series='total_fluor', scan_i='',     scan_j='',  processing='Append', hidden=True)
 
         # retrieve legend object
         legend = self.line_plot.plot_widget.addLegend()

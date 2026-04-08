@@ -231,121 +231,26 @@ class ConfocalODMRWidget(ExperimentWidget):
             'confocal_odmr',
             title='Confocal ODMR'
         )
-
-def double_lorentzian(x, A1, x1, w1, A2, x2, w2, offset):
-    """Double Lorentzian function."""
-    return (A1 * w1**2 / ((x - x1)**2 + w1**2) + 
-            A2 * w2**2 / ((x - x2)**2 + w2**2) + offset)
-
-def process_ODMR_data(sink: DataSink):
-    """Subtract the signal from background trace and add it as a new 'diff' dataset."""
-    div_sweeps = []
-    for s,_ in enumerate(sink.datasets['signal']):
-        freqs = sink.datasets['signal'][s][0]
-        sig = sink.datasets['signal'][s][1]
-        bg = sink.datasets['background'][s][1]
-        div_sweeps.append(np.stack([freqs, sig / bg]))
-    sink.datasets['div'] = div_sweeps
-    
-    # Try to fit double Lorentzian to averaged div data
-    if len(div_sweeps) > 0:
-        # Average all sweeps
-        all_freqs = np.concatenate([sweep[0] for sweep in div_sweeps])
-        all_ratios = np.concatenate([sweep[1] for sweep in div_sweeps])
         
-        # Get unique frequencies and average ratios
-        unique_freqs = np.unique(all_freqs)
-        avg_ratios = np.array([np.mean(all_ratios[all_freqs == f]) for f in unique_freqs])
-        
-        # Check if there are no NaN values
-        if not np.any(np.isnan(avg_ratios)):
-            try:
-                # Calculate frequency spacing
-                d_freq = unique_freqs[1] - unique_freqs[0] if len(unique_freqs) > 1 else 1e6
-                
-                # Find initial guesses
-                min_ratio = np.min(avg_ratios)
-                max_ratio = np.max(avg_ratios)
-                min_arg = np.argmin(avg_ratios)
-                x1_guess = unique_freqs[min_arg]
-                
-                # Find second minimum
-                w1_guess = 4e8
-                diff = int(w1_guess / d_freq)
-                mask = np.ones(len(avg_ratios), dtype=bool)
-                mask[max(0, min_arg-diff):min(len(avg_ratios), min_arg+diff+1)] = False
-                
-                if np.sum(mask) > 0:
-                    n_ratios = avg_ratios[mask]
-                    n_freqs = unique_freqs[mask]
-                    min_arg2 = np.argmin(n_ratios)
-                    x2_guess = n_freqs[min_arg2]
-                else:
-                    x2_guess = x1_guess + w1_guess
-                
-                # Initial parameter guesses
-                offset_guess = max_ratio
-                A1_guess = A2_guess = min_ratio - max_ratio
-                freq_range = np.max(unique_freqs) - np.min(unique_freqs)
-                w1_guess = w2_guess = freq_range / 10
-                
-                initial_guess = [A1_guess, x1_guess, w1_guess, A2_guess, x2_guess, w2_guess, offset_guess]
-                
-                # Parameter bounds
-                bounds = (
-                    [-np.inf, np.min(unique_freqs), 0, -np.inf, np.min(unique_freqs), 0, -np.inf],
-                    [0, np.max(unique_freqs), freq_range, 0, np.max(unique_freqs), freq_range, np.inf]
-                )
-                
-                # Perform fit
-                popt, pcov = optimize.curve_fit(
-                    double_lorentzian,
-                    unique_freqs,
-                    avg_ratios,
-                    p0=initial_guess,
-                    bounds=bounds,
-                    maxfev=10000
-                )
-                
-                # Generate fitted curve with same x-axis values
-                fitted_values = double_lorentzian(unique_freqs, *popt)
-                
-                # Add fit as a new dataset
-                sink.datasets['div_fit'] = [np.stack([unique_freqs, fitted_values])]
-                
-                # Calculate R²
-                residuals = avg_ratios - fitted_values
-                ss_res = np.sum(residuals ** 2)
-                ss_tot = np.sum((avg_ratios - np.mean(avg_ratios)) ** 2)
-                r_squared = 1 - (ss_res / ss_tot)
-                
-                print(f"Double Lorentzian Fit: R² = {r_squared:.4f}")
-                print(f"Center 1: {popt[1]:.2e} Hz, Width 1: {popt[2]:.2e} Hz")
-                print(f"Center 2: {popt[4]:.2e} Hz, Width 2: {popt[5]:.2e} Hz")
-                print(f"FWHM: {abs(popt[1]-popt[4])+popt[2]+popt[5]:.2e} Hz")
-                
-            except Exception as e:
-                print(f"Fit failed: {e}")
-
 
 class ConfocalODMRPlotWidget(FlexLinePlotWidget):
     """Add some default settings to the FlexSinkLinePlotWidget."""
     def __init__(self):
-        super().__init__(data_processing_func=process_ODMR_data)
+        super().__init__()
         # create some default signal plots
-        self.add_plot('sig_avg',        series='signal',   scan_i='',     scan_j='',  processing='Average')
-        self.add_plot('sig_latest',     series='signal',   scan_i='-1',   scan_j='',  processing='Average')
+        self.add_plot('sig_avg',        series='signal',   scan_i='',     scan_j='',  processing='Average', hidden=True)
+        self.add_plot('sig_latest',     series='signal',   scan_i='-1',   scan_j='',  processing='Average', hidden=True)
 
         # create some default background plots
-        self.add_plot('bg_avg',         series='background',   scan_i='',     scan_j='',  processing='Average')
-        self.add_plot('bg_latest',      series='background',   scan_i='-1',   scan_j='',  processing='Average')
+        self.add_plot('bg_avg',         series='background',   scan_i='',     scan_j='',  processing='Average', hidden=True)
+        self.add_plot('bg_latest',      series='background',   scan_i='-1',   scan_j='',  processing='Average', hidden=True)
 
         # create some default diff plots
         self.add_plot('div_avg',       series='div',  scan_i='',      scan_j='',  processing='Average')
         self.add_plot('div_latest',    series='div',  scan_i='-1',    scan_j='',  processing='Average')
         
         # add fit plot
-        self.add_plot('div_fit',       series='div_fit',  scan_i='',      scan_j='',  processing='Average')
+        # self.add_plot('div_fit',       series='div_fit',  scan_i='',      scan_j='',  processing='Average')
 
         # retrieve legend object
         legend = self.line_plot.plot_widget.addLegend()
