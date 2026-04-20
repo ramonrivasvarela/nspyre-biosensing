@@ -44,15 +44,15 @@ class PlaneScanWidget(ExperimentWidget):
         params_config = {
             'point_A': {
                 'display_text': 'Point A',
-                'widget': QLineEdit("(-50, 0, 50)")
+                'widget': QLineEdit("(-50, 0, 40)")
             },
             'point_B': {
                 'display_text': 'Point B',
-                'widget': QLineEdit("(50, 0, 50)")
+                'widget': QLineEdit("(50, 0, 40)")
             },
             'point_C': {
                 'display_text': 'Point C',
-                'widget': QLineEdit("(50, 0, 80)")
+                'widget': QLineEdit("(50, 0, 70)")
             },
             'line_scan_steps': {
                 'display_text': 'Line Scan Steps',

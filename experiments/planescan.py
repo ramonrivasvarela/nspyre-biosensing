@@ -241,10 +241,10 @@ class PlaneScan:
 
                         if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
                             # the GUI has asked us nicely to exit
-                            mgr.DAQcontrol.move(current_position)
+                            #mgr.DAQcontrol.move(current_position)
                             self.finalize(mgr)
                             return
-            mgr.DAQcontrol.move(current_position)
+            #mgr.DAQcontrol.move(current_position)
             self.finalize(mgr)
             
 

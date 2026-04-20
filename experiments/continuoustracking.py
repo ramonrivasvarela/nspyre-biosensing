@@ -39,7 +39,7 @@ _logger = logging.getLogger(__name__)
 #Jacob's advice
 import rpyc
 
-class AdvancedTracking():
+class ContinuousTracking():
     def __init__(self, queue_to_exp=None, queue_from_exp=None):
         """
         Args:
@@ -82,10 +82,6 @@ class AdvancedTracking():
                              run_ct=1, 
                              x_k=None, p_k=None, n_k=None, w=None, diffusion_constant=None, time_elapsed=None):
 
-        self.max_search = eval(obtain(max_search))
-        self.min_search = eval(obtain(min_search))
-        # self.drift = obtain(drift)
-        # self.XYZ_center = obtain(XYZ_center)
         search = obtain(search)
         search_error_array = obtain(search_error_array)
         if advanced_tracking:
@@ -111,7 +107,6 @@ class AdvancedTracking():
             self.diffusion_constant = diffusion_constant
             self.time_elapsed = time_elapsed
         
-        self.search_kp, self.search_ki, self.search_kd = eval(search_PID)
 
         # if trackz and (index == 2):
         #     # Shivam: What is the significance of this if statement?
@@ -234,6 +229,14 @@ class AdvancedTracking():
     def read_stream_flee(self, mgr, index, search, buffer_size, scan_distance, num_freq, run_ct, read_timeout):
         ## total this has 180 ms of lag.
         # time_track = time.time()
+        print("self.XYZ_center is " + str(self.XYZ_center))
+        print("search is " + str(search))
+        print("type of self.XYZ_center:", type(self.XYZ_center))
+        print("type of self.XYZ_center[index]:", type(self.XYZ_center[index]))
+        print("type of search:", type(search))
+        print("type of search[index]:", type(search[index]))
+        self.XYZ_center=obtain(self.XYZ_center)
+        print("type of self.XYZ_center after obtain:", type(self.XYZ_center))
         xyz_steps = np.linspace(self.XYZ_center[index] - search[index], self.XYZ_center[index] + search[index],
                                 buffer_size)
                                 

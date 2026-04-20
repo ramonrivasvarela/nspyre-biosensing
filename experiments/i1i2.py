@@ -25,7 +25,7 @@ from nspyre import InstrumentManager, DataSource, StreamingList
 import math
 import rpyc.utils.classic
 
-from experiments.advancedtracking import AdvancedTracking
+from experiments.continuoustracking import ContinuousTracking
 
 
 # nspyre
@@ -42,7 +42,7 @@ _logger = logging.getLogger(__name__)
 
 
 
-class I1I2():
+class I1I2(ContinuousTracking):
     """
     Shivam: This class is to find the quasilinear slope (that will be inputted into 2 point measurement experiments)
     It has an option to do stationary measurements with intermittent newspaceFB tracking or to do continuous tracking
@@ -56,8 +56,8 @@ class I1I2():
             queue_from_exp: A multiprocessing Queue object used to send messages
                 to the GUI from the experiment.
         """
-        self.queue_to_exp = queue_to_exp
-        self.queue_from_exp = queue_from_exp
+        super().__init__(queue_to_exp, queue_from_exp)
+
     def __enter__(self):
         """Perform experiment setup."""
         # config logging messages
@@ -208,8 +208,6 @@ class I1I2():
                 total_fluor_tracking=StreamingList()
                 # Counts every time we measure a certain frequency value
                 self.counter = 0
-                self.AdvancedTracking=AdvancedTracking(self.queue_to_exp, self.queue_from_exp)
-                self.AdvancedTracking.initialize_drift_position( self.XYZ_center, self.drift)
                 for sweep in range(sweeps):
                     I1_empty=np.empty(n_freqs)
                     I1_empty[:]=np.nan
@@ -263,10 +261,8 @@ class I1I2():
                             feed_params['p_k']=self.p_k
                             feed_params['x_k']=self.x_k
 
-                        self.search, temp_data, total_fluor, search_error_array = rpyc.utils.classic.obtain(self.AdvancedTracking.one_axis_measurement(**feed_params))
+                        self.search, temp_data, total_fluor, search_error_array = self.one_axis_measurement(**feed_params)
                         current_time=time.time()
-                        self.XYZ_center=rpyc.utils.classic.obtain(self.AdvancedTracking.XYZ_center)
-                        self.drift=rpyc.utils.classic.obtain(self.AdvancedTracking.drift)
                         data_I1=temp_data[0]
                         data_I2=temp_data[1]
                         
@@ -292,6 +288,8 @@ class I1I2():
                         
                         # Push all arguments of i1i2 plus measurement results to the DataSource
                         data_source.push({
+                            'title': 'I1 and I2 vs Frequency with Continuous Tracking',
+                            'xlabel': 'Frequency (Hz)',
                             'params':params,
                             
                             'datasets':{
@@ -473,7 +471,9 @@ class I1I2():
         print("ps start")
         print(mgr.DAQcontrol.ctr_buffer)
         try:
-            buffer=np.array(mgr.DAQcontrol.read_to_data_array(read_timeout*2))
+            print("Attempting to read buffer with timeout of " + str(read_timeout*2) + " seconds...")
+            buffer=np.array(rpyc.utils.classic.obtain(mgr.DAQcontrol.read_to_data_array(read_timeout*2)))
+            print("Buffer read successfully")
         except Exception as e:
             print("Error in reading DAQ counter:", e)
             print(mgr.DAQcontrol.ctr_buffer)
@@ -481,8 +481,7 @@ class I1I2():
             
             mgr.Pulser.set_state_off()
             raise e
-        mgr.Pulser.set_state_off()
-        print(mgr.DAQcontrol.ctr_buffer)
+        print("Before printing statement")
         # print('the time it took to actually run the pulse sequence and read:', time.time() - time_read)
         print('end of read')
         return buffer

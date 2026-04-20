@@ -3,7 +3,8 @@ from PyQt6.QtWidgets import QLineEdit, QSpinBox, QCheckBox, QComboBox
 from pyqtgraph import SpinBox
 from PyQt6.QtWidgets import QLineEdit
 import experiments.i1i2
-from nspyre import ExperimentWidget, FlexLinePlotWidget
+from nspyre import ExperimentWidget
+from special_widgets.flex_line_plot_widget_fitting import FlexLinePlotWidget
 import pyqtgraph as pg
   
 
@@ -117,7 +118,7 @@ class I1I2Widget(ExperimentWidget):
             'rf_amplitude': {
                 'display_text': 'RF Amplitude',
                 'widget': SpinBox(
-                    value=-20,
+                    value=-15,
                     suffix='dBm',
                     siPrefix=False,
                     dec=True,
@@ -281,9 +282,9 @@ class I1I2PlotWidget(FlexLinePlotWidget):
                 sink.datasets["I2_I1"] = I2_minus_I1
                 
         super().__init__(data_processing_func=processing_function) 
-        self.add_plot('I1',        series='I1',   scan_i='',     scan_j='',  processing='Average')
-        self.add_plot('I2',        series='I2',   scan_i='',     scan_j='',  processing='Average')
-        self.add_plot('I2_I1',      series='I2_I1', scan_i='',     scan_j='',  processing='Average', hidden=True)
+        self.add_plot('I1',        series='I1',   scan_i='',     scan_j='',  processing='Average' , hidden=True)
+        self.add_plot('I2',        series='I2',   scan_i='',     scan_j='',  processing='Average', hidden=True)
+        self.add_plot('I2-I1/2(I1+I2)',      series='I2_I1', scan_i='',     scan_j='',  processing='Average')
 
 
         # retrieve legend object

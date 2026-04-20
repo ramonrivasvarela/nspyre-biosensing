@@ -2,7 +2,8 @@ import numpy as np
 from PyQt6.QtWidgets import QLineEdit, QSpinBox, QCheckBox, QComboBox
 from pyqtgraph import SpinBox
 import experiments.temptime
-from nspyre import ExperimentWidget, FlexLinePlotWidget
+from nspyre import ExperimentWidget
+from special_widgets.flex_line_plot_widget_fitting import FlexLinePlotWidget
 
 MAXIMUM=2147483647 
 
@@ -128,7 +129,7 @@ class TempTimeWidget(ExperimentWidget):
             'rf_amplitude': {
                 'display_text': 'RF Amplitude',
                 'widget': SpinBox(
-                    value=-20,
+                    value=-15,
                     suffix='dBm',
                     siPrefix=False,
                     dec=True,

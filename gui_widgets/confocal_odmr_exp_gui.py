@@ -1,7 +1,7 @@
 import numpy as np
 from scipy import optimize
 
-from nspyre import FlexLinePlotWidget
+from special_widgets.flex_line_plot_widget_fitting import FlexLinePlotWidget
 from nspyre import ExperimentWidget
 from nspyre import DataSink
 from pyqtgraph.Qt import QtWidgets
@@ -13,7 +13,6 @@ import sys
 
 import pyqtgraph as pg
 
-from special_widgets.heat_map_plot_widget import HeatMapPlotWidget
 
 cmap = pg.colormap.get('viridis')  
 
@@ -73,10 +72,6 @@ class ConfocalODMRWidget(ExperimentWidget):
         # repeat_minutes_sb.setMaximum(None)
         # repeat_minutes_sb.setDecimals(3)
 
-        rf_amplitude_sb = QSpinBox()
-        rf_amplitude_sb.setMinimum(-100)
-        rf_amplitude_sb.setMaximum(7)
-        rf_amplitude_sb.setValue(-20)
 
 
         dozfb_cb=QCheckBox()
@@ -134,7 +129,13 @@ class ConfocalODMRWidget(ExperimentWidget):
             },
             'rf_amplitude': {
                 'display_text': 'RF Amplitude',
-                'widget': rf_amplitude_sb
+                'widget': SpinBox(
+                    value=-15,
+                    suffix='dBm',
+                    siPrefix=False,
+                    dec=True,
+                    bounds=(-50, 10),
+                )
             },
             'probe_time': {
                 'display_text': 'Probe Time',
@@ -231,23 +232,32 @@ class ConfocalODMRWidget(ExperimentWidget):
             'confocal_odmr',
             title='Confocal ODMR'
         )
-        
+def process_ODMR_data(sink: DataSink):
+    """Subtract the signal from background trace and add it as a new 'diff' dataset."""
+    div_sweeps = []
+    for s,_ in enumerate(sink.datasets['signal']):
+        freqs = sink.datasets['signal'][s][0]
+        sig = sink.datasets['signal'][s][1]
+        bg = sink.datasets['background'][s][1]
+        div_sweeps.append(np.stack([freqs, sig / bg]))
+    sink.datasets['div'] = div_sweeps
+    
 
 class ConfocalODMRPlotWidget(FlexLinePlotWidget):
     """Add some default settings to the FlexSinkLinePlotWidget."""
     def __init__(self):
-        super().__init__()
+        super().__init__(data_processing_func=process_ODMR_data)
         # create some default signal plots
         self.add_plot('sig_avg',        series='signal',   scan_i='',     scan_j='',  processing='Average', hidden=True)
-        self.add_plot('sig_latest',     series='signal',   scan_i='-1',   scan_j='',  processing='Average', hidden=True)
+        self.add_plot('sig_latest',     series='signal',   scan_i='-2',   scan_j='',  processing='Average', hidden=True)
 
         # create some default background plots
         self.add_plot('bg_avg',         series='background',   scan_i='',     scan_j='',  processing='Average', hidden=True)
-        self.add_plot('bg_latest',      series='background',   scan_i='-1',   scan_j='',  processing='Average', hidden=True)
+        self.add_plot('bg_latest',      series='background',   scan_i='-2',   scan_j='',  processing='Average', hidden=True)
 
         # create some default diff plots
-        self.add_plot('div_avg',       series='div',  scan_i='',      scan_j='',  processing='Average')
-        self.add_plot('div_latest',    series='div',  scan_i='-1',    scan_j='',  processing='Average')
+        self.add_plot('div_avg',       series='div',  scan_i='',      scan_j='',  processing='Average', hidden=False)
+        self.add_plot('div_latest',    series='div',  scan_i='-2',    scan_j='',  processing='Average', hidden=False)
         
         # add fit plot
         # self.add_plot('div_fit',       series='div_fit',  scan_i='',      scan_j='',  processing='Average')

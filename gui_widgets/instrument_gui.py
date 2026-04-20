@@ -429,9 +429,10 @@ class InstWidgetV2(QWidget):
         """Refresh the XYZ position values."""
         try:
             with InstrumentManager() as mgr:
-                self.x_control.spinbox.set_value(mgr.DAQcontrol.position['x'])
-                self.y_control.spinbox.set_value(mgr.DAQcontrol.position['y'])
-                self.z_control.spinbox.set_value(mgr.DAQcontrol.position['z'])
+                self.position=obtain(mgr.DAQcontrol.position)
+                self.x_control.spinbox.set_value(self.position['x'])
+                self.y_control.spinbox.set_value(self.position['y'])
+                self.z_control.spinbox.set_value(self.position['z'])
         except Exception as e:
             self.x_control.spinbox.set_value(0)
             self.y_control.spinbox.set_value(0)

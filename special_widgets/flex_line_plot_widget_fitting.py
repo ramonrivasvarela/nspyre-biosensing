@@ -179,7 +179,7 @@ class FittingManager(QtWidgets.QWidget):
             'Linear': {'m': 1e-9, 'x_0': 2.87e9},
             'Double Lorentzian': {
                 'A1': -0.2,
-                'A2': 0.2,
+                'A2': -0.2,
                 'x_1': 2.865e9,
                 'x_2': 2.875e9,
                 'gamma1': 1e6,
@@ -235,12 +235,15 @@ class FittingManager(QtWidgets.QWidget):
     def _open_fitting(self):
         self._new_fitting_widget(self.fitting_dropdown.currentText())
 
+    def _format_param(self, value: float) -> str:
+        return f'{float(value):.4e}'
+
     def _add_fitting_widget(self, fitting_type: str):
         self.fitting_widget = QtWidgets.QWidget()
         self.fitting_layout = QtWidgets.QFormLayout(self.fitting_widget)
         for param_name, value in self.fitting_parameters[fitting_type].items():
             param_label = QtWidgets.QLabel(param_name)
-            line_edit = QtWidgets.QLineEdit(str(value))
+            line_edit = QtWidgets.QLineEdit(self._format_param(value))
             line_edit.setValidator(QtGui.QDoubleValidator())
             line_edit.editingFinished.connect(
                 partial(self._set_parameter_from_edit, fitting_type, param_name, line_edit)
@@ -254,7 +257,9 @@ class FittingManager(QtWidgets.QWidget):
     ):
         text = line_edit.text()
         try:
-            self.fitting_parameters[fitting_type][param_name] = float(text)
+            parsed_value = float(text)
+            self.fitting_parameters[fitting_type][param_name] = parsed_value
+            line_edit.setText(self._format_param(parsed_value))
         except ValueError:
             _logger.error(f'Invalid value for parameter [{param_name}]: [{text}].')
 
@@ -590,7 +595,7 @@ np.array([[4, 5, 6], [3.4, 3.6, 3.5]])])
         self.add_plot(name, series, scan_i, scan_j, processing)
 
     def add_plot(
-        self, name: str, series: str, scan_i: str, scan_j: str, processing: str
+        self, name: str, series: str, scan_i: str, scan_j: str, processing: str, hidden: bool = False
     ):
         """Add a new subplot. Thread safe.
 
@@ -618,7 +623,7 @@ np.array([[4, 5, 6], [3.4, 3.6, 3.5]])])
             scan_i,
             scan_j,
             processing,
-            False,
+            hidden,
             callback=self._add_plot_callback,
         )
 
@@ -626,6 +631,8 @@ np.array([[4, 5, 6], [3.4, 3.6, 3.5]])])
         """Called in main thread after a plot is added."""
         self.plots_list_widget.addItem(name)
         self.line_plot.add_plot(name)
+        if self.line_plot.plot_settings.series_settings[name].hidden:
+            self._hide_plot_callback(name)
 
     def _find_plot_item(self, name):
         """Return the index of the list widget plot item with the given name."""

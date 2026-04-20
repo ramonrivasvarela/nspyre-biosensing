@@ -25,7 +25,7 @@ from nspyre import InstrumentManager, DataSource, StreamingList
 import math
 import rpyc.utils.classic
 
-from experiments.advancedtracking import AdvancedTracking
+from experiments.continuoustracking import ContinuousTracking
 
 
 # nspyre
@@ -42,7 +42,7 @@ _logger = logging.getLogger(__name__)
 
 
 
-class TemperatureVsTime():
+class TemperatureVsTime(ContinuousTracking):
     '''
     This class is meant to be an analogue to counts vs time and plot the temperature of the nanodiamond vs time
     with continuous green laser input.
@@ -303,8 +303,7 @@ class TemperatureVsTime():
             queue_from_exp: A multiprocessing Queue object used to send messages
                 to the GUI from the experiment.
         """
-        self.queue_to_exp = queue_to_exp
-        self.queue_from_exp = queue_from_exp
+        super().__init__(queue_to_exp, queue_from_exp)
     def __enter__(self):
         """Perform experiment setup."""
         # config logging messages
@@ -835,8 +834,6 @@ class TemperatureVsTime():
                 total_fluor_dataset=StreamingList()
                 start_t=time.time()
                 odmr_freq_dataset=StreamingList()
-                self.AdvancedTracking=AdvancedTracking(self.queue_to_exp, self.queue_from_exp)
-                self.AdvancedTracking.initialize_drift_position(self.XYZ_center, self.drift)
                 for i in iterator:
                     if infrared_on:
                         # Shivam: Code to alternate between infrared laser on scans and off scans
@@ -898,7 +895,7 @@ class TemperatureVsTime():
                                 
                                 current_time = time.time()
                                 if advanced_tracking:
-                                    self.search, temp_data, total_fluor, search_error_array = self.AdvancedTracking.one_axis_measurement(**feed_params)
+                                    self.search, temp_data, total_fluor, search_error_array = self.one_axis_measurement(**feed_params)
 
                                     # Debug prints to inspect what's happening
                                     print(f"[DEBUG] iter {i} index {index} total_fluor={total_fluor} temp_data={temp_data}")
@@ -913,9 +910,7 @@ class TemperatureVsTime():
                                     # Save tracking_data for inspection if available
                                     # (advancedtracking stored tracking buffer in local variable only; you can instrument AdvancedTracking to return it)
                                 else:
-                                    self.search, temp_data, total_fluor, search_error_array=self.AdvancedTracking.one_axis_measurement(**feed_params)
-                                    self.XYZ_center=self.AdvancedTracking.XYZ_center
-                                    self.drift=self.AdvancedTracking.drift
+                                    self.search, temp_data, total_fluor, search_error_array=self.one_axis_measurement(**feed_params)
                                 if not do_not_run_feedback:
                                     print("MAIN: search is " + str(list(self.search)))
                                 # current_time=time.time()
@@ -958,6 +953,8 @@ class TemperatureVsTime():
                                 # if do_not_run_feedback:
 
                                 data_source.push({
+                                        'title': 'ZFS Tracking',
+                                        'xlabel': 'Time (s)',
                                         'params':params,
                                         'datasets': { "I1": I1_dataset, 
                                                      "I2": I2_dataset, 

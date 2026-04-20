@@ -13,6 +13,8 @@ import numpy as np
 import rpyc.utils.classic
 from scipy import optimize
 
+from rpyc.utils.classic import obtain
+
 
 import nidaqmx
 from nidaqmx.constants import (AcquisitionType, CountDirection, Edge,
@@ -125,6 +127,7 @@ class ConfocalODMR():
         with InstrumentManager() as mgr, DataSource(dataset) as datasource:
             # Initialize the experiment parameters
             self.initialize(mgr, *INIT_PARAMS) # prepares self.seq, among other things
+            if self.VERBOSE: print('Finished experiment initialization.')
             n_freq = len(self.frequencies)
             self.AM = mode == 'AM'
             self.SWITCH = use_switch
@@ -133,6 +136,7 @@ class ConfocalODMR():
             #### EXPERIMENTAL LOOP ####
             ###########################
             for sweep in range(sweeps):
+                if self.VERBOSE: print(f'Starting sweep {sweep+1}/{sweeps}...')
                 #### Prepare Sweep Data Structure
                 # photon counts corresponding to each frequency
                 # initialize to NaN
@@ -144,9 +148,17 @@ class ConfocalODMR():
                 background.append(np.stack([self.frequencies*1e-9, bg_counts]))
 
                 for i in range(n_freq):
+                    if self.VERBOSE: print(f'  Starting frequency {i+1}/{n_freq} ({self.frequencies[i]*1e-9:.3f} GHz)...')
                     #### Acquire
                     mgr.sg.set_frequency(self.frequencies[i])
+                    if self.VERBOSE: print(f'Set frequency to {self.frequencies[i]*1e-9:.3f} GHz')
                     data=self.acquire(mgr, self.seq)
+                    if self.VERBOSE:
+                        print(
+                            f'  Acquired data for frequency {self.frequencies[i]*1e-9:.3f} GHz '
+                            f'(n={data.size}, first={data[0] if data.size else "NA"}, '
+                            f'last={data[-1] if data.size else "NA"})'
+                        )
                     #mgr.DAQcontrol.start_counter()      
                     #mgr.Pulser.stream_sequence(self.seq, 1) # number of runs accounted for in construction of the sequence.
                     #data = np.array(mgr.DAQcontrol.read_to_data_array( timeout = self.timeout)) # Collect ODMR point
@@ -163,8 +175,8 @@ class ConfocalODMR():
                     if self.VERBOSE: print(signal[-1][1], background[-1][1])
                     datasource.push({
                         'params': params,
-                        'x_label': 'Frequency (Hz)',
-                        'y_label': 'Fluorescence',
+                        'xlabel': 'Frequency (Hz)',
+                        'ylabel': 'Fluorescence',
                         'datasets': {
                             'signal': signal,       
                             'background': background,
@@ -216,13 +228,12 @@ class ConfocalODMR():
             self.ODMR_label = [1, 'x', 0, 'x'] # sig, discard, bg, discard
             if self.VERBOSE: print('ODMR, with wait time')
             seq_dict = mgr.Pulser.setup_ODMR_wait(self.ns_laser_lag, self.ns_probe_time, self.ns_clock_duration, self.ns_cooldown_time, runs, mode, use_switch)
-        print(seq_dict)
         self.seq = mgr.Pulser.make_seq(**seq_dict)
         if self.VERBOSE:
             import pickle, os
             print(f'saving sequence to seq.pkl in {os.getcwd()}')
             pickle.dump(self.seq, open('seq.pkl', 'wb'))
-
+        print("Saved sequence.")
         ## Prepare Sig Gen
 
         mgr.sg.set_rf_amplitude(rf_amplitude) 
@@ -478,10 +489,14 @@ class ConfocalODMR():
         '''
         
         ## Start, Stream, Read
+        if self.VERBOSE: print('Starting acquisition...')
         mgr.DAQcontrol.start_counter()             
+        if self.VERBOSE: print('Started counter.')
         mgr.Pulser.stream_sequence(seq, 1, AM = self.AM, SWITCH = self.SWITCH) # number of runs accounted for in construction of the sequence.
-        data = np.array(mgr.DAQcontrol.read_to_data_array(timeout = self.timeout)) # Collect ODMR point
-        mgr.Pulser.set_state_off()
+        if self.VERBOSE: print('Started pulse sequence streaming.')
+        data = np.array(obtain(mgr.DAQcontrol.read_to_data_array(timeout = self.timeout))) # Collect ODMR point
+        if self.VERBOSE: print('Read data from DAQ. data:', data)
+        if self.VERBOSE: print('Finished pulse sequence streaming.')
 
         return data  
     
@@ -496,7 +511,11 @@ class ConfocalODMR():
         then we return both sums.
         '''
         if self.VERBOSE:
-            print('data:', data)
+            print(
+                f'data summary: n={data.size}, '
+                f'min={np.min(data) if data.size else "NA"}, '
+                f'max={np.max(data) if data.size else "NA"}'
+            )
         delta_buffer = data[1:] - data[0:-1]
         ## Assuming the label remains only [1, 0 ] or [1, 'x', 0, 'x'].
         # If this becomes untrue, a more generic solution must be implemented.
@@ -506,7 +525,6 @@ class ConfocalODMR():
         sum_sig = np.sum(delta_buffer[idx_sig::interval]) # MW on
         sum_bg = np.sum(delta_buffer[idx_bg::interval]) # MW off
         if self.VERBOSE:
-            print('delta_buffer:', delta_buffer)
             print('sum_sig:', sum_sig, 'sum_bg:', sum_bg)
         return sum_sig, sum_bg
 
