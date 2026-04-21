@@ -226,13 +226,14 @@ class wODMRWidget(ExperimentWidget):
         def data_processing_func(sink):
             frequencies=sink.params['frequencies']
             n_freqs=len(frequencies)
-            for i in range(sink.output['number_ND']):
-                sink.datasets[f"signal_{i}"]=[]
-                sink.datasets[f"background_{i}"]=[]
-                sink.datasets[f"signal_all_{i}"]=[]
-                sink.datasets[f"signal_div_{i}"]=[]
+            number_ND=sink.output['number_ND']
+            for i in range(number_ND):
+                sink.datasets[f"signal_{i}"]=np.array([])
+                sink.datasets[f"background_{i}"]=np.array([])
+                sink.datasets[f"signal_all_{i}"]=np.array([])
+                sink.datasets[f"signal_div_{i}"]=np.array([])
             for sweep in range(sink.params['sweeps']):
-                for i in range(sink.output['number_ND']):
+                for i in range(number_ND):
                     signal_counts=np.empty(n_freqs)
                     signal_counts[:]=np.nan
                     sink.datasets[f"signal_{i}"].append(np.stack([frequencies, signal_counts], axis=1))
