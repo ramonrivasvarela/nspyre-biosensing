@@ -8,7 +8,7 @@ from nspyre import InstrumentManager # FOR OPERATING INSTRUMENTS
 #### GENERAL IMPORTS
 import time
 import numpy as np
-import nidaqmx
+
 ####
 
 _HERE = Path(__file__).parent

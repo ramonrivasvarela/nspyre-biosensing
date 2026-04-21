@@ -30,6 +30,9 @@ class Camera():
         self.number_kinetics=1
         self.width=None
         self.height=None
+
+        self.vs_speed=3
+        self.hs_speed=0
         
 
         
@@ -401,3 +404,26 @@ class Camera():
             return ret, exp_time, acc_time, kin_time
         else:
             raise RuntimeError(f"GetAcquisitionTimings failed with error code {ret}.")
+        
+
+    def set_VS_speed(self, speed:int):
+        if self.sdk is None:
+            return 20000  # Not initialized
+        ret = self.sdk.SetVSSpeed(speed)
+        if ret == 20002:
+            self.vs_speed = speed
+            print(f"Vertical shift speed set to {speed}.")
+            return ret
+        else:
+            raise RuntimeError(f"SetVSSpeed failed with error code {ret}.")
+        
+    def set_HS_speed(self, speed:int):
+        if self.sdk is None:
+            return 20000  # Not initialized
+        ret = self.sdk.SetHSSpeed(0, speed)
+        if ret == 20002:
+            self.hs_speed = speed
+            print(f"Horizontal shift speed set to {speed}.")
+            return ret
+        else:
+            raise RuntimeError(f"SetHSSpeed failed with error code {ret}.")
