@@ -1001,38 +1001,37 @@ class _HeatMapPlotWidget(HeatMapWidget):
                     )
                     ylabel = None
 
-                try:
-                    xs = self.heatmap_settings.sink.xs
-                except AttributeError:
-                    raise RuntimeError(
-                        f'Data source [{data_set_name}] has no "xs" '
-                        'attribute. Exiting...'
-                    )
-                else: 
-                    if not isinstance(xs, np.ndarray):
-                        raise RuntimeError(
-                            f'Data source [{data_set_name}] "xs" attribute must be a '
-                            f'numpy array, but has type [{type(xs)}]. Exiting...'
-                        )
-                try:
-                    ys = self.heatmap_settings.sink.ys
-                except AttributeError:
-                    raise RuntimeError(
-                        f'Data source [{data_set_name}] has no "ys" '
-                        'attribute. Exiting...'
-                    )
-                else:
-                    if not isinstance(ys, np.ndarray):
-                        raise RuntimeError(
-                            f'Data source [{data_set_name}] "ys" attribute must be a '
-                            f'numpy array, but has type [{type(ys)}]. Exiting...'
-                        )
+                # try:
+                #     xs = self.heatmap_settings.sink.xs
+                # except AttributeError:
+                #     raise RuntimeError(
+                #         f'Data source [{data_set_name}] has no "xs" '
+                #         'attribute. Exiting...'
+                #     )
+                # else: 
+                #     if not isinstance(xs, np.ndarray):
+                #         raise RuntimeError(
+                #             f'Data source [{data_set_name}] "xs" attribute must be a '
+                #             f'numpy array, but has type [{type(xs)}]. Exiting...'
+                #         )
+                # try:
+                #     ys = self.heatmap_settings.sink.ys
+                # except AttributeError:
+                #     raise RuntimeError(
+                #         f'Data source [{data_set_name}] has no "ys" '
+                #         'attribute. Exiting...'
+                #     )
+                # else:
+                #     if not isinstance(ys, np.ndarray):
+                #         raise RuntimeError(
+                #             f'Data source [{data_set_name}] "ys" attribute must be a '
+                #             f'numpy array, but has type [{type(ys)}]. Exiting...'
+                #         )
                     
                 try:
                     data = self.heatmap_settings.sink.datasets
                 except KeyError:
                     _logger.error(f'Data series does not exist.')
-                    data= np.zeros((len(ys), len(xs)))
 
                 if not isinstance(data, dict):
                     raise ValueError(
@@ -1055,6 +1054,35 @@ class _HeatMapPlotWidget(HeatMapWidget):
                         if settings.show:
                             if settings.series in data:
                                 try:
+                                    try:
+                                        xs = self.heatmap_settings.sink.xs
+                                    except AttributeError:
+                                        _logger.error(
+                                            f'Data source [{data_set_name}] has no "xs" attribute.'
+                                        )
+                                        xs=np.arange(len(data[settings.series][0]))
+                                    else: 
+                                        if not isinstance(xs, np.ndarray):
+                                            _logger.error(
+                                                f'Data source [{data_set_name}] "xs" attribute must be a '
+                                                f'numpy array, but has type [{type(xs)}]. '
+                                            )
+                                            xs=np.arange(len(data[settings.series][0]))
+                                    try:
+                                        ys = self.heatmap_settings.sink.ys
+                                    except AttributeError:
+                                        _logger.error(
+                                            f'Data source [{data_set_name}] has no "ys" '
+                                            'attribute. Exiting...'
+                                        )
+                                        ys=len(data[settings.series])
+                                    else:
+                                        if not isinstance(ys, np.ndarray):
+                                            _logger.error(
+                                                f'Data source [{data_set_name}] "ys" attribute must be a '
+                                                f'numpy array, but has type [{type(ys)}].'
+                                            )
+                                            ys=np.arange(len(data[settings.series]))
                                     self.set_data(xs, ys, np.array(data[settings.series]))
                                     self._process_data()
                                 except Exception as e:
@@ -1130,22 +1158,12 @@ class _HeatMapPlotWidget(HeatMapWidget):
                 show=settings.show
                 if show:
                     if self.heatmap_settings.sink is not None:
-                        try: 
-                            xs = self.heatmap_settings.sink.xs
-                        except (KeyError, AttributeError):
-                            _logger.error(f'Data source has no "xs" attribute.')
-                            xs= np.arange(0, 100)
-                        try:
-                            ys = self.heatmap_settings.sink.ys
-                        except (KeyError, AttributeError):
-                            _logger.error(f'Data source has no "ys" attribute.')
-                            ys = np.arange(0, 100)
-                        # pick out the particular data series
                         try:
                             data = self.heatmap_settings.sink.datasets
                         except (KeyError, AttributeError):
                             _logger.error(f'Data series does not exist.')
-                            data= {series: np.zeros((len(ys), len(xs)))}
+                            
+                        
 
                         if not isinstance(data, dict):
                             raise ValueError(
@@ -1155,8 +1173,8 @@ class _HeatMapPlotWidget(HeatMapWidget):
 
                         if series in data:
                             # check for numpy array
-                            if isinstance(data[series], np.ndarray) and len(data[series]) > 0:
-                                if not isinstance(data[series][0], np.ndarray):
+                            if (isinstance(data[series], np.ndarray) or isinstance(data[series], list)) and len(data[series]) > 0:
+                                if not (isinstance(data[series][0], np.ndarray) or isinstance(data[series][0], list)):
                                     raise ValueError(
                                         f'Data series [{series}] must be a list of numpy '
                                         'arrays, but the first list element has type '
@@ -1165,32 +1183,32 @@ class _HeatMapPlotWidget(HeatMapWidget):
                                 # Use the first array in the list
                                 plot_data = np.array(data[series])
                             else:
-                                plot_data = np.array(data[series])
+                                raise ValueError(
+                                    f'Data series [{series}] must be a list of numpy arrays, '
+                                    f'but has type [{type(data[series])}] or is empty.'
+                                )
 
                             # check numpy array shape
-                            if plot_data.shape[0] != len(ys) or plot_data.shape[1] != len(xs):
-                                _logger.warning(
-                                    f'Data series shape mismatch: {plot_data.shape} vs expected ({len(ys)}, {len(xs)})'
-                                )
                                 # Try to resize or use what we have
-                                if plot_data.size > 0:
-                                    try:
-                                        self.set_data(xs, ys, plot_data)
-                                        self._process_data()
-                                    except Exception as e:
-                                        _logger.error(
-                                            f'Error processing data for heatmap [{heatmap_name}]: {e}. '
-                                            f'Type is {type(plot_data)}.'
-                                        )
-                            else:
+            
+                            try:
+                                try: 
+                                    xs = self.heatmap_settings.sink.xs
+                                except (KeyError, AttributeError):
+                                    _logger.error(f'Data source has no "xs" attribute. Setting xs to default range based on data shape.')
+                                    xs= np.arange(len(plot_data[0]))
                                 try:
-                                    self.set_data(xs, ys, plot_data)
-                                    self._process_data()
-                                except Exception as e:
-                                    _logger.error(
-                                        f'Error processing data for heatmap [{heatmap_name}]: {e}. '
-                                        f'Type is {type(plot_data)}.'
-                                    )
+                                    ys = self.heatmap_settings.sink.ys
+                                except (KeyError, AttributeError):
+                                    _logger.error(f'Data source has no "ys" attribute. Setting ys to default range based on data shape.')
+                                    ys = np.arange(len(plot_data))
+                                self.set_data(xs, ys, plot_data)
+                                self._process_data()
+                            except Exception as e:
+                                _logger.error(
+                                    f'Error processing data for heatmap [{heatmap_name}]: {e}. '
+                                    f'Type is {type(plot_data)}.'
+                                )
                     else:
                         # No sink available, but we still want to update display (e.g., show/hide)
                         _logger.debug(f'No data source available for heatmap [{heatmap_name}]')

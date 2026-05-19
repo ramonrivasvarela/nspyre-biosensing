@@ -336,7 +336,7 @@ np.array([[4, 5, 6], [3.4, 3.6, 3.5]])])
     """
 
     def __init__(
-        self, timeout: float = 1, data_processing_func: Optional[Callable] = None
+        self, timeout: float = 1, data_processing_func: Optional[Callable] = None, title: Optional[str] = None, xlabel: Optional[str] = None, ylabel: Optional[str] = None
     ):
         """
         Args:
@@ -349,7 +349,7 @@ np.array([[4, 5, 6], [3.4, 3.6, 3.5]])])
 
 
         self.line_plot = _FlexLinePlotWidget(
-            timeout=timeout, data_processing_func=data_processing_func
+            timeout=timeout, data_processing_func=data_processing_func, title=title, xlabel=xlabel, ylabel=ylabel
         )
         """Underlying LinePlotWidget."""
 
@@ -781,7 +781,7 @@ np.array([[4, 5, 6], [3.4, 3.6, 3.5]])])
 class _FlexLinePlotWidget(LinePlotWidget):
     """See FlexLinePlotWidget."""
 
-    def __init__(self, timeout: float, data_processing_func: Optional[Callable]):
+    def __init__(self, timeout: float, data_processing_func: Optional[Callable], title: Optional[str] = None, xlabel: Optional[str] = None, ylabel: Optional[str] = None):
         """
         Args:
             timeout: see :py:class:`FlexLinePlotWidget`.
@@ -791,6 +791,9 @@ class _FlexLinePlotWidget(LinePlotWidget):
         self.data_processing_func = data_processing_func
         self.plot_settings = _FlexLinePlotSettings()
         self.plot_settings.start()
+        self.title=title
+        self.xlabel=xlabel
+        self.ylabel=ylabel
         super().__init__()
 
     def _stop(self):
@@ -820,34 +823,43 @@ class _FlexLinePlotWidget(LinePlotWidget):
                 self.plot_settings.sink.pop(timeout=self.timeout)
 
                 # set title
-                try:
-                    title = self.plot_settings.sink.title
-                except AttributeError:
-                    _logger.info(
-                        f'Data source [{data_set_name}] has no "title" '
-                        'attribute. Not setting the plot title...'
-                    )
-                    title = None
+                if self.title is not None:
+                    title = self.title
+                else:
+                    try:
+                        title = self.plot_settings.sink.title
+                    except AttributeError:
+                        _logger.info(
+                            f'Data source [{data_set_name}] has no "title" '
+                            'attribute. Not setting the plot title...'
+                        )
+                        title = None
 
                 # set xlabel
-                try:
-                    xlabel = self.plot_settings.sink.xlabel
-                except AttributeError:
-                    _logger.info(
-                        f'Data source [{data_set_name}] has no "xlabel" '
-                        'attribute. Not setting the plot x-axis label...'
-                    )
-                    xlabel = None
+                if self.label is not None:
+                    xlabel = self.xlabel
+                else:
+                    try:
+                        xlabel = self.plot_settings.sink.xlabel
+                    except AttributeError:
+                        _logger.info(
+                            f'Data source [{data_set_name}] has no "xlabel" '
+                            'attribute. Not setting the plot x-axis label...'
+                        )
+                        xlabel = None
 
                 # set ylabel
-                try:
-                    ylabel = self.plot_settings.sink.ylabel
-                except AttributeError:
-                    _logger.info(
-                        f'Data source [{data_set_name}] has no "ylabel" '
-                        'attribute. Not setting the plot y-axis label...'
-                    )
-                    ylabel = None
+                if self.label is not None:
+                    ylabel = self.ylabel
+                else:
+                    try:
+                        ylabel = self.plot_settings.sink.ylabel
+                    except AttributeError:
+                        _logger.info(
+                            f'Data source [{data_set_name}] has no "ylabel" '
+                            'attribute. Not setting the plot y-axis label...'
+                        )
+                        ylabel = None
 
                 # try to access datasets
                 try:
