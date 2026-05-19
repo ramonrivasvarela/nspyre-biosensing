@@ -174,6 +174,7 @@ class I1I2(ContinuousTracking):
                         print('are we doing this????')
                         data_source.push({
                             'params':params,
+                            'xlabel': 'Frequency (Hz)',
                             'datasets':{
                                 'I1': I1_sweeps,
                                 'I2': I2_sweeps

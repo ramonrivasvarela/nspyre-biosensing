@@ -176,7 +176,7 @@ class wODMRSpyrelet(WFSpyrelet):
         mgr.Camera.set_number_kinetics(len(self.label))
         ## Prepare SG, ps
         Q_set = -1 if mode == 'AM' else 0 # ODMR ONLY
-        self.psWF.Pulser.constant(([6], Q_set, 0.0)) #set pulser to safe output
+        mgr.Pulser.set_state([6], Q_set, 0.0) #set pulser to safe output
         mgr.sg.set_rf_toggle(True)
         return
     ## Analysis Functions (data formatting, analysis)
@@ -212,7 +212,7 @@ class wODMRSpyrelet(WFSpyrelet):
         output = {'sig': ls_sig, 'bg': ls_bg, 'sig_all': sig_all}
         return output
     ###########################################################################################################################
-    def main(self, mgr, exp_time, readout_time, sweeps, label, frequencies, gain, gain_setting, cooler, cam_trigger, rf_amplitude, uw_duty, uw_rep, mode, ROI_xy, alt_label, alt_sleep_time, trackpy_params, focus_bool,
+    def main(self, exp_time, readout_time, sweeps, label, frequencies, gain, gain_setting, cooler, cam_trigger, rf_amplitude, uw_duty, uw_rep, mode, ROI_xy, alt_label, alt_sleep_time, trackpy_params, focus_bool,
                    data_path, save_image, data_download, shutdown, window_params, verbose, data_source, Misc):
         params={"exp_time": exp_time, "readout_time": readout_time, "sweeps": sweeps, "label": label, "frequencies": frequencies, "gain": gain, "gain_setting": gain_setting, "cooler": cooler, "cam_trigger": cam_trigger, "rf_amplitude": rf_amplitude, "uw_duty": uw_duty, "uw_rep": uw_rep, "mode": mode, "ROI_xy": ROI_xy, "alt_label": alt_label, "alt_sleep_time": alt_sleep_time, "trackpy_params": trackpy_params, "focus_bool": focus_bool, "data_path": data_path, "save_image": save_image, "data_download": data_download, "shutdown": shutdown, "verbose": verbose, "window_params": window_params,  "Misc": Misc}
         with InstrumentManager() as mgr, DataSource(data_source) as ds:
@@ -374,79 +374,79 @@ class wODMRSpyrelet(WFSpyrelet):
 
 
 
-    @PlotFormatInit(LinePlotWidget, ['ODMR_div'])
-    def init_format(p):
-        p.xlabel = 'frequency (Hz)'
-        p.ylabel = 'PL (cts)'
+    # @PlotFormatInit(LinePlotWidget, ['ODMR_div'])
+    # def init_format(p):
+    #     p.xlabel = 'frequency (Hz)'
+    #     p.ylabel = 'PL (cts)'
 
-    @Plot2D
-    def window(df, cache):
-        ND = 0
-        try:
-            latest_image = df['window'].dropna().iloc[-1][ND]
-        except KeyError:
-            latest_image = np.zeros((1024,1024))
-        return latest_image
+    # @Plot2D
+    # def window(df, cache):
+    #     ND = 0
+    #     try:
+    #         latest_image = df['window'].dropna().iloc[-1][ND]
+    #     except KeyError:
+    #         latest_image = np.zeros((1024,1024))
+    #     return latest_image
 
-    @Plot1D
-    def ODMR_div(df, cache):
-        ND = 0
-        grouped = df.groupby('f')
-        sigs = grouped['sig'] #also returns  groupby object, still with 'f' as the index, but with only sigs associated. A list of sigs (which is itself a list)
-        bgs = grouped['bg']
-        sigs_averaged = sigs.apply(list).apply(lambda val_set: [vals_by_ND[ND] for vals_by_ND in val_set]).apply(np.mean)
-        bgs_averaged = bgs.apply(list).apply(lambda val_set: [vals_by_ND[ND] for vals_by_ND in val_set]).apply(np.mean)
-        return {'ODMR': [sigs_averaged.index, sigs_averaged/bgs_averaged]}
+    # @Plot1D
+    # def ODMR_div(df, cache):
+    #     ND = 0
+    #     grouped = df.groupby('f')
+    #     sigs = grouped['sig'] #also returns  groupby object, still with 'f' as the index, but with only sigs associated. A list of sigs (which is itself a list)
+    #     bgs = grouped['bg']
+    #     sigs_averaged = sigs.apply(list).apply(lambda val_set: [vals_by_ND[ND] for vals_by_ND in val_set]).apply(np.mean)
+    #     bgs_averaged = bgs.apply(list).apply(lambda val_set: [vals_by_ND[ND] for vals_by_ND in val_set]).apply(np.mean)
+    #     return {'ODMR': [sigs_averaged.index, sigs_averaged/bgs_averaged]}
 
-    @Plot1D
-    def raw_signals(df, cache):
-        ND = 0
-        try:
-            grouped = df.groupby('f')
-            sigs = grouped['sig'] #also returns  groupby object, still with 'f' as the index, but with only sigs associated. A list of sigs (which is itself a list)
-            bgs = grouped['bg']
-            sigs_averaged = sigs.apply(list).apply(lambda val_set: [vals_by_ND[ND] for vals_by_ND in val_set]).apply(np.mean)
-            bgs_averaged = bgs.apply(list).apply(lambda val_set: [vals_by_ND[ND] for vals_by_ND in val_set]).apply(np.mean)
-            return {'sig': [sigs_averaged.index, sigs_averaged],
-                    'bg': [bgs_averaged.index, bgs_averaged]}
-        except KeyError:
-            return
+    # @Plot1D
+    # def raw_signals(df, cache):
+    #     ND = 0
+    #     try:
+    #         grouped = df.groupby('f')
+    #         sigs = grouped['sig'] #also returns  groupby object, still with 'f' as the index, but with only sigs associated. A list of sigs (which is itself a list)
+    #         bgs = grouped['bg']
+    #         sigs_averaged = sigs.apply(list).apply(lambda val_set: [vals_by_ND[ND] for vals_by_ND in val_set]).apply(np.mean)
+    #         bgs_averaged = bgs.apply(list).apply(lambda val_set: [vals_by_ND[ND] for vals_by_ND in val_set]).apply(np.mean)
+    #         return {'sig': [sigs_averaged.index, sigs_averaged],
+    #                 'bg': [bgs_averaged.index, bgs_averaged]}
+    #     except KeyError:
+    #         return
         
-    @Plot1D
-    def latest_signals(df, cache):
-        ND = 0
-        try:
-            df = df[df.sweep_idx == df.sweep_idx.max()] # filter for latest sweep
-            grouped = df.groupby('f')
-            sigs = grouped['sig'] #also returns  groupby object, still with 'f' as the index, but with only sigs associated. A list of sigs (which is itself a list)
-            bgs = grouped['bg']
-            sigs_averaged = sigs.apply(list).apply(lambda val_set: [vals_by_ND[ND] for vals_by_ND in val_set]).apply(np.mean)
-            bgs_averaged = bgs.apply(list).apply(lambda val_set: [vals_by_ND[ND] for vals_by_ND in val_set]).apply(np.mean)
-            return {'sig': [sigs_averaged.index, sigs_averaged],
-                    'bg': [bgs_averaged.index, bgs_averaged]}
-        except KeyError:
-            return
+    # @Plot1D
+    # def latest_signals(df, cache):
+    #     ND = 0
+    #     try:
+    #         df = df[df.sweep_idx == df.sweep_idx.max()] # filter for latest sweep
+    #         grouped = df.groupby('f')
+    #         sigs = grouped['sig'] #also returns  groupby object, still with 'f' as the index, but with only sigs associated. A list of sigs (which is itself a list)
+    #         bgs = grouped['bg']
+    #         sigs_averaged = sigs.apply(list).apply(lambda val_set: [vals_by_ND[ND] for vals_by_ND in val_set]).apply(np.mean)
+    #         bgs_averaged = bgs.apply(list).apply(lambda val_set: [vals_by_ND[ND] for vals_by_ND in val_set]).apply(np.mean)
+    #         return {'sig': [sigs_averaged.index, sigs_averaged],
+    #                 'bg': [bgs_averaged.index, bgs_averaged]}
+    #     except KeyError:
+    #         return
         
-    @Plot1D
-    def z_position(df, cache):
-        ND = 0
-        try: 
-            df_clean = df.dropna(subset = ['time', 'z_pos'])
-            z_pos = df_clean['z_pos'].tolist()
-            time = df_clean['time'].tolist()
-            return {'z_pos': [time, z_pos]}
-        except KeyError:
-            return
+    # @Plot1D
+    # def z_position(df, cache):
+    #     ND = 0
+    #     try: 
+    #         df_clean = df.dropna(subset = ['time', 'z_pos'])
+    #         z_pos = df_clean['z_pos'].tolist()
+    #         time = df_clean['time'].tolist()
+    #         return {'z_pos': [time, z_pos]}
+    #     except KeyError:
+    #         return
     
-    @Plot1D
-    def acquisition_fluorescence(df, cache):
-        ND = 0
-        tail = 50
+    # @Plot1D
+    # def acquisition_fluorescence(df, cache):
+    #     ND = 0
+    #     tail = 50
 
-        df = df.dropna(subset = ['sig_all'])
-        df_tail = df.tail(tail)
-        normalized_dt_raw = [np.array(row[ND]) for row in df_tail['sig_all'].values]
-        normalized_dt_raw_arr = np.stack(normalized_dt_raw)
-        mean_normalized = np.mean(normalized_dt_raw_arr, axis=0)
-        return {'raw': [list(range(len(mean_normalized))),mean_normalized],}
+    #     df = df.dropna(subset = ['sig_all'])
+    #     df_tail = df.tail(tail)
+    #     normalized_dt_raw = [np.array(row[ND]) for row in df_tail['sig_all'].values]
+    #     normalized_dt_raw_arr = np.stack(normalized_dt_raw)
+    #     mean_normalized = np.mean(normalized_dt_raw_arr, axis=0)
+    #     return {'raw': [list(range(len(mean_normalized))),mean_normalized],}
         

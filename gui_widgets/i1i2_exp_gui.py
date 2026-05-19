@@ -273,7 +273,7 @@ class I1I2PlotWidget(FlexLinePlotWidget):
                         I2_values = np.array(I2_sweep[1])
                         
                         # Calculate difference I2 - I1
-                        div_values = (I2_values - I1_values)/(2*(I2_values + I1_values))
+                        div_values = 2 * (I2_values - I1_values) / (I2_values + I1_values)
                         
                         # Store sweep entry with frequencies and difference values as numpy arrays
                         I2_minus_I1.append(np.stack([frequencies, div_values]))

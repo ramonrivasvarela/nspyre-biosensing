@@ -21,7 +21,7 @@ from nspyre import nspyreApp
 from gui_widgets import laser_gui
 from gui_widgets import instrument_gui
 from gui_widgets import camera_gui
-from gui_widgets import counts_exp_gui, picture_exp_gui, planescan_exp_gui, confocal_odmr_exp_gui, spatial_feedback_exp_gui, i1i2_exp_gui, temptime_exp_gui, triple_exp_gui, odmrcenter_exp_gui, testing_axis_exp_gui, tracking_gui
+from gui_widgets import counts_exp_gui, picture_exp_gui, planescan_exp_gui, confocal_odmr_exp_gui, spatial_feedback_exp_gui, i1i2_exp_gui, temptime_exp_gui, triple_exp_gui, odmrcenter_exp_gui, testing_axis_exp_gui, tracking_gui, wodmr_exp_gui
 
 from nspyre import InstrumentManager
 
@@ -89,6 +89,7 @@ def main():
                     'Triple Experiment': MainWidgetItem(triple_exp_gui, 'TripleExperimentWidget', stretch=(1, 1)),
                     'ODMR Center': MainWidgetItem(odmrcenter_exp_gui, 'ODMRCenterWidget', stretch=(1, 1)),
                     'Testing Axis': MainWidgetItem(testing_axis_exp_gui, 'TestingAxisWidget', stretch=(1, 1)),
+                    'WFODMR': MainWidgetItem(wodmr_exp_gui, 'wODMRWidget', stretch=(1, 1)),
                     },
                 
                 'Plotting' : {
@@ -102,7 +103,7 @@ def main():
                     'ODMR Center Flex Line Plot': MainWidgetItem(odmrcenter_exp_gui, 'ODMRCenterPlotWidget', stretch=(1, 1)),
                     'ODMR Center Track Plot': MainWidgetItem(odmrcenter_exp_gui, 'ODMRCenterTrackPlotWidget', stretch=(1, 1)),
                     'Tracking Flex Line Plot': MainWidgetItem(tracking_gui, 'TrackingPlotWidget', stretch=(1, 1)),
-                    
+                    'WFODMR Flex Line Plot': MainWidgetItem(wodmr_exp_gui, 'wODMRPlotWidget', stretch=(1, 1)),
                 
                     
 

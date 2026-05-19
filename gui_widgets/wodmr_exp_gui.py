@@ -4,6 +4,7 @@ from nspyre import ExperimentWidget
 from pyqtgraph import SpinBox
 from PyQt6.QtWidgets import QCheckBox, QComboBox, QLineEdit, QSpinBox
 import numpy as np
+from special_widgets.flex_line_plot_widget_fitting import FlexLinePlotWidget
 
 
 MAXIMUM = 2147483647  # QSpinBox maximum
@@ -223,45 +224,47 @@ class wODMRWidget(ExperimentWidget):
             },
         }
 
-        def data_processing_func(sink):
-            frequencies=sink.params['frequencies']
-            n_freqs=len(frequencies)
-            number_ND=sink.output['number_ND']
-            for i in range(number_ND):
-                sink.datasets[f"signal_{i}"]=np.array([])
-                sink.datasets[f"background_{i}"]=np.array([])
-                sink.datasets[f"signal_all_{i}"]=np.array([])
-                sink.datasets[f"signal_div_{i}"]=np.array([])
-            for sweep in range(sink.params['sweeps']):
-                for i in range(number_ND):
-                    signal_counts=np.empty(n_freqs)
-                    signal_counts[:]=np.nan
-                    sink.datasets[f"signal_{i}"].append(np.stack([frequencies, signal_counts], axis=1))
-                    background_counts=np.empty(n_freqs)
-                    background_counts[:]=np.nan
-                    sink.datasets[f"background_{i}"].append(np.stack([frequencies, background_counts], axis=1))
-                    signal_all_counts=np.empty(n_freqs)
-                    signal_all_counts[:]=np.nan
-                    sink.datasets[f"signal_all_{i}"].append(np.stack([frequencies, signal_all_counts], axis=1))
-                    signal_div_counts=np.empty(n_freqs)
-                    signal_div_counts[:]=np.nan
-                    sink.datasets[f"signal_div_{i}"].append(np.stack([frequencies, signal_div_counts], axis=1))
-                    for j in range(n_freqs):
-                        sink.datasets[f"signal_{i}"][-1][1][j]=sink.datasets["signal"][sweep][1][j][i]
-                        sink.datasets[f"background_{i}"][-1][1][j]=sink.datasets["background"][sweep][1][j][i]
-                        sink.datasets[f"signal_all_{i}"][-1][1][j]=sink.datasets["signal_all"][sweep][1][j][i]
-                        sink.datasets[f"signal_div_{i}"][-1][1][j]=sink.datasets["signal_div"][sweep][1][j][i]
-
-                    
-            return
 
         super().__init__(
             params_config,
             experiments.wfODMR,
             'wODMRSpyrelet',
-            'wfodmr',
-            title='Widefield ODMR', data_processing_func=data_processing_func
-        )
+            'main',
+            title='Widefield ODMR')
+class wODMRPlotWidget(FlexLinePlotWidget):
+    
+    def data_processing_func(sink):
+        frequencies=sink.params['frequencies']
+        n_freqs=len(frequencies)
+        for i in range(sink.output['number_ND']):
+            sink.datasets[f"signal_{i}"]=[]
+            sink.datasets[f"background_{i}"]=[]
+            sink.datasets[f"signal_all_{i}"]=[]
+            sink.datasets[f"signal_div_{i}"]=[]
+        for sweep in range(sink.params['sweeps']):
+            for i in range(sink.output['number_ND']):
+                signal_counts=np.empty(n_freqs)
+                signal_counts[:]=np.nan
+                sink.datasets[f"signal_{i}"].append(np.stack([frequencies, signal_counts], axis=1))
+                background_counts=np.empty(n_freqs)
+                background_counts[:]=np.nan
+                sink.datasets[f"background_{i}"].append(np.stack([frequencies, background_counts], axis=1))
+                signal_all_counts=np.empty(n_freqs)
+                signal_all_counts[:]=np.nan
+                sink.datasets[f"signal_all_{i}"].append(np.stack([frequencies, signal_all_counts], axis=1))
+                signal_div_counts=np.empty(n_freqs)
+                signal_div_counts[:]=np.nan
+                sink.datasets[f"signal_div_{i}"].append(np.stack([frequencies, signal_div_counts], axis=1))
+                for j in range(n_freqs):
+                    sink.datasets[f"signal_{i}"][-1][1][j]=sink.datasets["signal"][sweep][1][j][i]
+                    sink.datasets[f"background_{i}"][-1][1][j]=sink.datasets["background"][sweep][1][j][i]
+                    sink.datasets[f"signal_all_{i}"][-1][1][j]=sink.datasets["signal_all"][sweep][1][j][i]
+                    sink.datasets[f"signal_div_{i}"][-1][1][j]=sink.datasets["signal_div"][sweep][1][j][i]
+
+                    
+            return
+    def __init__(self):
+        super().__init__(data_processing_func=self.data_processing_func)
         self.add_plot('signal_div_1', series='signal_1', scan_i='sweep', scan_j='', processing='Average')
 
         # retrieve legend object
