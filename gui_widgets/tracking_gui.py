@@ -11,6 +11,9 @@ class TrackingPlotWidget(FlexLinePlotWidget):
         self.add_plot('Y_Position',        series='y_pos',   scan_i='',     scan_j='',  processing='Append', hidden=True)
         self.add_plot('Z_Position',        series='z_pos',   scan_i='',     scan_j='',  processing='Append', hidden=True)
         self.add_plot('Fluorescence',      series='total_fluor',   scan_i='',     scan_j='',  processing='Append')
+        self.add_plot('X_Search',          series='x_search', scan_i='',     scan_j='',  processing='Append', hidden=True)
+        self.add_plot('Y_Search',          series='y_search', scan_i='',     scan_j='',  processing='Append', hidden=True)
+        self.add_plot('Z_Search',          series='z_search', scan_i='',     scan_j='',  processing='Append', hidden=True)
 
 
         # retrieve legend object

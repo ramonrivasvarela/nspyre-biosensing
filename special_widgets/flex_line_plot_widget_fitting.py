@@ -843,7 +843,7 @@ class _FlexLinePlotWidget(LinePlotWidget):
                         title = None
 
                 # set xlabel
-                if self.label is not None:
+                if self.xlabel is not None:
                     xlabel = self.xlabel
                 else:
                     try:
@@ -856,7 +856,7 @@ class _FlexLinePlotWidget(LinePlotWidget):
                         xlabel = None
 
                 # set ylabel
-                if self.label is not None:
+                if self.ylabel is not None:
                     ylabel = self.ylabel
                 else:
                     try:

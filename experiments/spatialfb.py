@@ -169,6 +169,7 @@ class SpatialFeedback():
                         mgr.DAQcontrol.move({'x': x_center + e * xyz_step, 'y': y_center, 'z': z_center})
                         #print('\n before next read')
                         dataXAfter = self.read(mgr)
+                        time_current=time.time()
                         print('\n DataXAfter:', dataXAfter)
                         if dataXAfter < dataXBefore:
                             keepGoing = False
@@ -210,6 +211,7 @@ class SpatialFeedback():
                         # Move via XYZcontrol
                         mgr.DAQcontrol.move({'x': x_center, 'y': y_center + e * xyz_step, 'z': z_center})
                         dataYAfter = self.read(mgr)
+                        time_current=time.time()
                         print('\n DataYAfter:', dataYAfter)
                         if dataYAfter < dataYBefore:
                             keepGoing = False

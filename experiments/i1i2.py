@@ -88,7 +88,7 @@ class I1I2(ContinuousTracking):
                    continuous_tracking=False, searchXYZ="(0.5, 0.5, 0.5)", max_search="(1, 1, 1)", min_search="(0.1, 0.1, 0.1)", 
                    scan_distance="(0.03, 0.03, 0.05)", changing_search=False, search_PID="(0.5,0.01,0)", 
                    search_integral_history=5, spot_size=400e-9, advanced_tracking=False, 
-                   diffusion_constant=200, data_download=False, dataset='i1i2_data', tracking_dataset='i1i2_tracking'):
+                   diffusion_constant=200, data_download=False, dataset='I1I2', tracking_dataset='I1I2_tracking'):
         params={'sampling_rate': sampling_rate,
                 'time_per_sgpoint': time_per_sgpoint,
                 'mwPulseTime': mwPulseTime,
@@ -128,8 +128,10 @@ class I1I2(ContinuousTracking):
             
             I1_sweeps=StreamingList()
             I2_sweeps=StreamingList()
-            I1_tracking=StreamingList()
-            I2_tracking=StreamingList()
+            x_tracking=StreamingList()
+            y_tracking=StreamingList()
+            z_tracking=StreamingList()
+            total_fluor_tracking=StreamingList()
             # Shivam: The following is the classical case where we are not tracking
             # while taking I1 and I2 data
             n_freqs=len(freqs)
@@ -159,15 +161,13 @@ class I1I2(ContinuousTracking):
                         # import pdb; pdb.set_trace()
                         
                         output_buffer = self.odmr_read(mgr, self.sequence, read_timeout)
+                        time_current = time.time()
                         data_I1, data_I2 = self.odmr_math(output_buffer)
                         I1_sweeps[-1][1][f] = data_I1
                         I1_sweeps.updated_item(-1)
                         I2_sweeps[-1][1][f] = data_I2
                         I2_sweeps.updated_item(-1)
-                        I1_tracking.append(np.array([np.array([time.time()-start_t]), np.array([data_I1])]))
-                        I1_tracking.updated_item(-1)
-                        I2_tracking.append(np.array([np.array([time.time()-start_t]), np.array([data_I2])]))
-                        I2_tracking.updated_item(-1)
+
                         print("ODMR Maths result:")
                         print(data_I1, data_I2)
                         # Shivam: equivalent of return statement, since acquired into mongo database
@@ -178,6 +178,26 @@ class I1I2(ContinuousTracking):
                             'datasets':{
                                 'I1': I1_sweeps,
                                 'I2': I2_sweeps
+                            }
+                        })
+
+                        current_position = mgr.DAQcontrol.position
+                        x_tracking.append(np.array([np.array([time_current-start_t]), np.array([current_position['x']])]))
+                        x_tracking.updated_item(-1)
+                        y_tracking.append(np.array([np.array([time_current-start_t]), np.array([current_position['y']])]))
+                        y_tracking.updated_item(-1)
+                        z_tracking.append(np.array([np.array([time_current-start_t]), np.array([current_position['z']])]))
+                        z_tracking.updated_item(-1)
+                        total_fluor_tracking.append(np.array([np.array([time_current-start_t]), np.array([data_I1 + data_I2])]))
+                        total_fluor_tracking.updated_item(-1)
+                        tracking_data_source.push({
+                            'title': 'Tracking Data',
+                            'xlabel': 'Time (s)',
+                            'datasets': {
+                                'x_pos': x_tracking,
+                                'y_pos': y_tracking,
+                                'z_pos': z_tracking,
+                                'total_fluor': total_fluor_tracking,
                             }
                         })
                         if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
@@ -200,13 +220,12 @@ class I1I2(ContinuousTracking):
                 return self.finalize(mgr, data_download, I1_sweeps, I2_sweeps)
 
             else:
+                X_search=StreamingList()
+                Y_search=StreamingList()
+                Z_search=StreamingList()
                 # Shivam: The search_error_array has 3 rows for x, y, z and integral_history columns for the latest to oldest error values
                 search_error_array = np.zeros((3, search_integral_history))  # Shivam: Same as above but for search radius optimization
                 index = 0
-                x_tracking=StreamingList()
-                y_tracking=StreamingList()
-                z_tracking=StreamingList()
-                total_fluor_tracking=StreamingList()
                 # Counts every time we measure a certain frequency value
                 self.counter = 0
                 for sweep in range(sweeps):
@@ -280,6 +299,12 @@ class I1I2(ContinuousTracking):
                         z_tracking.updated_item(-1)
                         total_fluor_tracking.append(np.array([np.array([current_time-start_t]), np.array([total_fluor])]))
                         total_fluor_tracking.updated_item(-1)
+                        X_search.append(np.array([np.array([current_time-start_t]), np.array([self.search[0]])]))
+                        Y_search.append(np.array([np.array([current_time-start_t]), np.array([self.search[1]])]))
+                        Z_search.append(np.array([np.array([current_time-start_t]), np.array([self.search[2]])]))
+                        X_search.updated_item(-1)
+                        Y_search.updated_item(-1)
+                        Z_search.updated_item(-1)
 
                         print("Main search_error_array is " + str(search_error_array))
                         print(data_I1, data_I2)
@@ -296,23 +321,23 @@ class I1I2(ContinuousTracking):
                             'datasets':{
                                 'I1': I1_sweeps,
                                 'I2': I2_sweeps,
+                            }
+                        })
+                        tracking_data_source.push({
+                            'title': 'Tracking Data',
+                            'xlabel': 'Time (s)',
+                            'datasets': {
+
                                 'x_pos': x_tracking,
                                 'y_pos': y_tracking,
                                 'z_pos': z_tracking,
                                 'total_fluor': total_fluor_tracking,
+                                'x_search': X_search,
+                                'y_search': Y_search,
+                                'z_search': Z_search,
+
                             }
                         })
-                        # tracking_data_source.push({
-                        #     'title': 'Tracking Data',
-                        #     'xlabel': 'Time (s)',
-                        #     'datasets': {
-
-                        #         'x_pos': x_tracking,
-                        #         'y_pos': y_tracking,
-                        #         'z_pos': z_tracking,
-                        #         'total_fluor': total_fluor_tracking,
-                        #     }
-                        # })
 
                         self.counter += 1
 
@@ -367,9 +392,10 @@ class I1I2(ContinuousTracking):
             self.search = eval(searchXYZ)
             print("search is " + str(self.search))
 
-            self.max_search = max_search
+            self.max_search = eval(max_search)
 
-            self.min_search = min_search
+            self.min_search = eval(min_search)
+
 
             # Shivam: Check syntax
             self.scan_distance = eval(scan_distance)
