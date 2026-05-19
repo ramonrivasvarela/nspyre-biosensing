@@ -221,7 +221,7 @@ class ConfocalODMRWidget(ExperimentWidget):
             },
             'dataset':{
                 'display_text':'Data Set',
-                'widget':QLineEdit('odmr')
+                'widget':QLineEdit('ODMR')
             }
         }
         

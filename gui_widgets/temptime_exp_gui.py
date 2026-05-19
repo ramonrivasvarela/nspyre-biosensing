@@ -295,7 +295,7 @@ class TempTimeWidget(ExperimentWidget):
             },
             'dataset':{
                 'display_text': 'Data Source',
-                'widget': QLineEdit("temp_time")
+                'widget': QLineEdit("TvT")
             }
         }
 
@@ -328,4 +328,4 @@ class TempTimePlotWidget(FlexLinePlotWidget):
         # set the legend location
         legend.setOffset((-10, -50))
 
-        self.datasource_lineedit.setText('temp_time')
+        self.datasource_lineedit.setText('TvT')

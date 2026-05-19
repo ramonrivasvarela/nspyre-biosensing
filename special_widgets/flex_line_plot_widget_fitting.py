@@ -365,10 +365,10 @@ np.array([[4, 5, 6], [3.4, 3.6, 3.5]])])
         plot_settings_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignHCenter)
 
         # plot name lineedit
-        self.plot_name_lineedit = QtWidgets.QLineEdit('avg')
+        self.plot_name_lineedit = QtWidgets.QLineEdit()
 
         # data series lineedit
-        self.plot_series_lineedit = QtWidgets.QLineEdit('series1')
+        self.plot_series_lineedit = QtWidgets.QLineEdit()
 
         # scan indices lineedits
         self.add_plot_scan_i_textbox = QtWidgets.QLineEdit()
@@ -787,6 +787,7 @@ class _FlexLinePlotWidget(LinePlotWidget):
             timeout: see :py:class:`FlexLinePlotWidget`.
             data_processing_func: see :py:class:`FlexLinePlotWidget`.
         """
+        super().__init__()
         self.timeout = timeout
         self.data_processing_func = data_processing_func
         self.plot_settings = _FlexLinePlotSettings()
@@ -794,7 +795,13 @@ class _FlexLinePlotWidget(LinePlotWidget):
         self.title=title
         self.xlabel=xlabel
         self.ylabel=ylabel
-        super().__init__()
+        if self.title is not None:
+            self.set_title(self.title)
+        if self.xlabel is not None:
+            self.xaxis.setLabel(text=self.xlabel)
+        if self.ylabel is not None:
+            self.yaxis.setLabel(text=self.ylabel)
+        
 
     def _stop(self):
         """Stop the updating and plot data management threads."""

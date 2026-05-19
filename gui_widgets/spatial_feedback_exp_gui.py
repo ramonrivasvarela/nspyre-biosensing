@@ -80,6 +80,11 @@ class SpatialFeedbackWidget(ExperimentWidget):
                 'display_text': 'Starting Point',
                 'widget': starting_point_cb,
             },
+            'dataset':
+            {
+                'display_text': 'Dataset Name',
+                'widget': QLineEdit('feedback'),
+            },
         }
 
         super().__init__(

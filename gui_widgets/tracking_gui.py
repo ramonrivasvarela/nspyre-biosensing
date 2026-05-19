@@ -1,18 +1,16 @@
 from special_widgets.flex_line_plot_widget_fitting import FlexLinePlotWidget
 
-class CountsPlotWidget(FlexLinePlotWidget):
+class TrackingPlotWidget(FlexLinePlotWidget):
     """Add some default settings to the FlexSinkLinePlotWidget."""
-    def data_processing_func(self, sink):
-        sink.title="Tracking"
-        sink.ylabel="Counts"
-        sink.xlabel="Time (s)"
+
 
     def __init__(self):
-        super().__init__()
+        super().__init__(xlabel='Time (s)', title='Tracking')
         # create some default signal plots
         self.add_plot('X_Position',        series='x_pos',   scan_i='',     scan_j='',  processing='Append', hidden=True)
         self.add_plot('Y_Position',        series='y_pos',   scan_i='',     scan_j='',  processing='Append', hidden=True)
         self.add_plot('Z_Position',        series='z_pos',   scan_i='',     scan_j='',  processing='Append', hidden=True)
+        self.add_plot('Fluorescence',      series='total_fluor',   scan_i='',     scan_j='',  processing='Append')
 
 
         # retrieve legend object

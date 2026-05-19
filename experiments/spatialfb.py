@@ -12,7 +12,7 @@ import logging
 import scipy.optimize as sciOP
 import scipy.interpolate as sciIP
 from math import ceil
-from nspyre import InstrumentManager
+from nspyre import InstrumentManager, StreamingList, DataSource
 from pathlib import Path
 from nspyre import nspyre_init_logger
 from nspyre import experiment_widget_process_queue
@@ -67,14 +67,23 @@ class SpatialFeedback():
         _logger.info('Destroyed PlaneScan instance.')
 
     def spatial_feedback(self, do_z=True, xyz_step=0.05,
-            shrink_every_x_iter=1, starting_point='default', probe_time=0.40, initial_position="(0,0,50)", n_points=1, counter_already_exists=False):
+            shrink_every_x_iter=1, starting_point='default', probe_time=0.40, initial_position="(0,0,50)", n_points=1, counter_already_exists=False, dataset='feedback'):
         self.n_points=n_points
         self.ns_clock_time = 10
 
         self.probe_time = probe_time
         self.ns_probe_time = int(round(self.probe_time * 1e9))
-        with InstrumentManager() as mgr:
+        with InstrumentManager() as mgr, DataSource(dataset) as ds:
             initial_position=eval(initial_position)
+            params={'do_z':do_z,
+                    'xyz_step':xyz_step,
+                    'shrink_every_x_iter': shrink_every_x_iter,
+                    'starting_point': starting_point,
+                    'probe_time':probe_time,
+                    'initial_position': initial_position,
+                    'n_points': n_points,
+                    'counter_already_exists' : counter_already_exists,
+                    }
             self.initialize(mgr, initial_position, starting_point, counter_already_exists)
             x_center = self.init_x
             y_center = self.init_y
@@ -89,6 +98,12 @@ class SpatialFeedback():
             '''we define step size instead of a linspace'''
             counter = 0
             #import pdb; pdb.set_trace()
+            time_initial=time.time()
+            X_pos=StreamingList()
+            Y_pos=StreamingList()
+            Z_pos=StreamingList()
+            fluorescence=StreamingList()
+
             while xyz_step >= 0.01:
                 print('\n scanning z, x, y, with step size:', xyz_step)
                 #print('search_x:', search_x, 'search_y:', search_y, 'search_z:', search_z)
@@ -109,6 +124,7 @@ class SpatialFeedback():
                             mgr.DAQcontrol.move({'x': x_center, 'y': y_center, 'z': z_center + e * (xyz_step + .02)})
                             #print('\n before next read')
                             dataZAfter = self.read(mgr)
+                            time_current=time.time()
                             print('\n DataZAfter:', dataZAfter)
                             if dataZAfter < dataZBefore:
                                 keepGoing = False
@@ -116,6 +132,25 @@ class SpatialFeedback():
                             else:
                                 z_center = z_center + e * (xyz_step + .02)
                                 dataZBefore = dataZAfter
+                            X_pos.append(np.array([np.array([time_current-time_initial]),np.array([x_center])]))
+                            Y_pos.append(np.array([np.array([time_current-time_initial]),np.array([y_center])]))
+                            Z_pos.append(np.array([np.array([time_current-time_initial]),np.array([z_center])]))
+                            fluorescence.append(np.array([np.array([time_current-time_initial]),np.array([dataZAfter])]))
+
+                            X_pos.updated_item(-1)
+                            Y_pos.updated_item(-1)
+                            Z_pos.updated_item(-1)
+                            fluorescence.updated_item(-1)
+                            ds.push({
+                            'params': params,
+                            'title': 'Spatial Feedback Tracking',
+                            'xlabel': 'Time (s)',
+                            'datasets': {'x_pos' : X_pos,
+                                        'y_pos' : Y_pos,
+                                        'z_pos' : Z_pos,
+                                        'total_fluor': fluorescence,
+                                        }
+                            })
                             if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
                                 # the GUI has asked us nicely to exit
                                 self.finalize(mgr, counter_already_exists)
@@ -141,6 +176,24 @@ class SpatialFeedback():
                         else:
                             x_center = x_center + e * xyz_step
                             dataXBefore = dataXAfter
+                        X_pos.append(np.array([np.array([time_current-time_initial]),np.array([x_center])]))
+                        Y_pos.append(np.array([np.array([time_current-time_initial]),np.array([y_center])]))
+                        Z_pos.append(np.array([np.array([time_current-time_initial]),np.array([z_center])]))
+                        fluorescence.append(np.array([np.array([time_current-time_initial]),np.array([dataXAfter])]))
+                        X_pos.updated_item(-1)
+                        Y_pos.updated_item(-1)
+                        Z_pos.updated_item(-1)
+                        fluorescence.updated_item(-1)
+                        ds.push({
+                            'params': params,
+                            'title': 'Spatial Feedback Tracking',
+                            'xlabel': 'Time (s)',
+                            'datasets': {'x_pos' : X_pos,
+                                        'y_pos' : Y_pos,
+                                        'z_pos' : Z_pos,
+                                        'total_fluor': fluorescence,
+                                        }
+                        })
                         if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
                             # the GUI has asked us nicely to exit
                             self.finalize(mgr, counter_already_exists)
@@ -165,6 +218,24 @@ class SpatialFeedback():
                         else:
                             y_center = y_center + e * xyz_step
                             dataYBefore = dataYAfter
+                        X_pos.append(np.array([np.array([time_current-time_initial]),np.array([x_center])]))
+                        Y_pos.append(np.array([np.array([time_current-time_initial]),np.array([y_center])]))
+                        Z_pos.append(np.array([np.array([time_current-time_initial]),np.array([z_center])]))
+                        fluorescence.append(np.array([np.array([time_current-time_initial]),np.array([dataYAfter])]))
+                        X_pos.updated_item(-1)
+                        Y_pos.updated_item(-1)
+                        Z_pos.updated_item(-1)
+                        fluorescence.updated_item(-1)
+                        ds.push({
+                            'params': params,
+                            'title': 'Spatial Feedback Tracking',
+                            'xlabel': 'Time (s)',
+                            'datasets': {'x_pos' : X_pos,
+                                        'y_pos' : Y_pos,
+                                        'z_pos' : Z_pos,
+                                        'total_fluor': fluorescence,
+                                        }
+                        })
                         if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
                             # the GUI has asked us nicely to exit
                             self.finalize(mgr, counter_already_exists)

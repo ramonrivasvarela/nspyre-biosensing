@@ -33,7 +33,7 @@ class I1I2Widget(ExperimentWidget):
 
         z_feedback_every_sb = QSpinBox()
         z_feedback_every_sb.setMinimum(1)
-        z_feedback_every_sb.setValue(1)
+        z_feedback_every_sb.setValue(5)
 
         shrink_every_x_iter_sb = QSpinBox()
         shrink_every_x_iter_sb.setMinimum(1)
@@ -58,6 +58,9 @@ class I1I2Widget(ExperimentWidget):
         # New params_config dictionary using only display_text and widget:
         track_z_cb = QCheckBox()
         track_z_cb.setChecked(True)
+
+        continuous_tracking_cb = QCheckBox()
+        continuous_tracking_cb.setChecked(True)
         params_config = {
             'sampling_rate': {
                 'display_text': 'Sampling Rate',
@@ -105,11 +108,11 @@ class I1I2Widget(ExperimentWidget):
             },
             'frequencies': {
                 'display_text': 'Frequencies',
-                'widget': QLineEdit("(2.865e9, 2.87e9, 10)")
+                'widget': QLineEdit("(2.864e9, 2.872e9, 10)")
             },
             'slope_range': {
                 'display_text': 'Slope Range',
-                'widget': QLineEdit("(2.8665e9, 2.8685e9)")
+                'widget': QLineEdit("(2.864e9, 2.872e9)")
             },
             'sideband_frequency': {
                 'display_text': 'Sideband Frequency',
@@ -158,9 +161,9 @@ class I1I2Widget(ExperimentWidget):
 
             'continuous_tracking': {
                 'display_text': 'Continuous Tracking',
-                'widget': QCheckBox()
+                'widget': continuous_tracking_cb
             },
-            'searchXYZ': {
+            'searchXYZ': {  
                 'display_text': 'Search XYZ',
                 'widget': QLineEdit("[0.5, 0.5, 0.5]")
             },
@@ -170,7 +173,7 @@ class I1I2Widget(ExperimentWidget):
             },
             'min_search': {
                 'display_text': 'Min Search',
-                'widget': QLineEdit("(0.1, 0.1, 0.1)")
+                'widget': QLineEdit("(0.1, 0.1, 0.3)")
             },
             'scan_distance': {
                 'display_text': 'Scan Distance',
@@ -217,11 +220,11 @@ class I1I2Widget(ExperimentWidget):
             },
             'dataset': {
                 'display_text': 'Data Source',
-                'widget': QLineEdit('i1i2'),
+                'widget': QLineEdit('I1I2'),
             },
             'tracking_dataset': {
                 'display_text': 'Tracking Data Source',
-                'widget': QLineEdit('i1i2_tracking'),
+                'widget': QLineEdit('I1I2_tracking'),
             }
         }
         
@@ -284,7 +287,7 @@ class I1I2PlotWidget(FlexLinePlotWidget):
         super().__init__(data_processing_func=processing_function) 
         self.add_plot('I1',        series='I1',   scan_i='',     scan_j='',  processing='Average' , hidden=True)
         self.add_plot('I2',        series='I2',   scan_i='',     scan_j='',  processing='Average', hidden=True)
-        self.add_plot('I2-I1/2(I1+I2)',      series='I2_I1', scan_i='',     scan_j='',  processing='Average')
+        self.add_plot('I2_I1',      series='I2_I1', scan_i='',     scan_j='',  processing='Average')
 
 
         # retrieve legend object
@@ -292,4 +295,4 @@ class I1I2PlotWidget(FlexLinePlotWidget):
         # set the legend location
         legend.setOffset((-10, -50))
 
-        self.datasource_lineedit.setText('i1i2')
+        self.datasource_lineedit.setText('I1I2')
