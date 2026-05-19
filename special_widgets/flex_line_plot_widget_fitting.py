@@ -165,7 +165,7 @@ class _FlexLinePlotSettings(QThreadSafeObject):
 
 class FittingManager(QtWidgets.QWidget):
 
-    # (data_series, fit_series, model_fn, initial_params_dict)
+    # (plot_name, fit_series, model_fn, initial_params_dict)
     create_fit = QtCore.Signal(str, str, object, object)
 
     def __init__(self, parent=None):
@@ -217,12 +217,12 @@ class FittingManager(QtWidgets.QWidget):
 
         self.executor_area=QtWidgets.QWidget()
         self.executor_layout=QtWidgets.QFormLayout(self.executor_area)
-        self.data_series_lineedit=QtWidgets.QLineEdit('data_series')
+        self.plot_name_lineedit=QtWidgets.QLineEdit('plot_name')
         self.fit_button=QtWidgets.QPushButton('Fit')
-        self.fit_series_lineedit=QtWidgets.QLineEdit('fit_data_series')
+        self.fit_series_lineedit=QtWidgets.QLineEdit('fit_plot_name')
 
         self.fit_button.clicked.connect(self._fit_clicked)
-        self.executor_layout.addRow(QtWidgets.QLabel('Data Series'), self.data_series_lineedit)
+        self.executor_layout.addRow(QtWidgets.QLabel('Plot Name'), self.plot_name_lineedit)
         self.executor_layout.addRow(QtWidgets.QLabel('Fit Series'), self.fit_series_lineedit)
         self.executor_layout.addRow(self.fit_button)
 
@@ -270,10 +270,10 @@ class FittingManager(QtWidgets.QWidget):
         self._add_fitting_widget(fitting_type)
 
     def _fit_clicked(self):
-        data_series = self.data_series_lineedit.text().strip()
+        plot_name = self.plot_name_lineedit.text().strip()
         fit_series = self.fit_series_lineedit.text().strip()
-        if not data_series or not fit_series:
-            _logger.error('Both Data Series and Fit Series must be provided.')
+        if not plot_name or not fit_series:
+            _logger.error('Both Plot Name and Fit Series must be provided.')
             return
 
         if self.current_fitting == 'Linear':
@@ -287,7 +287,7 @@ class FittingManager(QtWidgets.QWidget):
             return
 
         initial_params = dict(self.fitting_parameters[self.current_fitting])
-        self.create_fit.emit(data_series, fit_series, model_fn, initial_params)
+        self.create_fit.emit(plot_name, fit_series, model_fn, initial_params)
     
         
 
@@ -744,12 +744,12 @@ np.array([[4, 5, 6], [3.4, 3.6, 3.5]])])
         """Called when the user clicks the connect button."""
         self.line_plot.new_source(self.datasource_lineedit.text())
 
-    def _create_fit(self, data_series: str, fit_series: str, model_fn: Callable, initial_params: dict):
+    def _create_fit(self, plot_name: str, fit_series: str, model_fn: Callable, initial_params: dict):
         """Called when the user creates a new fit from the fitting manager."""
         try:
 
             fitted_params = self.line_plot._create_fit(
-                data_series,
+                plot_name,
                 fit_series,
                 model_fn,
                 initial_params,     
@@ -1022,7 +1022,7 @@ class _FlexLinePlotWidget(LinePlotWidget):
 
     def _create_fit(
         self,
-        data_series: str,
+        plot_name: str,
         fit_series_name: str,
         model_fn,
         initial_params: dict[str, float],
@@ -1033,7 +1033,7 @@ class _FlexLinePlotWidget(LinePlotWidget):
         except AttributeError:
             raise RuntimeError('No data source connected.') from None
         try:
-            settings = self.plot_settings.series_settings[data_series]
+            settings = self.plot_settings.series_settings[plot_name]
             series = settings.series
             scan_i = settings.scan_i
             scan_j = settings.scan_j
@@ -1098,12 +1098,12 @@ class _FlexLinePlotWidget(LinePlotWidget):
                     )
 
         except Exception as err:
-            raise RuntimeError(f'Data series [{data_series}] not found in sink.') from err
+            raise RuntimeError(f'Data series [{plot_name}] not found in sink.') from err
 
         arr = processed_data
         if not isinstance(arr, np.ndarray) or arr.ndim != 2 or arr.shape[0] != 2:
             raise RuntimeError(
-                f'Data series [{data_series}] last element must be numpy array of shape (2, n).'
+                f'Data series [{plot_name}] last element must be numpy array of shape (2, n).'
             )
 
         x = np.asarray(arr[0], dtype=float)
