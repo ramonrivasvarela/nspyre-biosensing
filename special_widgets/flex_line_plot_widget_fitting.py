@@ -236,7 +236,7 @@ class FittingManager(QtWidgets.QWidget):
         self._new_fitting_widget(self.fitting_dropdown.currentText())
 
     def _format_param(self, value: float) -> str:
-        return f'{float(value):.4e}'
+        return f'{float(value):.6e}'
 
     def _add_fitting_widget(self, fitting_type: str):
         self.fitting_widget = QtWidgets.QWidget()

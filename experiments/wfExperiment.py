@@ -444,7 +444,7 @@ class WFSpyrelet():
                 raise Exception()
             time.sleep(acq_sleep) #Give time to start acquisition
             ## Go
-            self.psWF.stream(seq_key, 1, mode = 'AM')
+            mgr.Pulser.stream_sequence(seq_key, 1, AM=False)
             timeout_counter = 0
             while(mgr.Camera.get_total_number_images_acquired()[1] < n_pic and timeout_counter <= self.timeout_limit):
                 time.sleep(0.05)#Might want to base wait time on pulse streamer signal
@@ -478,7 +478,7 @@ class WFSpyrelet():
                 raise Exception()
             time.sleep(acq_sleep) #Give time to start acquisition
             ## Go
-            self.psWF.stream(seq_key, 1, mode = 'AM')
+            mgr.Pulser.stream_sequence(seq_key, 1, AM=False)
             timeout_counter = 0
             if self.debug or self.verbose: t_prestream = time.time()
             if intermediate_save:
@@ -534,7 +534,7 @@ class WFSpyrelet():
             mgr.Camera.set_number_kinetics(len(self.label))
             ## Prepare SG, ps
             # Q_set = -1 if mode == 'AM' else 0 # ODMR ONLY
-            self.psWF.Pulser.constant(([6],...,0.0)) #set pulser to safe output
+            mgr.Pulser.set_state([6],...,0.0) #set pulser to safe output
             mgr.sg.set_rf_toggle(True)
             raise NotImplementedError('main loop initialization is highly dependent on the experiment and protocol. Please implement this function.')
         ## Analysis Functions (data formatting, analysis)
@@ -799,7 +799,7 @@ class WFSpyrelet():
         def finalize_sg(self, mgr):
             mgr.sg.set_rf_toggle(False)
             mgr.sg.set_mod_toggle(False)
-            self.psWF.Pulser.reset()
+            mgr.Pulser.reset()
             return
         
         def finalize_camera(self, mgr, shutdown):
