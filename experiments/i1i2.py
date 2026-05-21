@@ -156,19 +156,9 @@ class I1I2(ContinuousTracking):
                         I1_sweeps.updated_item(-1)
                         I2_sweeps[-1][1][f] = data_I2
                         I2_sweeps.updated_item(-1)
-<<<<<<< Updated upstream
-
-                        print("ODMR Maths result:")
-                        print(data_I1, data_I2)
-=======
-                        I1_tracking.append(np.array([np.array([time.time()-start_t]), np.array([data_I1])]))
-                        I1_tracking.updated_item(-1)
-                        I2_tracking.append(np.array([np.array([time.time()-start_t]), np.array([data_I2])]))
-                        I2_tracking.updated_item(-1)
                         if self.VERBOSE:
                             print("ODMR Maths result:")
                             print(data_I1, data_I2)
->>>>>>> Stashed changes
                         # Shivam: equivalent of return statement, since acquired into mongo database
                         if self.VERBOSE:
                             print('are we doing this????')
