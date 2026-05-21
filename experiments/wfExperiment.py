@@ -215,16 +215,15 @@ class WFSpyrelet():
             raise NotImplementedError('SG initialization may require additional parameters depending on the experiment and protocol. Please implement this function, or initialize the SG directly in the initialize function.')
         
         def init_seq(self, mgr, alt_label): # TEMPLATE
-            self.seq_key = ... # Dependent on protocol
+            self.main_seq = ... # Dependent on protocol
             # EX...
             # self.psWF.I1I2(..., key = seq_key) # Dependent on protocol
             # self.psWF.ODMR(..., key = seq_key) # Dependent on protocol
             if alt_label:
                 ... # Dependent on protocol
-                self.alt_key = ...
-            self.gain_key = 'gain_seq'
+                self.alt_seq = ...
             self.n_gain = 2                                      #(Hardcoded) | number of pulses in gain sequence, should be at least 2 to get a sense of dynamics
-            self.psWF.prep_gain_seq(self.n_gain,self.exp_time, self.readout_time, trig = self.trigger_time, buff = self.buffer_time, key = self.gain_key)
+            self.gain_seq=self.psWF.prep_gain_seq(self.n_gain,self.exp_time, self.readout_time, trig = self.trigger_time, buff = self.buffer_time)
             raise NotImplementedError('Sequence initialization is highly dependent on the experiment and protocol. Please implement this function, or initialize the sequences directly in the initialize function.')
 
         def init_data_saving(self, data_path, data_download, save_image):
@@ -371,7 +370,7 @@ class WFSpyrelet():
                 print('Optimizing gain...')
                 while (max_value < ideal_pixel_range[0] or max_value > ideal_pixel_range[1]) and ct < max_checks:
                     ct += 1
-                    representative_img = self.img_1D_to_2D(self.GetPicSimple(mgr, self.gain_key, self.n_gain)[-1], 1024, 1024) # Acquire data, keep last image as representative of gain setting
+                    representative_img = self.img_1D_to_2D(self.GetPicSimple(mgr, self.gain_seq, self.n_gain)[-1], 1024, 1024) # Acquire data, keep last image as representative of gain setting
                     max_value = np.max(representative_img)
                     if max_value <= ideal_pixel_range[0]:
                         print(f'max pixel value: {max_value} low, raising gain: {self.gain} > {self.gain+1}')
@@ -400,7 +399,7 @@ class WFSpyrelet():
                         print('Gain already at user input value: ', gain)
                 print('Checking gain...')
                 for i in range(img_cycles_no_gain_optimization):
-                    representative_img = self.img_1D_to_2D(self.GetPicSimple(mgr, self.gain_key, self.n_gain)[-1], 1024, 1024) # Acquire data, keep last image as representative of gain setting
+                    representative_img = self.img_1D_to_2D(self.GetPicSimple(mgr, self.gain_seq, self.n_gain)[-1], 1024, 1024) # Acquire data, keep last image as representative of gain setting
                     max_value = np.max(representative_img)
                     if max_value <= ideal_pixel_range[0]:
                         print(f'max pixel value: {max_value} low')
@@ -424,7 +423,7 @@ class WFSpyrelet():
             return do_trackpy, r, thresh_sigma, min_distance, buffer, bg_pts
         
         ## Picture Functions (take pictures)
-        def GetPicSimple(self, mgr, seq_key, n_pic, im_size = 1024**2, no_window = False):
+        def GetPicSimple(self, mgr, seq, n_pic, im_size = 1024**2, no_window = False):
             '''
             Runs an acquisition of n pictures over a given sequence, returns pictures as a parsed list of 1D arrays of length 'im_size'.
             Automatically coordinates self.window. 
@@ -444,7 +443,7 @@ class WFSpyrelet():
                 raise Exception()
             time.sleep(acq_sleep) #Give time to start acquisition
             ## Go
-            mgr.Pulser.stream_sequence(seq_key, 1, AM=False)
+            mgr.Pulser.stream_sequence(seq, 1, AM=False)
             timeout_counter = 0
             while(mgr.Camera.get_total_number_images_acquired()[1] < n_pic and timeout_counter <= self.timeout_limit):
                 time.sleep(0.05)#Might want to base wait time on pulse streamer signal
@@ -456,7 +455,7 @@ class WFSpyrelet():
             parsed_data = [all_data[i*im_size:i*im_size+im_size] for i in range(int(len(all_data)/im_size))]
             return parsed_data
         
-        def GetPic(self, mgr, seq_key, n_pic, im_size = 1024**2, saving = 'no_save', no_window = False):
+        def GetPic(self, mgr, seq, n_pic, im_size = 1024**2, saving = 'no_save', no_window = False):
             '''
             Runs an acquisition of n pictures over a given sequence, returns pictures as a parsed list of 1D arrays of length 'im_size'.
             Automatically coordinates self.window. 
@@ -478,7 +477,7 @@ class WFSpyrelet():
                 raise Exception()
             time.sleep(acq_sleep) #Give time to start acquisition
             ## Go
-            mgr.Pulser.stream_sequence(seq_key, 1, AM=False)
+            mgr.Pulser.stream_sequence(seq, 1, AM=False)
             timeout_counter = 0
             if self.debug or self.verbose: t_prestream = time.time()
             if intermediate_save:
@@ -496,16 +495,16 @@ class WFSpyrelet():
             parsed_data = [all_data[i*im_size:i*im_size+im_size] for i in range(int(len(all_data)/im_size))]
             return parsed_data
         
-        def GetPic_Alternating(self, mgr, seq_key, alt_key, n_pic, alt_sleep_time, im_size = 1024**2, saving = 'no_save'):
+        def GetPic_Alternating(self, mgr, seq, alt_seq, n_pic, alt_sleep_time, im_size = 1024**2, saving = 'no_save'):
             '''
             Runs an acquisition of n pictures over a given sequence, and its alternate, returns pictures as a parsed list of 1D arrays of length 'im_size'.
             Automatically coordinates self.window. 
 
             Note: this method does not touch the sg
             '''
-            data = self.GetPic(mgr, seq_key, n_pic, im_size, saving = saving)
+            data = self.GetPic(mgr, seq, n_pic, im_size, saving = saving)
             time.sleep(alt_sleep_time) # Time to wait between two acquisitions, in seconds. Should be long enough to allow camera to recover
-            data_alt = self.GetPic(mgr, alt_key, n_pic, im_size, saving = saving, no_window = True)
+            data_alt = self.GetPic(mgr, alt_seq, n_pic, im_size, saving = saving, no_window = True)
             return data + data_alt
         ## Process Functions
         def init_ND_list(self, mgr, representative_img):
@@ -516,7 +515,7 @@ class WFSpyrelet():
                 if representative_img is None: # Shouldn't happen, but for the sake of robust code...
                     print('No representative image found from gain optimization, acquiring new image for trackpy prep...')
                     mgr.Camera.set_number_kinetics(self.n_gain)
-                    representative_img = self.img_1D_to_2D(self.GetPicSimple(mgr, self.gain_key, self.n_gain)[-1], 1024, 1024) # Acquire data, keep last image as representative.
+                    representative_img = self.img_1D_to_2D(self.GetPicSimple(mgr, self.gain_seq, self.n_gain)[-1], 1024, 1024) # Acquire data, keep last image as representative.
                 img = representative_img.copy().astype(float) # use existing img_data (1024x1024)
                 
                 ## Process
@@ -735,64 +734,6 @@ class WFSpyrelet():
         def main(self, exp_time, readout_time, sweeps, label, frequencies, gain, gain_setting, cooler, cam_trigger, rf_amplitude, ROI_xy, decay_routine, alt_label, alt_sleep_time, trackpy_params, focus_bool,
                     data_path, save_image, data_download, shutdown, verbose, window_params, Misc
                     ):
-
-        #     representative_img = None # useful for saving and windowing, a running representative image.
-        #     #### Optimize gain/ take images to reset camera dynamics #################################################
-        #     self.gain, max_value, representative_img = self.init_gain(gain, gain_setting, self.Misc.get('ideal_pixel_range', (2.1e4,2.9e4)), 
-        #                                                               self.Misc.get('max_checks', 20), self.Misc.get('max_gain', 140), self.Misc.get('gain_wait_time', 0.5),
-        #                                                               self.Misc.get('img_cycles_no_gain_optimization', 2), save = save_image ) # runs self.acquire several times. 
-        #     print(f'gain: {self.gain}, giving max pixel value of roughly {max_value}')
-
-        #     #### Trackpy #################################################################################################################
-        #     n_bg_pts = self.init_ND_list(representative_img) # self.ND_list | self.ND_iter | some print statements | runs trackpy if necessary to find NDs. 
-
-        #     #### Begin Experiment ################################################################################################################
-        #     self.init_main_loop() # Any experiment-specific initialization before main loop, such as defining sequences, running initial sequences, etc.
-
-        #     for sweep in self.progress(range(sweeps)):
-        #         ## main loop ################################################################################################################
-        #         self.unsaved_imgs = {} # dict to hold unsaved images for this sweep, key is img name, value is img to save.
-        #         for i,f in enumerate(self.sg_freqs):
-        #             if verbose: print("frequency: ", f)
-        #             # Accept either plain float Hz or a Pint Quantity
-        #             f_hz = f.to('Hz').m if hasattr(f, 'to') else float(f)
-        #             mgr.sg.set_frequency(f_hz)
-        #             if alt_label:
-        #                 data_1D = self.GetPic_Alternating(self.seq_key, self.alt_key, len(self.label), alt_sleep_time.m, saving = save_image ) # Get data as list of 1D arrays, alternating between two labels
-        #             else:
-        #                 data_1D = self.GetPic(self.seq_key, len(self.label), saving = save_image ) # Get data as list of 1D arrays, saving any images during wait if all images are to be saved
-        #             # Go through the new data and format it. Add it to unsaved imgs.
-        #             data = []
-
-        #             for j, img_1D in enumerate(data_1D):
-        #                 if self.full_label[j] != 't':
-        #                     img = self.img_1D_to_2D(img_1D, 1024, 1024)
-        #                     data.append(img)
-        #                     im_name = f'{self.seq_key}_s{sweep+1}_f{i}_{j}'
-        #                     self.unsaved_imgs[im_name] = img
-
-        #             ## Track NDs
-        #             self.ND_list, ls_mx = self.track_NDs(self.ND_list, data[-1], r_search = self.r_track, number_bg_pts= n_bg_pts)
-
-        #             ## ANALYSIS
-        #             output_dict = self.analyze_sig(data)
-                    
-        #             ## Acquire.
-        #             # dependent on process. Example of an acquisition dict. 
-        #             acq_dict = {
-        #                 'sweep_idx': sweep,                         # sweep idx
-        #                 'f': f,                            # any frequency info
-        #                 'time': time.time() - self.t0,                   # time since start of experiment
-        #                 'z_pos': self.z_pos                     # z position
-        #             }
-        #             acq_dict.update(output_dict) # add whatever values were output from the analysis to the acquisition dict
-        #             if self.window:
-        #                 acq_dict['window'] = self.format_windows(data[-1], focus_bool= focus_bool)
-        #             self.acquire(acq_dict)
-        #         ########################################################################### 
-        #         representative_img = img
-        #         self.save_after_sweep(img, save_image, sweep)
-        #         print(f'Finished sweep {sweep+1}/{sweeps}, time elapsed: {time.time() - self.t0} seconds.')
             print('main finished')
 
         #### FINALIZE HELPER FUNCTIONS ###############################################################################################

@@ -43,9 +43,11 @@ class PulserClass():
         self.IQright = [0.357, 0.350]
         self.channel_dict = {"clock": 0, "camera": 1, "405": 2, "488":3, "647": 4, "mirror": 5, "switch": 6, "laser": 7, "": None}
 
-    def change_state(self, dig_chan:list, analog0:float=0.0, analog1:float=0.0):
+    """ General functions """
+
+    def record_state(self, dig_chan:list, analog0:float=0.0, analog1:float=0.0):
         """
-        Change the state of the pulser.
+        Change the attributes of the Pulser class. Should be called whenever a constant output is set.
         """
         self.blue_laser_on = False
         self.green_laser_on = False
@@ -76,11 +78,11 @@ class PulserClass():
         return sequence
 
     def set_state(self, dig_chan, analog0=0.0, analog1=0.0):
-        self.change_state(dig_chan, analog0, analog1)
+        self.record_state(dig_chan, analog0, analog1)
         self.Pulser.constant((dig_chan, analog0, analog1))
     
     def set_state_off(self):
-        self.change_state([], 0, 0)
+        self.record_state([], 0, 0)
         self.Pulser.constant(([], 0, 0))
 
     def stream(
@@ -129,7 +131,7 @@ class PulserClass():
                     ) from exc
 
             total_duration += duration
-            # (Optional) self.change_state(dig_chans, q=i, i=q)  # if tracking needed
+            # (Optional) self.record_state(dig_chans, q=i, i=q)  # if tracking needed
 
         # Apply constant analogue levels for the full combined duration
         seq.setAnalog(0, [(total_duration, q)])
@@ -139,7 +141,57 @@ class PulserClass():
         self.Pulser.stream(seq, n_runs)
 
         # Reset internal state after streaming
-        self.change_state([], 0.0, 0.0)
+        self.record_state([], 0.0, 0.0)
+
+    
+    def stream_sequence(self, sequence:Sequence, n_runs:int=1, SWITCH:bool=True, AM:bool=False, CW:bool=False):
+        """
+        Stream a sequence object for n_runs.
+        WARNING: WILL NOT CHANGE self.blue_laser_on, self.green_laser_on, self.switch_on, self.q_analog, or self.i_analog.
+        Use self.record_state() to change the state of the pulser before streaming.
+
+        If SWITCH or AM are true, then the relevant final states are implemented to keep the microwave off.
+        If CW is true, then the laser is kept on throughout.
+        """
+        digital_set = []
+        if SWITCH:
+            digital_set.append(self.channel_dict['switch'])
+        if CW:
+            digital_set.append(self.channel_dict['laser'])
+        analog_set = -1 if AM else 0
+        self.Pulser.stream(sequence,n_runs, final = OutputState(digital_set, analog_set,0))
+        self.record_state(digital_set, 0, analog_set)
+
+    def stream_converted_sequence(self, seqs, n_runs):
+        self.Pulser.stream(self.convert_sequence(seqs), n_runs)
+    def convert_sequence(self, seqs):
+         # 0-7 are the 8 digital channels
+         # 8-9 are the 2 analog channels
+        data = {}
+        time = -0.01
+        for seq in seqs:
+            col = np.zeros(10)
+            col[seq[1]] = 1
+            col[8] = seq[2]
+            col[9] = seq[3]
+            init_time = time + 0.01
+            data[init_time] = col
+            time = time + seq[0]
+            #data[prev_time_stamp + 0.01] = col
+            data[time] = col
+            #prev_time_stamp = seq[0]
+        dft = pd.DataFrame(data)
+        df = dft.T #transposes to have channels listed on vertical lines
+        rev_dict={0: "clock", 1: "blue", 2: "SRS", 3: "NIR", 4: "gate1", 5: "gate2", 6: "gate3", 7: "laser", 8: "I", 9: "Q"}
+        sub_df = df[list(rev_dict.keys())]
+        fin = sub_df.rename(columns = rev_dict)
+        return fin
+    
+    def reset(self):
+        self.Pulser.reset()
+        self.record_state([], 0, 0)
+
+    """ End of general functions """
 
     def I1I2pulse(self,sideband_frequency, ns_read_time, ns_clock_time, runs):
         # seq, self.new_pulse_time= mgr.Pulser.odmr_temp_calib_no_bg(sideband_frequency, ns_read_time, ns_clock_time)
@@ -178,57 +230,13 @@ class PulserClass():
         return seq, new_pulse_time
 
 
-    def stream_sequence(self, sequence:Sequence, n_runs:int=1, SWITCH:bool=True, AM:bool=False, CW:bool=False):
-        """
-        Stream a sequence object for n_runs.
-        WARNING: WILL NOT CHANGE self.blue_laser_on, self.green_laser_on, self.switch_on, self.q_analog, or self.i_analog.
-        Use self.change_state() to change the state of the pulser before streaming.
-
-        If SWITCH or AM are true, then the relevant final states are implemented to keep the microwave off.
-        If CW is true, then the laser is kept on throughout.
-        """
-        digital_set = []
-        if SWITCH:
-            digital_set.append(self.channel_dict['switch'])
-        if CW:
-            digital_set.append(self.channel_dict['laser'])
-        analog_set = -1 if AM else 0
-        self.Pulser.stream(sequence,n_runs, final = OutputState(digital_set, analog_set,0))
-        self.change_state(digital_set, 0, analog_set)
-
-    def stream_converted_sequence(self, seqs, n_runs):
-        self.Pulser.stream(self.convert_sequence(seqs), n_runs)
-    def convert_sequence(self, seqs):
-         # 0-7 are the 8 digital channels
-         # 8-9 are the 2 analog channels
-        data = {}
-        time = -0.01
-        for seq in seqs:
-            col = np.zeros(10)
-            col[seq[1]] = 1
-            col[8] = seq[2]
-            col[9] = seq[3]
-            init_time = time + 0.01
-            data[init_time] = col
-            time = time + seq[0]
-            #data[prev_time_stamp + 0.01] = col
-            data[time] = col
-            #prev_time_stamp = seq[0]
-        dft = pd.DataFrame(data)
-        df = dft.T #transposes to have channels listed on vertical lines
-        rev_dict={0: "clock", 1: "blue", 2: "SRS", 3: "NIR", 4: "gate1", 5: "gate2", 6: "gate3", 7: "laser", 8: "I", 9: "Q"}
-        sub_df = df[list(rev_dict.keys())]
-        fin = sub_df.rename(columns = rev_dict)
-        return fin
     
     def flip_mirror(self, output=[], i=0, q=0):
         pulse = [(1000000, [5], 0, 0)]
         self.Pulser.stream(pulse, final=OutputState(output, i, q))
-        self.change_state(output, i, q)
+        self.record_state(output, i, q)
 
-    def reset(self):
-        self.Pulser.reset()
-        self.change_state([], 0, 0)
+
 
     def WFODMR(self, runs, ns_exp_time, ns_readout_time, trig = 10000000, buff = 5000000, mode = 'QAM', FT = True): 
         '''
@@ -320,7 +328,7 @@ class PulserClass():
         if AM_mode:
             analog_set = -1
         self.Pulser.stream(pulse,runs, final = OutputState(digital_set, analog_set,0))
-        self.change_state(digital_set, analog_set, 0)
+        self.record_state(digital_set, analog_set, 0)
 
 # This method of making sequences runs into trouble with rpyc. Do not use.
     def make_seq(self, clock = None, camera = None, laser_405 =  None, laser_488 = None, laser_647 = None, mirror = None, switch = None, laser = None, Q = None, I = None):
@@ -781,91 +789,231 @@ class PulserClass():
         zip_seq = [(itty_bitty_time,) * int(num_samples), tuple(IQ * analog_pts)]
         pattern = list(zip(*zip_seq))
         return pattern
+    
+    ### WF ODMR Sequences
 
-    def odmr_center_create_sequence_IQ(self, odmr_span,sweep_time, clock_time, probe_time, laser_pause):
-                # constants
-        DT_NS = max(8, (int(sweep_time *1e4)//8)*8)
-        print("DT_NS:", DT_NS)
+    
+    def WF_prep_I1I2(self, label, exp, read, trig = 10e6, buff = 5e6):
+        '''
+        Fully general I1I2 Code. 
+        AM Mode only.
 
-        clock_time_ns = int(round(clock_time * 1e9))
-        IQleft  = [0.355, 0.348]
-        IQright = [0.357, 0.350]
+        label: list of entries {t,0,1,2}:
+        't': throwaway pulse (no microwave, no laser)
+        0: background pulse (no microwave, laser)
+        1: f1 pulse
+        2: f2 pulse
+        
+        ex: "['t','t','t', 1, 0, 2, 0, 2, 0, 1, 0]"
 
-        # probe_time rounded to a multiple of 8 ns
-        number_bins   = max(1, int(round((probe_time * 1e9) / DT_NS)))
-        probe_time_ns = number_bins * DT_NS
+        all codes not on this list will cause a warning and be ignored
 
-        # total points
-        n_points = int(sweep_time // (probe_time_ns * 1e-9))
-        sweep_time_ns = probe_time_ns * n_points
+        uw_duty and uw_rep are not added due to need to check switch operation frequency limits.
+        '''
+        experiment = self.Pulser.createSequence()
 
-        # frequency values (GHz if odmr_span is in Hz; GHz*ns is unitless for phase)
-        f_values = np.linspace(0.0, odmr_span * 1e-9, n_points * number_bins, dtype=np.float64)
+        pulse_len = exp+buff+read # Full pulse
+        cam_off = exp + read + buff - trig # Full pulse minus trigger, for timing camera readout
 
-        laser_pause_ns = int(round(laser_pause * 1e9))
-        if laser_pause_ns < (probe_time_ns - clock_time_ns):
-            # keep the warning but avoid printing in performance-critical paths if not needed
-            print("Warning: laser pause time is less than probe_time - clock_time. "
-                "Setting laser pause time to probe_time - clock_time")
-            laser_pause_ns = probe_time_ns - clock_time_ns
+        ## uwQ frequency modulation
+        uwLeft = [(pulse_len,-1)] 
+        uwRight = [(pulse_len,1)]
+        ## Switch modulation
+        switchOn = [(exp,0),(buff+read,1)]
+        switchOff = [(pulse_len,1)]
+        ## Cam and Laser pulse sequences
+        cam_seq = [(trig,1), (cam_off,0)]
+        laser_seq = [(exp,1),(buff+read,0)]
+        off_seq = [(pulse_len, 0)] #laser & cam
 
-        # ----- digital channels (lightweight list multiplications are fine) -----
-        clock_pulse = [(clock_time_ns, 1), (probe_time_ns - clock_time_ns, 0)]  # one probe block
-        laser = 4 * [(sweep_time_ns + clock_time_ns, 1), (laser_pause_ns, 0)]
-        clock = 4 * (clock_pulse * n_points + [(clock_time_ns, 1), (laser_pause_ns, 0)])
-        switch = 2 * [
-            (sweep_time_ns + clock_time_ns, 1), (laser_pause_ns, 0),
-            (sweep_time_ns + clock_time_ns, 0), (laser_pause_ns, 0)
-        ]
 
-        # ----- analog channels (vectorised) -----
-        # Phase accumulates: phi_k = sum_{j<=k} 2π * f_j * DT_NS
-        phi = (2.0 * np.pi * DT_NS) * np.cumsum(f_values)  # shape (N,)
+        uwQ = []
+        cam = []
+        switch = []
+        laser = []
 
-        cos_phi = np.cos(phi)
-        sin_phi = np.sin(phi)
+        ## BUILD SEQUENCE 
+        for i in range(len(label)):
+            if label[i] == 't':            
+            ## Throwaway
+                uwQ += uwLeft
+                cam += cam_seq
+                switch += switchOff
+                laser += laser_seq
+            elif label[i] == 1 or label[i] == '1':
+                uwQ += uwLeft
+                cam += cam_seq
+                switch += switchOn
+                laser += laser_seq
+            elif label[i] == 2 or label[i] == '2':
+                uwQ += uwRight
+                cam += cam_seq
+                switch += switchOn
+                laser += laser_seq
+            elif label[i] == 0 or label[i] == '0':
+                uwQ += uwRight
+                cam += cam_seq
+                switch += switchOff
+                laser += laser_seq
+            else:
+                print(f'Warning, {label[i]} not a valid code. Skipping...')
 
-        # Precompute amplitude arrays
-        i_left_vals  = IQleft[1]  * cos_phi
-        i_right_vals = IQright[1] * cos_phi
-        q_left_vals  = -IQleft[0] * sin_phi
-        q_right_vals =  IQright[0] * sin_phi
+        ## ORGANIZE CHANNELS and OUTPUT
+        experiment.setAnalog(0, uwQ)
+        experiment.setDigital(self.channel_dict['camera'], cam)
+        experiment.setDigital(self.channel_dict['488'], laser)
+        experiment.setDigital(self.channel_dict['switch'], switch)
+        print('sequence prepared')
+        return experiment
 
-        # Convert to lists of (duration, value) tuples efficiently
-        dur8 = np.full(phi.size, DT_NS, dtype=np.int64)
 
-        # Using column_stack + map(tuple) is faster than Python loops for large N
-        i_left  = list(map(tuple, np.column_stack((dur8, i_left_vals))))
-        i_right = list(map(tuple, np.column_stack((dur8, i_right_vals))))
-        q_left  = list(map(tuple, np.column_stack((dur8, q_left_vals))))
-        q_right = list(map(tuple, np.column_stack((dur8, q_right_vals))))
 
-        # Headers/tail segments unchanged
-        i = (
-            [(laser_pause_ns + clock_time_ns + sweep_time_ns, IQleft[1])]
-            + i_left
-            + [(2 * laser_pause_ns + 2 * clock_time_ns + sweep_time_ns, IQright[1])]
-            + i_right
-            + [(laser_pause_ns + clock_time_ns, IQright[1])]
-        )
+    def WF_prep_ODMR(self, label, exp, read, trig = 10000000, buff = 5000000, 
+               mode = 'QAM', uw_duty = 1, uw_rep = 50, dim_throwaway = True): 
+        '''
+        Fully generalized WFODMR code.
 
-        q = (
-            [(laser_pause_ns + clock_time_ns + sweep_time_ns, 0.0)]
-            + q_left
-            + [(2 * laser_pause_ns + 2 * clock_time_ns + sweep_time_ns, 0.0)]
-            + q_right
-            + [(laser_pause_ns + clock_time_ns, 0.0)]
-        )
+        TIME inputs in ns
 
-        # ----- build sequence -----
-        seq = self.create_sequence()
-        seq.setDigital(self.channel_dict['clock'], clock)
-        seq.setDigital(self.channel_dict['laser'], laser)
-        seq.setDigital(self.channel_dict['switch'], switch)
-        seq.setAnalog(0, q)
-        seq.setAnalog(1, i)
+        label: list of entries {t,0,1,2}:
+        't': throwaway pulse (no microwave, laser, sacrificial)
+        0: background pulse (no microwave, laser)
+        1: signal pulse
+        
+        ex: "['t', 1, 0, 1, 0]"
 
-        return seq, n_points
+        mode: QAM for vector modulation (IQ mixer)
+        mode: AM for analog modulation of amplitude
+
+        SWITCH mode adds modulation via switch. 
+        '''        
+        experiment = self.create_sequence()
+
+        pulse_len = exp+buff+read
+        cam_off = exp + read + buff - trig
+        ## uwQ frequency modulation
+        if(mode == 'QAM'):
+            uwQOff = [(pulse_len, self.IQ0[0])]
+            uwIOff = [(pulse_len, self.IQ0[1])]
+            if uw_duty == 1:
+                uwQOn = [(exp, self.IQpx[0]), (read + buff, self.IQ0[0])]
+                uwIOn = [(exp, self.IQpx[1]), (read + buff, self.IQ0[1])]
+            else:
+                on_time = exp*uw_duty/uw_rep # short duration uw pulse
+                off_time = exp*(1-uw_duty)/uw_rep # short duration uw break
+                uwQOn = [(on_time, self.IQpx[0]), (off_time, self.IQ0[0])]*uw_rep + [(read + buff, self.IQ0[0])]
+                uwIOn = [(on_time, self.IQpx[1]), (off_time, self.IQ0[1])]*uw_rep + [(read + buff, self.IQ0[1])]
+        elif(mode == 'AM'):
+            uwQOff = [(pulse_len, -1)]
+            if uw_duty == 1:
+                uwQOn = [(exp, 0), (read + buff, -1)]
+            else:
+                on_time = exp*uw_duty/uw_rep # short duration uw pulse
+                off_time = exp*(1-uw_duty)/uw_rep # short duration uw break
+                uwQOn = [(on_time, 0), (off_time,-1)]*uw_rep + [(read + buff, -1)]
+            uwIOff = []
+            uwIOn = []
+        ## Switch modulation
+        switchOn = [(exp,0),(buff+read,1)] 
+        switchOff = [(pulse_len, 1)]
+        ## Cam and Laser pulse sequences
+        cam_seq = [(trig,1), (cam_off,0)]
+        laser_seq = [(exp,1),(buff+read,0)]
+        off_seq = [(pulse_len, 0)] #laser & cam
+
+
+        uwI = []
+        uwQ = []
+        cam = []
+        switch = []
+        laser = []
+
+        #### BUILD SEQUENCE
+        for i in range(len(label)):
+            if label[i] == 't':            
+            ## Throwaway
+                uwQ += uwQOff
+                uwI += uwIOff
+                cam += cam_seq
+                switch += switchOff
+                if dim_throwaway: laser += off_seq
+                else: laser += laser_seq
+            elif label[i] == 1 or label[i] == '1':
+                uwQ += uwQOn
+                uwI += uwIOn
+                cam += cam_seq
+                switch += switchOn
+                laser += laser_seq
+            elif label[i] == 0 or label[i] == '0':
+                uwQ += uwQOff
+                uwI += uwIOff
+                cam += cam_seq
+                switch += switchOff
+                laser += laser_seq
+            else:
+                print(f'Warning, {label[i]} not a valid code. Skipping...')
+
+        # print('laser: ',laser)
+        # print('cam: ', cam)
+        # print('switch: ', switch)
+        # print('uwQ: ', uwQ)
+        # print('uwI: ', uwI)
+        experiment.setDigital(self.channel_dict['488'], laser)
+        experiment.setDigital(self.channel_dict['camera'], cam)
+        experiment.setAnalog(0, uwQ)
+        if (mode == 'QAM'):
+            experiment.setAnalog(1, uwI)   
+        experiment.setDigital(self.channel_dict['switch'], switch)
+
+        print('Finished setting up pulse sequence')
+        print('self.sequence data:',  experiment.getData())
+        import pickle
+        Digitals = [(self.channel_dict['488'], laser), (self.channel_dict['camera'], cam), (self.channel_dict['switch'], switch)]
+        Analogs = [(0, uwQ)]
+        if mode == 'QAM':
+            Analogs.append((1, uwI))
+        seq = {'Digitals': Digitals, 'Analogs': Analogs}
+        with open('Z:/dovetsky/current_seq.pkl', 'wb') as f:
+            pickle.dump(seq, f)
+        print('saved seq as current_seq.pkl: ', seq)
+
+        return experiment
+
+
+    def WF_prep_gain_seq(self, n, exp, read, trig = 10000000, buff = 5000000): 
+        '''
+        Quick n-pulse seq for optimizing gain
+        no microwave
+        '''        
+        pulse_len = exp+buff+read
+        cam_off = exp + read + buff - trig
+
+        experiment = self.create_sequence()
+
+        laser = [(pulse_len,1)] * n
+        cam = [(trig,1), (cam_off,0)] * n
+        
+
+        experiment.setDigital(self.channel_dict['488'], laser)
+        experiment.setDigital(self.channel_dict['camera'], cam) 
+
+        print('Finished gain_seq:')
+        print('laser: ',laser)
+        print('cam: ', cam)
+        print('self.sequence data:',  experiment.getData())
+        print('---')
+
+
+        return experiment
+
+
+
+
+        
+        
+        
+
+    ### ODMR Center Sequences
 
     def odmr_center_create_sequence_FM(self, n_steps, runs, clock_time, probe_time):
 
@@ -874,13 +1022,9 @@ class PulserClass():
         
        
         
-        # n_points = sweep_time_ns // probe_time_ns
 
-        # frequency values (GHz if odmr_span is in Hz; GHz*ns is unitless for phase)
         q_values_up = np.linspace(0, 1, n_steps, dtype=np.float64)
-        # q_values_down = np.linspace(0, -1, n_steps, dtype=np.float64)
-        # ----- digital channels (lightweight list multiplications are fine) -----
-        
+
         laser = [(probe_time_ns*(n_steps*runs*4+1), 1)]
         clock = (n_steps*runs*4+1)*[(clock_time_ns, 1), (probe_time_ns - clock_time_ns, 0)] 
         switch = 2*n_steps * runs* [ (probe_time_ns, 1), (probe_time_ns, 0)] + [(probe_time_ns, 1)]
@@ -902,111 +1046,3 @@ class PulserClass():
 
         return seq, probe_time_ns
     
-        #         # constants
-        # DT_NS = max(8, int(sweep_time*1e9 // (n_steps)))
-        
-        # print("DT_NS:", DT_NS)
-
-        # clock_time_ns = int(round(clock_time * 1e9))
-        # IQleft  = [0.355, 0.348]
-        # IQright = [0.357, 0.350]
-
-        # # probe_time rounded to a multiple of 8 ns
-        # number_bins   = max(1, int(round((probe_time * 1e9) / DT_NS)))
-        # probe_time_ns = number_bins * DT_NS
-
-        # # total points
-        # n_points = int(sweep_time // (probe_time_ns * 1e-9))
-        # sweep_time_ns = probe_time_ns * n_steps*DT_NS
-
-        # # frequency values (GHz if odmr_span is in Hz; GHz*ns is unitless for phase)
-        # q_values_up = np.linspace(0.0, 1, n_steps, dtype=np.float64)
-        # q_values_down = np.linspace(0, -1, n_steps, dtype=np.float64)
-        # laser_pause_ns = int(round(laser_pause * 1e9))
-        # if laser_pause_ns < (probe_time_ns - clock_time_ns):
-        #     # keep the warning but avoid printing in performance-critical paths if not needed
-        #     print("Warning: laser pause time is less than probe_time - clock_time. "
-        #         "Setting laser pause time to probe_time - clock_time")
-        #     laser_pause_ns = probe_time_ns - clock_time_ns
-
-        # # ----- digital channels (lightweight list multiplications are fine) -----
-        # clock_pulse = [(clock_time_ns, 1), (probe_time_ns - clock_time_ns, 0)]  # one probe block
-        # laser = 4 * [(sweep_time_ns + clock_time_ns, 1), (laser_pause_ns, 0)]
-        # clock = 4 * (clock_pulse * n_points + [(clock_time_ns, 1), (laser_pause_ns, 0)])
-        # switch = 2 * [
-        #     (sweep_time_ns + clock_time_ns, 1), (laser_pause_ns, 0),
-        #     (sweep_time_ns + clock_time_ns, 0), (laser_pause_ns, 0)
-        # ]
-
-        # # ----- analog channels (vectorised) -----
-        # # Phase accumulates: phi_k = sum_{j<=k} 2π * f_j * DT_NS
-        
-
-        # q_seq_up=[(DT_NS, q) for q in q_values_up]
-        # q_seq_down=[(DT_NS, q) for q in q_values_down]
-        # q_seq = q_seq_up +[(clock_time_ns, 1), (laser_pause_ns, 0)]+ q_seq_down+ [(clock_time_ns, -1), (laser_pause_ns, 0)]
-        # # ----- build sequence -----
-        # seq = self.create_sequence()
-        # seq.setDigital(self.channel_dict['clock'], clock)
-        # seq.setDigital(self.channel_dict['laser'], laser)
-        # seq.setDigital(self.channel_dict['switch'], switch)
-        # seq.setAnalog(0, q_seq)
-
-        # return seq, n_points
-
-    def odmr_center_create_sequence_FM_old(self, n_steps, odmr_span,sweep_time, clock_time, probe_time, laser_pause):
-        DT_NS = max(8, int(sweep_time*1e9 // (n_steps)))
-        
-        print("DT_NS:", DT_NS)
-
-        clock_time_ns = int(round(clock_time * 1e9))
-
-        # probe_time rounded to a multiple of 8 ns
-        number_bins   = max(1, int(round((probe_time * 1e9) / DT_NS)))
-        probe_time_ns = number_bins * DT_NS
-
-        # total points
-        n_points = int(sweep_time // (probe_time_ns * 1e-9))
-        # sweep_time_ns = n_steps * DT_NS
-        sweep_time_ns = probe_time_ns *n_points
-        n_steps=int(sweep_time_ns//DT_NS)
-        # n_points = sweep_time_ns // probe_time_ns
-
-        # frequency values (GHz if odmr_span is in Hz; GHz*ns is unitless for phase)
-        q_values_up = np.linspace(0, 1, n_steps, dtype=np.float64)
-        q_values_down = np.linspace(0, -1, n_steps, dtype=np.float64)
-        laser_pause_ns = int(round(laser_pause * 1e9))
-        if laser_pause_ns < (probe_time_ns - clock_time_ns):
-            # keep the warning but avoid printing in performance-critical paths if not needed
-            print("Warning: laser pause time is less than probe_time - clock_time. "
-                "Setting laser pause time to probe_time - clock_time")
-            laser_pause_ns = probe_time_ns - clock_time_ns
-
-        # ----- digital channels (lightweight list multiplications are fine) -----
-        clock_pulse = [(clock_time_ns, 1), (probe_time_ns - clock_time_ns, 0)]  # one probe block
-        laser = 4 * [(sweep_time_ns + clock_time_ns, 1), (laser_pause_ns, 0)]
-        clock = 4 * (clock_pulse * n_points + [(clock_time_ns, 1), (laser_pause_ns, 0)])
-        switch = 2 * [
-            (sweep_time_ns + clock_time_ns, 1), (laser_pause_ns, 0),
-            (sweep_time_ns + clock_time_ns, 0), (laser_pause_ns, 0)
-        ]
-
-        # ----- analog channels (vectorised) -----
-        # Phase accumulates: phi_k = sum_{j<=k} 2π * f_j * DT_NS
-        
-
-        q_seq_up=[(DT_NS, q) for q in q_values_up]
-        q_seq_down=[(DT_NS, q) for q in q_values_down]
-        q_seq = [(sweep_time_ns+clock_time_ns+laser_pause_ns, 0)]+q_seq_up +[(clock_time_ns, 1), (2*laser_pause_ns+sweep_time_ns+clock_time_ns, 0)]+ q_seq_down+ [(clock_time_ns, -1), (laser_pause_ns, 0)]
-        print('q=', q_seq)
-        print('clock=', clock)
-        print('laser=', laser)
-        print('switch=', switch)
-        # ----- build sequence -----
-        seq = self.create_sequence()
-        seq.setDigital(self.channel_dict['clock'], clock)
-        seq.setDigital(self.channel_dict['laser'], laser)
-        seq.setDigital(self.channel_dict['switch'], switch)
-        seq.setAnalog(0, q_seq)
-
-        return seq, n_points, probe_time_ns

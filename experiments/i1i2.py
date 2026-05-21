@@ -1,37 +1,23 @@
 # std
 import numpy as np
-from scipy import optimize
 import time
-from itertools import cycle
-from itertools import count
-import logging
-import scipy.optimize as sciOP
-import scipy.interpolate as sciIP
-from math import ceil
-from nspyre import InstrumentManager
-from pathlib import Path
-from nspyre import nspyre_init_logger
-from nspyre import experiment_widget_process_queue
-import collections
-from collections import OrderedDict
 
-# nidaqmx
-import nidaqmx
-from nidaqmx.constants import (AcquisitionType, CountDirection, Edge,
-    READ_ALL_AVAILABLE, TaskMode, TriggerType)
-from nidaqmx.stream_readers import CounterReader
+import logging
+
+from pathlib import Path
+
+
+
 from experiments.spatialfb import SpatialFeedback
-from nspyre import InstrumentManager, DataSource, StreamingList
+from nspyre import nspyre_init_logger, experiment_widget_process_queue, InstrumentManager, DataSource, StreamingList
 import math
 import rpyc.utils.classic
 
 from experiments.continuoustracking import ContinuousTracking
 
 
-# nspyre
 
 
-#from lantz.drivers.ni.ni_motion_controller import NIDAQMotionController
 
 _HERE = Path(__file__).parent
 _logger = logging.getLogger(__name__)
@@ -57,6 +43,7 @@ class I1I2(ContinuousTracking):
                 to the GUI from the experiment.
         """
         super().__init__(queue_to_exp, queue_from_exp)
+        self.VERBOSE=False
 
     def __enter__(self):
         """Perform experiment setup."""
@@ -123,8 +110,7 @@ class I1I2(ContinuousTracking):
                    scan_distance,  search_PID, 
                    spot_size, advanced_tracking, 
                    diffusion_constant)
-            freqs, sb_freq = self.process_frequencies(frequencies, sideband_frequency)
-            print('main take me off your feet?')
+            freqs, _ = self.process_frequencies(frequencies, sideband_frequency)
             
             I1_sweeps=StreamingList()
             I2_sweeps=StreamingList()
@@ -149,15 +135,18 @@ class I1I2(ContinuousTracking):
                     I2_empty[:]=np.nan
                     I1_sweeps.append(np.stack([freqs, I1_empty]))
                     I2_sweeps.append(np.stack([freqs, I2_empty]))
-                    print('before feedback')
+                    if self.VERBOSE:
+                        print('before feedback')
                     self.feedback(mgr, sweep, sweeps_until_feedback, z_cycle, xyz_step_nm, shrink_every_x_iter, sampling_rate)
                     for f, freq in enumerate(freqs):
-                        print("Frequency value is " + str(f))
+                        if self.VERBOSE:
+                            print("Frequency value is " + str(f))
                         # time_start = time.time()
                         #import pdb; pdb.set_trace()
                         
                         mgr.sg.set_frequency(freq)
-                        print('frequency:', freq)
+                        if self.VERBOSE:
+                            print('frequency:', freq)
                         # import pdb; pdb.set_trace()
                         
                         output_buffer = self.odmr_read(mgr, self.sequence, read_timeout)
@@ -167,11 +156,22 @@ class I1I2(ContinuousTracking):
                         I1_sweeps.updated_item(-1)
                         I2_sweeps[-1][1][f] = data_I2
                         I2_sweeps.updated_item(-1)
+<<<<<<< Updated upstream
 
                         print("ODMR Maths result:")
                         print(data_I1, data_I2)
+=======
+                        I1_tracking.append(np.array([np.array([time.time()-start_t]), np.array([data_I1])]))
+                        I1_tracking.updated_item(-1)
+                        I2_tracking.append(np.array([np.array([time.time()-start_t]), np.array([data_I2])]))
+                        I2_tracking.updated_item(-1)
+                        if self.VERBOSE:
+                            print("ODMR Maths result:")
+                            print(data_I1, data_I2)
+>>>>>>> Stashed changes
                         # Shivam: equivalent of return statement, since acquired into mongo database
-                        print('are we doing this????')
+                        if self.VERBOSE:
+                            print('are we doing this????')
                         data_source.push({
                             'params':params,
                             'xlabel': 'Frequency (Hz)',
@@ -244,7 +244,8 @@ class I1I2(ContinuousTracking):
                         # time_start = time.time()
                         #import pdb; pdb.set_trace()
                         mgr.sg.set_frequency(freq)
-                        print('frequency:', freq)
+                        if self.VERBOSE:
+                            print('frequency:', freq)
                         # import pdb; pdb.set_trace()
 
                         
@@ -306,8 +307,9 @@ class I1I2(ContinuousTracking):
                         Y_search.updated_item(-1)
                         Z_search.updated_item(-1)
 
-                        print("Main search_error_array is " + str(search_error_array))
-                        print(data_I1, data_I2)
+                        if self.VERBOSE:
+                            print("Main search_error_array is " + str(search_error_array))
+                            print(data_I1, data_I2)
                         # Shivam: equivalent of return statement, since acquired into mongo database
 
                         
@@ -377,8 +379,9 @@ class I1I2(ContinuousTracking):
         # SHIVAM: CHECK IF I SHOULD ONLY HAVE THIS IF STATIONARY TRACKING
         self.sequence, self.stream_count, self.new_pulse_time = self.ready_pulse_sequence(mgr, mwPulseTime, clockPulseTime,
                                                                      sb_freq, rf_amplitude)
-        print(self.sequence)
-        
+        if self.VERBOSE:
+            print("sequence:", self.sequence)
+
         # data_channel, clock_channel = self.create_channels(device, PS_clock_channel, APD_channel)
         # self.APD_task, self.APD_reader = self.create_ctr_reader(data_channel, sampling_rate, clock_channel,
         #                                                         len(self.buffer))
@@ -390,7 +393,8 @@ class I1I2(ContinuousTracking):
         if continuous_tracking:
             self.search_kp, self.search_ki, self.search_kd = eval(search_PID)
             self.search = eval(searchXYZ)
-            print("search is " + str(self.search))
+            if self.VERBOSE:
+                print("search is " + str(self.search))
 
             self.max_search = eval(max_search)
 
@@ -399,14 +403,16 @@ class I1I2(ContinuousTracking):
 
             # Shivam: Check syntax
             self.scan_distance = eval(scan_distance)
-            print("scan distance is " + str(self.scan_distance))
+            if self.VERBOSE:
+                print("scan distance is " + str(self.scan_distance))
 
             self.bufsize = math.floor(time_per_sgpoint/mwPulseTime)
 
             self.check_appropriate_distance()
 
             self.spot_size = spot_size
-            print("self.spot_size is " + str(self.spot_size))
+            if self.VERBOSE:
+                print("self.spot_size is " + str(self.spot_size))
 
             # Shivam: Parameters for tracking
             self.drift = [0, 0, 0]
@@ -425,7 +431,8 @@ class I1I2(ContinuousTracking):
                 self.x_k = (mgr.DAQcontrol.position['x'],
                             mgr.DAQcontrol.position['y'],
                             mgr.DAQcontrol.position['z'])
-                print("x_k is " + str(self.x_k))
+                if self.VERBOSE:
+                    print("x_k is " + str(self.x_k))
 
                 # CHECK THE TUNING OF w
                 self.w = self.spot_size ** 2
@@ -470,8 +477,9 @@ class I1I2(ContinuousTracking):
         # This is because we do not have a clock at the last time period and so would only have 1 out of 2 relevant counts for that segment when subtracting
         # This means that we will effectively have n - 1 runs when setting the time per sg point for n runs
         effective_buffer = input_buffer[:-1]
-        print("The effective buffer is:")
-        print(effective_buffer)
+        if self.VERBOSE:
+            print("The effective buffer is:")
+            print(effective_buffer)
         # Shivam: sliced to new array 2nd element onwards subtracting all elements to the left (I1 - I0, I2 - I1, ... ,
         interval_data = effective_buffer[1:] - effective_buffer[:-1]
         # Shivam: sums interval data in steps of 4 (I1-I0+I5-I4+...) is the first element
@@ -487,20 +495,12 @@ class I1I2(ContinuousTracking):
         return data_I1, data_I2
 
     def odmr_read(self, mgr, sequence, read_timeout):
-        # time_read = time.time()
-        # print(buffer)
-        # print(len(buffer))
         mgr.DAQcontrol.start_counter()
-        # ctr_task.start()
-        print("Counter Started")
-        print(f"Debug: About to stream sequence with stream_count={self.stream_count}")
         mgr.Pulser.stream_sequence(sequence, self.stream_count)
-        print("ps start")
-        print(mgr.DAQcontrol.ctr_buffer)
+
         try:
-            print("Attempting to read buffer with timeout of " + str(read_timeout*2) + " seconds...")
+
             buffer=np.array(rpyc.utils.classic.obtain(mgr.DAQcontrol.read_to_data_array(read_timeout*2)))
-            print("Buffer read successfully")
         except Exception as e:
             print("Error in reading DAQ counter:", e)
             print(mgr.DAQcontrol.ctr_buffer)
@@ -508,9 +508,6 @@ class I1I2(ContinuousTracking):
             
             mgr.Pulser.set_state_off()
             raise e
-        print("Before printing statement")
-        # print('the time it took to actually run the pulse sequence and read:', time.time() - time_read)
-        print('end of read')
         return buffer
 
     def feedback(self, mgr, sweep, sweeps_until_feedback, z_cycle, xyz_step_nm, shrink_every_x_iter, sampling_rate):
@@ -554,17 +551,10 @@ class I1I2(ContinuousTracking):
     def ready_pulse_sequence(self, mgr,  mwPulseTime, clockPulse, sideband_frequency, rf_amplitude):
         ns_read_time = int(round(mwPulseTime*1e9))
         ns_clock_time = int(round(clockPulse*1e9))
-        print(f"Debug: ns_read_time={ns_read_time}, ns_clock_time={ns_clock_time}, sideband_frequency={sideband_frequency}")
-        print('self.read_time:', ns_read_time)
-        print(' self.clock_time:',  ns_clock_time)
-        # self.total_time = 0
+
     
         seq, self.new_pulse_time = mgr.Pulser.odmr_temp_calib_no_bg(sideband_frequency, ns_read_time, ns_clock_time)
         
-        # print(seq)
-        # seq, self.new_pulse_time = mgr.Pulser.odmr_temp_calib_no_bg(sideband_frequency, ns_read_time, ns_clock_time)
-        print(f"Debug: sequence created, new_pulse_time={self.new_pulse_time}")
-
         mgr.sg.set_rf_amplitude(rf_amplitude)
         mgr.sg.set_mod_type('QAM')
         mgr.sg.set_rf_toggle(1)
@@ -579,8 +569,8 @@ class I1I2(ContinuousTracking):
         if self.run_ct < 1:
             self.run_ct = 1
             print(f"Warning: run_ct was less than 1, setting to 1")
-        
-        print(f"Debug: run_ct={self.run_ct}, ns_total_time={ns_total_time}")
+        if self.VERBOSE:
+            print(f"Debug: run_ct={self.run_ct}, ns_total_time={ns_total_time}")
 
         # This is an important variable to know how long is spent collecting photons at one center freqeuncy
         self.real_time_per_scan = self.run_ct * ns_total_time
@@ -668,7 +658,8 @@ class I1I2(ContinuousTracking):
     # Shivam: Change calculations to the latest variable names
     def regular_slope_extraction(self, unique_frequencies, sigs_left_mean, sigs_right_mean):
         # Use the processed mean values instead of DataFrame operations
-        print("Test regular slope")
+        if self.VERBOSE:
+            print("Test regular slope")
         
         sigs_diff = sigs_right_mean - sigs_left_mean
 
@@ -725,9 +716,6 @@ class I1I2(ContinuousTracking):
 
         odmr_zfs = -linear_regression[1] / linear_regression[0]
 
-        print(slope)
-
-        print(odmr_zfs)
 
         return slope, odmr_zfs
 

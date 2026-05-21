@@ -113,15 +113,13 @@ class wODMRSpyrelet(WFSpyrelet):
         mgr.sg.set_mod_toggle(True)
         return
 
-    def init_seq(self, alt_label, mode, uw_duty, uw_rep): 
-        self.seq_key = 'main'
-        self.psWF.prep_ODMR(self.label, self.exp_time, self.readout_time, trig = self.trigger_time, buff = self.buffer_time, mode = mode, uw_duty = uw_duty, uw_rep = uw_rep, key = self.seq_key, dim_throwaway = self.Misc.get('dim_throwaway', True)) 
+    def init_seq(self, mgr, alt_label, mode, uw_duty, uw_rep): 
+        self.main_seq=mgr.Pulser.WF_prep_ODMR(self.label, self.exp_time, self.readout_time, trig = self.trigger_time, buff = self.buffer_time, mode = mode, uw_duty = uw_duty, uw_rep = uw_rep, dim_throwaway = self.Misc.get('dim_throwaway', True)) 
         if alt_label:
-            self.alt_key = 'alt'
-            self.psWF.prep_ODMR(self.label_inv, self.exp_time, self.readout_time, trig = self.trigger_time, buff = self.buffer_time, mode = mode, uw_duty = uw_duty, uw_rep = uw_rep, key = self.alt_key, dim_throwaway = self.Misc.get('dim_throwaway', True))
-        self.gain_key = 'gain_seq'
+
+            self.alt_seq=mgr.Pulser.WF_prep_ODMR(self.label_inv, self.exp_time, self.readout_time, trig = self.trigger_time, buff = self.buffer_time, mode = mode, uw_duty = uw_duty, uw_rep = uw_rep, dim_throwaway = self.Misc.get('dim_throwaway', True))
         self.n_gain = 2                                      #(Hardcoded) | number of pulses in gain sequence, should be at least 2 to get a sense of dynamics
-        self.psWF.prep_gain_seq(self.n_gain,self.exp_time, self.readout_time, trig = self.trigger_time, buff = self.buffer_time, key = self.gain_key)
+        self.gain_seq=mgr.Pulser.WF_prep_gain_seq(self.n_gain,self.exp_time, self.readout_time, trig = self.trigger_time, buff = self.buffer_time)
         return
     ###########################################################################################################################
     def initialize(self, mgr, exp_time, readout_time, sweeps, label, frequencies, gain, gain_setting, cooler, cam_trigger, rf_amplitude, uw_duty, uw_rep, mode, ROI_xy, alt_label, alt_sleep_time, trackpy_params, focus_bool,
@@ -156,7 +154,7 @@ class wODMRSpyrelet(WFSpyrelet):
         #### Cam init ########################################################################
         self.init_camera(mgr, cam_trigger) # camera initialized and ready to acquire
         #### Seq init ########################################################################
-        self.init_seq(alt_label, mode, uw_duty, uw_rep) # self.seq_key | self.alt_key (if alt_label) | self.gain_key | sequences initialized and ready to acquire
+        self.init_seq(mgr, alt_label, mode, uw_duty, uw_rep) # self.main_seq | self.alt_seq (if alt_label) | self.gain_seq | sequences initialized and ready to acquire
         #### Experiment Specific Init #####################################################################
         #### Cooldown if necessary ########################################################################
         do_cool, temp = eval(cooler)
@@ -273,9 +271,9 @@ class wODMRSpyrelet(WFSpyrelet):
                     mgr.sg.set_frequency(f_hz)
                     if self.Misc.get('pdb', False): import pdb; pdb.set_trace()
                     if alt_label:
-                        data_1D = self.GetPic_Alternating(mgr, self.seq_key, self.alt_key, len(self.label), alt_sleep_time, saving=save_image) # Get data as list of 1D arrays, alternating between two labels
+                        data_1D = self.GetPic_Alternating(mgr, self.main_seq, self.alt_seq, len(self.label), alt_sleep_time, saving=save_image) # Get data as list of 1D arrays, alternating between two labels
                     else:
-                        data_1D = self.GetPic(mgr, self.seq_key, len(self.label), saving=save_image) # Get data as list of 1D arrays, saving any images during wait if all images are to be saved
+                        data_1D = self.GetPic(mgr, self.main_seq, len(self.label), saving=save_image) # Get data as list of 1D arrays, saving any images during wait if all images are to be saved
                     # Go through the new data and format it. Add it to unsaved imgs.
                     current_time = time.time()
                     data = []
@@ -285,7 +283,7 @@ class wODMRSpyrelet(WFSpyrelet):
                             img = self.img_1D_to_2D(img_1D, 1024, 1024)
                             data.append(img)
                             if save_image in ['raw_images', 'raw_images_safe']:
-                                im_name = f'{self.seq_key}_s{sweep+1}_f{i}_{j}'
+                                im_name = f'image_s{sweep+1}_f{i}_{j}'
                                 self.unsaved_imgs[im_name] = img
                             if save_image == 'raw_images_safe':
                                 self.save_pics()
