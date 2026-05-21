@@ -1046,3 +1046,21 @@ class PulserClass():
 
         return seq, probe_time_ns
     
+    '''Picture pulse sequences'''
+
+    def create_picture_sequence(self, trigger_mode, num_kinetics, exposure_time_ns):
+        seq = self.create_sequence()
+        if trigger_mode == 'Internal':
+            # Internal trigger: camera triggers pulse streamer
+            # Camera on for 10 ms, off for 10 ms, repeated num_kinetics times
+            laser = num_kinetics * [(exposure_time_ns, 1), (exposure_time_ns, 0)]
+            clock = num_kinetics * [(exposure_time_ns, 1), (exposure_time_ns, 0)]
+            switch = num_kinetics * [(exposure_time_ns, 1), (exposure_time_ns, 0)]
+        elif trigger_mode == 'external':
+            # External trigger: pulse streamer triggers camera
+            # Camera on for 10 ms after each trigger, repeated num_kinetics times
+            laser = num_kinetics * [(10e6, 1), (0, 0)]
+            clock = num_kinetics * [(10e6, 1), (0, 0)]
+            switch = num_kinetics * [(10e6, 1), (0, 0)]
+        else:
+            raise ValueError("Invalid trigger mode. Use 'internal' or 'external'.")

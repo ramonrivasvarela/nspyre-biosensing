@@ -13,7 +13,9 @@ import numpy as np
 
 # nspyre
 from nspyre import StreamingList
-from nspyre import experiment_widget_process_queue
+from nspyre import experiment_widget_process_queue, nspyre_init_logger
+import logging
+from pathlib import Path
 
 
 
@@ -30,56 +32,43 @@ except Exception:  # pragma: no cover
 
 # base WF helpers
 from experiments.wfExperiment import WFSpyrelet
-
+_HERE = Path(__file__).parent
+_logger = logging.getLogger(__name__)
 ###########################
 # classes
 ###########################
 
 class wODMRSpyrelet(WFSpyrelet):
-    REQUIRED_DEVICES = [
-        'sg',
-        'psWF',
-        'DAQcontrol',
-        'Camera',
-    ]
+    def __init__(self, queue_to_exp=None, queue_from_exp=None):
+        """
+        Args:
+            queue_to_exp: A multiprocessing Queue object used to send messages
+                to the experiment from the GUI.
+            queue_from_exp: A multiprocessing Queue object used to send messages
+                to the GUI from the experiment.
+        """
+        self.queue_to_exp = queue_to_exp
+        self.queue_from_exp = queue_from_exp
+
+    def __enter__(self):
+        """Perform experiment setup."""
+        # config logging messages
+        # if running a method from the GUI, it will be run in a new process
+        # this logging call is necessary in order to separate log messages
+        # originating in the GUI from those in the new experiment subprocess
+        nspyre_init_logger(
+            log_level=logging.INFO,
+            log_path=_HERE / '../logs',
+            log_path_level=logging.DEBUG,
+            prefix=Path(__file__).stem,
+            file_size=10_000_000,
+        )
+        _logger.info('Created Experiment instance.')
 
 
-    PARAMS = {
-        ## Pulse Timings
-        'exp_time':{'type':float,'units':'s','suffix': 's','default': 75e-3,},
-        'readout_time':{'type':float,'units':'s','suffix': 's','default': 15e-3,}, #must be greater than 39ms for EXTERNAL_EXPOSURE
-        ## Routine
-        'sweeps':{'type': int, 'default': 3}, 
-        'label':{'type': str, 'default': '[t, 1, 0, 1, 0]'}, #'[t, 1, 0, 2, 0]' for I1I2
-        'frequencies':{'type': str,'default': '[2.835e9, 2.905e9, 30]'}, #I1I2 Only | [start, stop, num_points]
-        ## Gain
-        'gain':{'type':int,'default': 2,'positive': True}, #EM gain for camera, goes from 1-272
-        'gain_setting':{'type': list,'items': ['optimize', 'override', 'use current'], 'default': 'optimize'},
-        ## Cam Settings
-        'cooler':{'type': str, 'default': '(False, 20)'},
-        'cam_trigger':{'type': list,'items': ['EXTERNAL_EXPOSURE','EXTERNAL_FT'], 'default': 'EXTERNAL_FT'},
-        ## SG
-        'rf_amplitude':{'type': float,'default': -15,},
-        'uw_duty':{'type': float,'default': 1,}, # ODMR   
-        'uw_rep':{'type': int,'default': 50,}, # ODMR
-        'mode':{'type': list,'items': ['QAM','AM'  ], 'default': 'QAM'}, # ODMR
-        ## Data Acquisition
-        'ROI_xy':{'type': str, 'default': '[(512,512)]'},
-        'alt_label': {'type': bool,'default': False}, # Alternate label to get more balanced results
-        'alt_sleep_time': {'type': float,'default': 0,'suffix': 's','units': 's'}, #sleep time between alternating labels, if alt_label is True
-        'trackpy_params': {'type': str,'default': "{'trackpy': True, 'sigma': 1.2, 'r_ND': 7, 'min_dist': 8, 'bg_pts': []}"},
-        'focus_bool': {'type': bool,'default': True}, 
-        ## Saving
-        'data_path': {'type': str,'default': 'Z:\\biosensing_setup\\data\\Widefield\\no_path_set'},
-        'save_image':{'type': list,'items': ['no_save', 'tracking','raw_images','raw_images_safe','[x]per_sweep','[x]all_sweep'], 'default': 'no_save'}, # determines how images are compressed when saved: do not save, save every image, save a float16 image per sweep, or save a float16 image per frequency
-        'data_download':{'type': bool,},
-        ## Debug
-        'shutdown': {'type': bool, 'default': True}, # Whether to shut down the camera SDK at the end of the experiment. May want to turn off for debugging to avoid needing to re-initialize the camera for each run.
-        'verbose': {'type': bool, 'default': True},
-        'window_params': {'type' : str, 'default' : "{'interval': 0, 'all_ROI': False, 'r_display': 16}"}, #parameters for display window updating
-        'Misc': {'type': str,'default': "{'DEBUG':False}" },
-
-    }
+    def __exit__(self, exc_type, exc, tb):
+        """Perform experiment teardown."""
+        _logger.info('Destroyed Experiment instance.')
 
     #### INIT HELPER FUNCTIONS ###############################################################################################
     ## Param Setting Functions (set variables)
@@ -211,9 +200,9 @@ class wODMRSpyrelet(WFSpyrelet):
         return output
     ###########################################################################################################################
     def main(self, exp_time, readout_time, sweeps, label, frequencies, gain, gain_setting, cooler, cam_trigger, rf_amplitude, uw_duty, uw_rep, mode, ROI_xy, alt_label, alt_sleep_time, trackpy_params, focus_bool,
-                   data_path, save_image, data_download, shutdown, window_params, verbose, data_source, Misc):
+                   data_path, save_image, data_download, shutdown, window_params, verbose, dataset, Misc):
         params={"exp_time": exp_time, "readout_time": readout_time, "sweeps": sweeps, "label": label, "frequencies": frequencies, "gain": gain, "gain_setting": gain_setting, "cooler": cooler, "cam_trigger": cam_trigger, "rf_amplitude": rf_amplitude, "uw_duty": uw_duty, "uw_rep": uw_rep, "mode": mode, "ROI_xy": ROI_xy, "alt_label": alt_label, "alt_sleep_time": alt_sleep_time, "trackpy_params": trackpy_params, "focus_bool": focus_bool, "data_path": data_path, "save_image": save_image, "data_download": data_download, "shutdown": shutdown, "verbose": verbose, "window_params": window_params,  "Misc": Misc}
-        with InstrumentManager() as mgr, DataSource(data_source) as ds:
+        with InstrumentManager() as mgr, DataSource(dataset) as ds:
             self.initialize(mgr, exp_time, readout_time, sweeps, label, frequencies, gain, gain_setting, cooler, cam_trigger, rf_amplitude, uw_duty, uw_rep, mode, ROI_xy,
                            alt_label,
                            alt_sleep_time,
@@ -246,25 +235,29 @@ class wODMRSpyrelet(WFSpyrelet):
 
             #### Begin Experiment ################################################################################################################
             self.init_main_loop(mgr, mode) # Any experiment-specific initialization before main loop, such as defining sequences, running initial sequences, etc.
-            ZPosList=StreamingList()
-            SignalList=StreamingList()
-            BackgroundList=StreamingList()
-            SignalAllList=StreamingList()
+            data_dict={}
+            for ND in range(len(self.ND_list)): 
+                data_dict[f'signal_{ND}'] = StreamingList() # initialize empty streaming list for each ND to be added to acquisition dict
+                data_dict[f'background_{ND}'] = StreamingList()
+                data_dict[f'signal_all_{ND}'] = StreamingList()
+            data_dict['z_pos'] = StreamingList() # for tracking z position during experiment, to be added to acquisition dict
             if self.window:
                 WindowList=StreamingList()
             n_freqs = len(self.sg_freqs)
-            for sweep in self.progress(range(sweeps)):
+            for sweep in range(sweeps):
                 ## main loop ################################################################################################################
                 self.unsaved_imgs = {} # dict to hold unsaved images for this sweep, key is img name, value is img to save.
                 sig_counts=np.empty(n_freqs)
                 sig_counts[:]=np.nan
-                SignalList.append(np.stack([self.sg_freqs, sig_counts]))
+                
                 bg_counts=np.empty(n_freqs)
                 bg_counts[:]=np.nan
-                BackgroundList.append(np.stack([self.sg_freqs, bg_counts]))
                 sig_all_counts=np.empty(n_freqs)
                 sig_all_counts[:]=np.nan
-                SignalAllList.append(np.stack([self.sg_freqs, sig_all_counts]))
+                for i in range(len(self.ND_list)):
+                    data_dict[f'signal_{i}'].append(np.stack([self.sg_freqs, sig_counts]))
+                    data_dict[f'background_{i}'].append(np.stack([self.sg_freqs, bg_counts]))
+                    data_dict[f'signal_all_{i}'].append(np.stack([self.sg_freqs, sig_all_counts]))
                 for i, f_hz in enumerate(self.sg_freqs):
                     if verbose: print("frequency: ", f_hz)
         
@@ -273,7 +266,8 @@ class wODMRSpyrelet(WFSpyrelet):
                     if alt_label:
                         data_1D = self.GetPic_Alternating(mgr, self.main_seq, self.alt_seq, len(self.label), alt_sleep_time, saving=save_image) # Get data as list of 1D arrays, alternating between two labels
                     else:
-                        data_1D = self.GetPic(mgr, self.main_seq, len(self.label), saving=save_image) # Get data as list of 1D arrays, saving any images during wait if all images are to be saved
+                        data_1D = self.GetPic(mgr, self.main_seq, len(self.label), saving=save_image) 
+                        time.sleep(2)# Get data as list of 1D arrays, saving any images during wait if all images are to be saved
                     # Go through the new data and format it. Add it to unsaved imgs.
                     current_time = time.time()
                     data = []
@@ -297,33 +291,40 @@ class wODMRSpyrelet(WFSpyrelet):
 
                     ## ANALYSIS
                     output_dict = self.analyze_sig(data)
-                    SignalList[-1][1][i] = output_dict['sig']
-                    SignalList.updated_item(-1)
-                    BackgroundList[-1][1][i] = output_dict['bg']
-                    BackgroundList.updated_item(-1)
-                    SignalAllList[-1][1][i] = output_dict['sig_all']
-                    SignalAllList.updated_item(-1)
-                    ZPosList.append(np.array([np.array([current_time-self.t0]),np.array(self.z_pos)]))
-                    ZPosList.updated_item(-1)
+                    print(f"type(output_dict): {type(output_dict)}")
+                    print(f"sig: {output_dict['sig']}, bg: {output_dict['bg']}")
+                    print(f"type(output_dict['sig']): {type(output_dict['sig'])}, type(output_dict['bg']): {type(output_dict['bg'])}")
+                    for ND in range(len(self.ND_list)):
+                        data_dict[f'signal_{ND}'][-1][1][i] = output_dict['sig'][ND]
+                        data_dict[f'signal_{ND}'].updated_item(-1)
+                        data_dict[f'background_{ND}'][-1][1][i] = output_dict['bg'][ND]
+                        data_dict[f'background_{ND}'].updated_item(-1)
+                        # data_dict[f'signal_all_{ND}'][-1][1][i] = output_dict['sig_all'][ND]
+                        # data_dict[f'signal_all_{ND}'].updated_item(-1)
+                    print(f"self.z_pos: {self.z_pos}")
+                    print(f"type(self.z_pos): {type(self.z_pos)}")
+                    data_dict[f'z_pos'].append(np.array([np.array([current_time-self.t0]),np.array([self.z_pos])]))
+                    data_dict[f'z_pos'].updated_item(-1)
 
                     
                     
 
                     ## Acquire.
                     # dependent on process. Example of an acquisition dict.
-                    data_dict={'z_pos': ZPosList, 'sig': SignalList, 'bg': BackgroundList, 'sig_all': SignalAllList}
+
 
                     if self.window:
                         WindowList.append(np.array([np.array([time.time()-self.t0]),np.array([ls_mx])]))
                         data_dict['window'] = self.format_windows(mgr, data[-1], focus_bool=focus_bool)
 
                     acq_dict = {
-                        'params': "params",
+                        'params': params,
                         'xlabel': 'frequency (Hz)',
                         'ylabel': 'counts (/s)',
                         'datasets': data_dict,
                         'output': {'number_ND':len(self.ND_iter), 
                         'frequencies': self.sg_freqs, 
+                        'current_sweep': sweep
                         }
                         
                         
@@ -331,15 +332,18 @@ class wODMRSpyrelet(WFSpyrelet):
                     
                     
                     ds.push(acq_dict) # push acquisition dict to data source, which will handle saving and plotting. Note that the data source is separate from the experiment, and can be used across different experiments for consistent saving and plotting.
+                    if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
+                        # the GUI has asked us nicely to exit
+                        self.finalize(mgr, exp_time, readout_time, sweeps, label, frequencies, gain, gain_setting, cooler, cam_trigger, rf_amplitude, uw_duty, uw_rep, mode, ROI_xy, alt_label, alt_sleep_time, trackpy_params, focus_bool,
+                    data_path, save_image, data_download, shutdown, window_params, verbose, Misc)
+                        return
                 ###########################################################################
                 representative_img = img
                 self.save_after_sweep(img, save_image, sweep)
                 print(f'Finished sweep {sweep+1}/{sweeps}, time elapsed: {time.time() - self.t0} seconds.')
-                if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
-                        # the GUI has asked us nicely to exit
-                    self.finalize(mgr, exp_time, readout_time, sweeps, label, frequencies, gain, gain_setting, cooler, cam_trigger, rf_amplitude, uw_duty, uw_rep, mode, ROI_xy, alt_label, alt_sleep_time, trackpy_params, focus_bool,
-                   data_path, save_image, data_download, shutdown, window_params, verbose, Misc)
+                
             self.finalize(mgr, exp_time, readout_time, sweeps, label, frequencies, gain, gain_setting, cooler, cam_trigger, rf_amplitude, uw_duty, uw_rep, mode, ROI_xy, alt_label, alt_sleep_time, trackpy_params, focus_bool, data_path, save_image, data_download, shutdown, window_params, verbose, Misc)
+            return
 
     #### FINALIZE HELPER FUNCTIONS ###############################################################################################
     def save_config(self, data_download, sweeps, alt_label, rf_amplitude, frequencies, gain, exp_time, readout_time, ROI_xy):

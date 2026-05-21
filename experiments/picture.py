@@ -74,7 +74,8 @@ class Pictures:
                 mgr.Camera.abort_acquisition()
             _, width, height=mgr.Camera.get_detector()  # Get the detector size
             mgr.Camera.set_image()
-            mgr.Pulser.stream([(1000000000, [3])])
+            exposure_time_ns=int(mgr.Camera.exposure_time*1.2*1e9)
+            mgr.Pulser.stream([(exposure_time_ns, [3])])
             time.sleep(0.1)  # Give time to start acquisition
             mgr.Camera.start_acquisition()
             ret, _ = mgr.Camera.get_status()
@@ -85,18 +86,28 @@ class Pictures:
             #print('Starting Acquisition', ret)
             time.sleep(0.1) #Give time to start acquisition
             #mgr.Pulser.stream_umOFF([3], 1) 
-            if mgr.Camera.trigger_mode != "internal":
-                mgr.Pulser.stream([(1000000000, [3])])  # Start the pulser to trigger the camera
-                mgr.Pulser.stream([(100000000, [1]), (1000000000, [3])])
+            if mgr.Camera.trigger_mode != "Internal":
+                mgr.Pulser.stream([(exposure_time_ns, [1])])  # Start the pulser to trigger the camera
+                mgr.Pulser.stream([(exposure_time_ns, [1]), (exposure_time_ns, [3])])
             timeout_counter = 0
             while(mgr.Camera.get_total_number_images_acquired()[1]<mgr.Camera.number_kinetics and timeout_counter<=100): #20 second hard-coded limit!
                 time.sleep(0.05)#Might want to base wait time on pulse streamer signal
+                if mgr.Camera.trigger_mode != "Internal":
+                    mgr.Pulser.stream([(exposure_time_ns, [1])])  # Start the pulser to trigger the camera
+                    mgr.Pulser.stream([(exposure_time_ns, [1]), (exposure_time_ns, [3])])
                 timeout_counter+=1
             mgr.Camera.abort_acquisition()
             ret, data, _, _ = mgr.Camera.get_images_16(1,1,1024**2) #cut out first image here
             #print("Number of images collected in current acquisition: ", mgr.sdk.GetTotalNumberImagesAcquired()[1])
             # temp_image = self.img_1D_to_2D(all_data[:1024**2],1024,1024) 
-            temp_image = self.img_1D_to_2D(data, 1024, 1024)
+            num_images = mgr.Camera.get_total_number_images_acquired()[1]
+            print(f"Number of images acquired: {num_images}")
+            pictures={}
+            for img_idx in range(1, num_images + 1):
+                ret, data, _, _ = mgr.Camera.get_images_16(img_idx, 1, 1024**2)
+                temp_image = self.img_1D_to_2D(data, 1024, 1024)
+                pictures["picture_0"]=(temp_image)
+                temp_image = self.img_1D_to_2D(data, 1024, 1024)
             # TODO: experiment with making the above line of code less disgusting. Depends on how particular NSpyre is about having np.arrays.
             
             print("Running well.")
@@ -112,8 +123,7 @@ class Pictures:
                             'ylabel': 'Pixels',
                             'xs': np.asarray(range(width)),
                             'ys': np.asarray(range(height)),
-                            'datasets': {'picture' : temp_image,
-                                        }
+                            'datasets': pictures,
             })
 
 

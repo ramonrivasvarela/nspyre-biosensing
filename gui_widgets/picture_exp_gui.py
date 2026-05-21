@@ -45,4 +45,4 @@ class PicturesHeatMapWidget(HeatMapPlotWidget):
                 # open in read-only mode; adjust dataset name if needed
 
         self.datasource_lineedit.setText('picture')
-        super().add_heatmap("Picture", "picture")
+        super().add_heatmap("Picture", "picture_0")

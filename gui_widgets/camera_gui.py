@@ -93,7 +93,8 @@ class CameraWidget(QWidget):
         self.gain_label.setFixedHeight(20)
         self.gain_label.setStyleSheet("font-weight: bold")
         self.gain_sb = QSpinBox()
-        self.gain_sb.setRange(0, 255)
+        self.gain_sb.setRange(1, 255)
+        self.gain_sb.setValue(1)
         self.gain_sb.editingFinished.connect(lambda: self.camera.set_emccdgain(self.gain_sb.value()) if self.camera else print("No camera connected."))
 
         # Temperature
@@ -139,7 +140,7 @@ class CameraWidget(QWidget):
             "Fast Kinetics",
             "Run till Abort"
         ])
-        self.acq_mode_combo.setCurrentText('Kinetics')
+        self.acq_mode_combo.setCurrentText('Single Scan')
         self.acq_mode_combo.currentTextChanged.connect(lambda m: self.camera.set_acquisition_mode(m) if self.camera else print("No camera connected."))
 
         # Number of accumulations

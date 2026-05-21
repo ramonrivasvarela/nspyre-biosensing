@@ -7,7 +7,7 @@ import numpy as np
 import time
 from itertools import cycle
 from scipy.optimize import curve_fit
-import pickle
+import pickle #Delete later
 import sys, os
 
 # trackpy
@@ -36,52 +36,62 @@ from pyAndorSDK2 import atmcd, atmcd_codes, atmcd_errors
 
 #spyrelet
 from WFSpyrelet import WFSpyrelet
-class wODMRSpyrelet(WFSpyrelet):
+class wI1I2Spyrelet(WFSpyrelet):
     REQUIRED_DEVICES = [
         'sg',
         'psWF',
-        'urixyz',
+        'urixyz', 
     ]
 
+    '''
+    REQUIRED_SPYRELETS = {
+    }
+    '''
+    """
+    Wide-Field Two-Point ODMR Spyrelet:
+    """
 
     PARAMS = {
+            #### ALL-WF-PARAMS
         ## Pulse Timings
-        'exp_time':{'type':float,'units':'s','suffix': 's','default': 75e-3,},
-        'readout_time':{'type':float,'units':'s','suffix': 's','default': 15e-3,}, #must be greater than 39ms for EXTERNAL_EXPOSURE
+        'exp_time':{'type':float,'units':'s','suffix': 's','default': 75e-3,}, # Time for collecting sig
+        'readout_time':{'type':float,'units':'s','suffix': 's','default': 15e-3,}, # Time for readout
         ## Routine
         'sweeps':{'type': int, 'default': 3}, 
-        'label':{'type': str, 'default': '[t, 1, 0, 1, 0]'}, #'[t, 1, 0, 2, 0]' for I1I2
-        'frequencies':{'type': str,'default': '[2.835e9, 2.905e9, 30]'}, #I1I2 Only | [start, stop, num_points]
+        'label':{'type': str, 'default': '[t, 1, 0, 2]' }, 
+        'frequencies':{'type': str,'default': '[2.864e9, 2.872e9, 20]'}, #[start, stop, num_points]
         ## Gain
         'gain':{'type':int,'default': 2,'positive': True}, #EM gain for camera, goes from 1-272
-        'gain_setting':{'type': list,'items': ['optimize', 'override', 'use current'], 'default': 'optimize'},
+        'gain_setting':{'type': list,'items': ['optimize', 'override', 'use current']
+                        , 'default': 'optimize'},
         ## Cam Settings
         'cooler':{'type': str, 'default': '(False, 20)'},
-        'cam_trigger':{'type': list,'items': ['EXTERNAL_EXPOSURE','EXTERNAL_FT'], 'default': 'EXTERNAL_FT'},
+        'cam_trigger':{'type': list,'items': ['EXTERNAL_EXPOSURE','EXTERNAL_FT']
+                       , 'default': 'EXTERNAL_FT'},
         ## SG
         'rf_amplitude':{'type': float,'default': -15,},
-        'uw_duty':{'type': float,'default': 1,}, # ODMR   
-        'uw_rep':{'type': int,'default': 50,}, # ODMR
-        'mode':{'type': list,'items': ['QAM','AM'  ], 'default': 'QAM'}, # ODMR
+        'sideband': {'type': float,'units':'Hz','suffix': 'Hz','default': 12e6,},
         ## Data Acquisition
         'ROI_xy':{'type': str, 'default': '[(512,512)]'},
         'alt_label': {'type': bool,'default': False}, # Alternate label to get more balanced results
-        'alt_sleep_time': {'type': float,'default': 0,'suffix': 's','units': 's'}, #sleep time between alternating labels, if alt_label is True
+        'alt_sleep_time': {'type': float,'default': 0.2,'suffix': 's','units': 's'}, #sleep time between alternating labels, if alt_label is True
         'trackpy_params': {'type': str,'default': "{'trackpy': True, 'sigma': 2, 'r_ND': 7, 'min_dist': 8, 'buffer': 35, 'tp_fourier_filter': 5, 'bg_pts': []}"},
-        'focus_bool': {'type': bool,'default': True}, 
+        'focus_bool': {'type': bool,'default': True},
         'fourier_filter': {'type': int, 'default': 0}, # Radius of High Pass Fourier Filter to apply to images. 0 means no filter. 5 is a sweet-spot to eliminate laser profile
         ## Saving
         'data_path': {'type': str,'default': 'Z:\\biosensing_setup\\data\\Widefield\\no_path_set'},
         'save_image':{'type': list,'items': ['no_save', 'tracking','raw_images','raw_images_safe','[x]per_sweep','[x]all_sweep'], 'default': 'no_save'}, # determines how images are compressed when saved: do not save, save every image, save a float16 image per sweep, or save a float16 image per frequency
         'data_download':{'type': bool,},
         ## Debug
-        'shutdown': {'type': bool, 'default': True}, # Whether to shut down the camera SDK at the end of the experiment. May want to turn off for debugging to avoid needing to re-initialize the camera for each run.
         'verbose': {'type': bool, 'default': True},
-        'window_params': {'type' : str, 'default' : "{'interval': 0, 'all_ROI': False, 'r_display': 16}"}, #parameters for display window updating
+        'window_params': {'type' : str,
+                           'default' : "{'interval': 0, 'all_ROI': False, 'r_display': 16}"},
+                            #parameters for display window updating
+        'shutdown': {'type': bool, 'default': True}, 
+        # Whether to shut down the camera SDK at the end of the experiment.
         'Misc': {'type': str,'default': "{'DEBUG':False}" },
-
     }
-
+    
     #### INIT HELPER FUNCTIONS ###############################################################################################
     ## Param Setting Functions (set variables)
     def set_label_self_params(self, label, alt_label):
@@ -91,43 +101,44 @@ class wODMRSpyrelet(WFSpyrelet):
         if alt_label:
             for pulse in self.label:
                 if pulse == 1:
-                    self.label_inv.append(0)
-                elif pulse == 0:
+                    self.label_inv.append(2)
+                elif pulse == 2:
                     self.label_inv.append(1)
+                elif pulse == 0:
+                    self.label_inv.append(0)
                 elif pulse == 't':
                     self.label_inv.append('t')
         self.full_label = self.label+ self.label_inv
         self.full_label_filtered = [pulse for pulse in self.full_label if pulse != 't']
         return
-        
+    
     ## Initialization Functions (set up devices and more complex variables)
-    def init_sg(self, rf_amplitude, mode): 
+    def init_sg(self, rf_amplitude, sideband):
         self.sg.rf_toggle = False
         self.sg.rf_amplitude = rf_amplitude
-        if mode == 'QAM':
-            self.sg.mod_type = 'QAM'
-        elif mode == 'AM':
-            self.sg.mod_type = 'AM'
-            self.sg.AM_mod_depth = Q_(100, 'pc')
         self.sg.mod_toggle = True
         self.sg.mod_function = 'external'
+        self.sg.mod_type = 'FM'
+        self.sg.FM_mod_setter = sideband
         return
-
-    def init_seq(self, alt_label, mode, uw_duty, uw_rep): 
+    
+    def init_seq(self, alt_label):
         self.seq_key = 'main'
-        self.psWF.prep_ODMR(self.label, self.exp_time, self.readout_time, trig = self.trigger_time, buff = self.buffer_time, mode = mode, uw_duty = uw_duty, uw_rep = uw_rep, key = self.seq_key, dim_throwaway = self.Misc.get('dim_throwaway', True)) 
+        self.psWF.prep_I1I2(self.label, self.exp_time, self.readout_time, trig = self.trigger_time, buff = self.buffer_time,  key = self.seq_key) 
         if alt_label:
             self.alt_key = 'alt'
-            self.psWF.prep_ODMR(self.label_inv, self.exp_time, self.readout_time, trig = self.trigger_time, buff = self.buffer_time, mode = mode, uw_duty = uw_duty, uw_rep = uw_rep, key = self.alt_key, dim_throwaway = self.Misc.get('dim_throwaway', True))
+            self.psWF.prep_I1I2(self.label_inv, self.exp_time, self.readout_time, trig = self.trigger_time, buff = self.buffer_time,  key = self.alt_key)
         self.gain_key = 'gain_seq'
         self.n_gain = 2                                      #(Hardcoded) | number of pulses in gain sequence, should be at least 2 to get a sense of dynamics
         self.psWF.prep_gain_seq(self.n_gain,self.exp_time, self.readout_time, trig = self.trigger_time, buff = self.buffer_time, key = self.gain_key)
         return
     ###########################################################################################################################
-    def initialize(self, exp_time, readout_time, sweeps, label, frequencies, gain, gain_setting, cooler, cam_trigger, rf_amplitude, uw_duty, uw_rep, mode, ROI_xy, alt_label, alt_sleep_time, trackpy_params, focus_bool,
-                   fourier_filter, data_path, save_image, data_download, shutdown, window_params, verbose, Misc): 
+
+    def initialize(self, exp_time, readout_time, sweeps, label, frequencies, gain, gain_setting, cooler, 
+                   cam_trigger, rf_amplitude, sideband, ROI_xy, alt_label, alt_sleep_time, trackpy_params, 
+                   focus_bool, fourier_filter, data_path, save_image, data_download, verbose, window_params, shutdown, Misc): 
         
-        print('Initializing ODMR')
+        print('Initializing I1I2')
         
         #### General Param Formatting: ###############################################
         ## Runtime
@@ -152,11 +163,11 @@ class wODMRSpyrelet(WFSpyrelet):
         ## Trackpy 
         self.trackpy_params = eval(trackpy_params)
         #### SG init ########################################################################
-        self.init_sg(rf_amplitude, mode) # init signal generator
+        self.init_sg(rf_amplitude, sideband) # init signal generator
         #### Cam init ########################################################################
         self.init_camera(cam_trigger) # self.sdk | self.sdk_codes | camera initialized and ready to acquire
         #### Seq init ########################################################################
-        self.init_seq(alt_label, mode, uw_duty, uw_rep) # self.seq_key | self.alt_key (if alt_label) | self.gain_key | sequences initialized and ready to acquire
+        self.init_seq(alt_label) # self.seq_key | self.alt_key (if alt_label) | self.gain_key | sequences initialized and ready to acquire
         #### Experiment Specific Init #####################################################################
         #### Cooldown if necessary ########################################################################
         do_cool, temp = eval(cooler)
@@ -170,24 +181,24 @@ class wODMRSpyrelet(WFSpyrelet):
     
     #### MAIN HELPER FUNCTIONS ###############################################################################################
     ## Initialization Functions (set up devices and more complex variables) and Param Setting Functions
-    def init_main_loop(self, mode): # TEMPLATE
+    def init_main_loop(self): # TEMPLATE
         ## Prepare camera
         self.sdk.SetNumberKinetics(len(self.label))
         ## Prepare SG, ps
-        Q_set = -1 if mode == 'AM' else 0 # ODMR ONLY
-        self.psWF.Pulser.constant(([6], Q_set, 0.0)) #set pulser to safe output
+        self.psWF.Pulser.constant(([6], 0.0, 0.0)) #set pulser to safe output
         self.sg.rf_toggle = True 
         return
     ## Analysis Functions (data formatting, analysis)
     def analyze_sig(self, data): # TEMPLATE
         '''
-        Analyzes acquired data by pooling all signal (1) and background (0) into a single value-per-ND,
+        Analyzes acquired data by pooling all I1 (1), I2 (2), and background (0) into two values per ND,
         as well as a list of output-per-ND. Note redundancy of information - can technically move this
         analysis to the plotting software. Probably worth it for the new NSpyre. 
         '''
         # dependent on process. Roughly this will consist of:
         # Define for each sig a list, by ND, and allowing for multiple entries due to multiple runs.
-        sig = [[] for _ in self.ND_iter]
+        I1 = [[] for _ in self.ND_iter]
+        I2 = [[] for _ in self.ND_iter]
         bg = [[] for _ in self.ND_iter]
         # Define sig all of the signals for this run, for all NDs, to be added to the acquisition dict regardless of protocol, for maximum flexibility in post-processing.
         sig_all = [[] for _ in self.ND_iter] # For collecting all signals.
@@ -201,19 +212,62 @@ class wODMRSpyrelet(WFSpyrelet):
             extracted_sig = self.img_to_sig(self.ND_list, data[i], r_ROI = self.r_targ) #array of [ND] signals from a given image.
             for ND in self.ND_iter: sig_all[ND].append(int(extracted_sig[ND]))
             if lbl[i] == 1:
-                for ND in self.ND_iter: sig[ND].append(int(extracted_sig[ND]))
+                for ND in self.ND_iter: I1[ND].append(int(extracted_sig[ND]))
+            elif lbl[i] == 2:
+                for ND in self.ND_iter: I2[ND].append(int(extracted_sig[ND]))
             elif lbl[i] == 0:
                 for ND in self.ND_iter: bg[ND].append(int(extracted_sig[ND]))
             else:
                 print('throwaway pulse, ignoring...')
-        ls_sig = [int(np.mean(sig[ND])) for ND in range(len(self.ND_list))]
+        ls_I1 = [int(np.mean(I1[ND])) for ND in range(len(self.ND_list))]
+        ls_I2 = [int(np.mean(I2[ND])) for ND in range(len(self.ND_list))]
         ls_bg = [int(np.mean(bg[ND])) for ND in range(len(self.ND_list))]
-        output = {'sig': ls_sig, 'bg': ls_bg, 'sig_all': sig_all}
+        output = {'I1': ls_I1, 'I2': ls_I2, 'bg': ls_bg, 'sig_all': sig_all}
+        return output
+    
+    def analyze_sig_match_background(self, data): # TEMPLATE
+        '''
+        Analyzes acquired data by matching each I1 (1) and I2 (2) with the nearest background (0)
+        and averaging pooled contrast as two values-per-ND,
+        as well as a list of output-per-ND. Note redundancy of information - can technically move this
+        analysis to the plotting software. Probably worth it for the new NSpyre. 
+
+        UNIMPLIMENTED...
+        '''
+        # dependent on process. Roughly this will consist of:
+        # Define for each sig a list, by ND, and allowing for multiple entries due to multiple runs.
+        I1 = [[] for _ in self.ND_iter]
+        I2 = [[] for _ in self.ND_iter]
+        bg = [[] for _ in self.ND_iter]
+        # Define sig all of the signals for this run, for all NDs, to be added to the acquisition dict regardless of protocol, for maximum flexibility in post-processing.
+        sig_all = [[] for _ in self.ND_iter] # For collecting all signals.
+        if self.debug:
+            print('DEBUG IN PROGRESS... CHECKING ANALYSIS WITH T PULSES')
+            lbl = self.full_label
+        else:
+            lbl = self.full_label_filtered
+        # begin processing images:
+        for i in range(len(data)):
+            extracted_sig = self.img_to_sig(self.ND_list, data[i], r_ROI = self.r_targ) #array of [ND] signals from a given image.
+            for ND in self.ND_iter: sig_all[ND].append(int(extracted_sig[ND]))
+            if lbl[i] == 1:
+                for ND in self.ND_iter: I1[ND].append(int(extracted_sig[ND]))
+            elif lbl[i] == 2:
+                for ND in self.ND_iter: I2[ND].append(int(extracted_sig[ND]))
+            elif lbl[i] == 0:
+                for ND in self.ND_iter: bg[ND].append(int(extracted_sig[ND]))
+            else:
+                print('throwaway pulse, ignoring...')
+        ls_I1 = [int(np.mean(I1[ND])) for ND in range(len(self.ND_list))]
+        ls_I2 = [int(np.mean(I2[ND])) for ND in range(len(self.ND_list))]
+        ls_bg = [int(np.mean(bg[ND])) for ND in range(len(self.ND_list))]
+        output = {'I1': ls_I1, 'I2': ls_I2, 'bg': ls_bg, 'sig_all': sig_all}
         return output
     ###########################################################################################################################
-    def main(self, exp_time, readout_time, sweeps, label, frequencies, gain, gain_setting, cooler, cam_trigger, rf_amplitude, uw_duty, uw_rep, mode, ROI_xy, alt_label, alt_sleep_time, trackpy_params, focus_bool,
-                   fourier_filter, data_path, save_image, data_download, shutdown, window_params, verbose, Misc): 
-
+    def main(self, exp_time, readout_time, sweeps, label, frequencies, gain, gain_setting, cooler, 
+                   cam_trigger, rf_amplitude, sideband, ROI_xy, alt_label, alt_sleep_time, trackpy_params, 
+                   focus_bool, fourier_filter, data_path, save_image, data_download, verbose, window_params, shutdown, Misc): 
+        
         representative_img = None # useful for saving and windowing, a running representative image.
         #### Optimize gain/ take images to reset camera dynamics #################################################
         self.gain, max_value, representative_img = self.init_gain(gain, gain_setting, self.Misc.get('ideal_pixel_range', (2.1e4,2.9e4)), 
@@ -225,7 +279,7 @@ class wODMRSpyrelet(WFSpyrelet):
         n_bg_pts = self.init_ND_list(representative_img) # self.ND_list | self.ND_iter | some print statements | runs trackpy if necessary to find NDs. 
 
         #### Begin Experiment ################################################################################################################
-        self.init_main_loop(mode) # Any experiment-specific initialization before main loop, such as defining sequences, running initial sequences, etc.
+        self.init_main_loop() # Any experiment-specific initialization before main loop, such as defining sequences, running initial sequences, etc.
 
         for sweep in self.progress(range(sweeps)):
             ## main loop ################################################################################################################
@@ -242,7 +296,7 @@ class wODMRSpyrelet(WFSpyrelet):
                 data = []
 
                 for j, img_1D in enumerate(data_1D):
-                    if self.full_label[j] != 't':
+                    if self.full_label[j] != 't' or self.debug:
                         img = self.img_1D_to_2D(img_1D, 1024, 1024, r_fourier = fourier_filter)
                         data.append(img)
                         if save_image in ['raw_images', 'raw_images_safe']:
@@ -254,9 +308,6 @@ class wODMRSpyrelet(WFSpyrelet):
                         print('DEBUG, ADDING IN T PULSE IMAGES FOR ANALYSIS. CHECKING THAT THEY ARE NOT BEING MISTAKEN FOR REAL SIGNALS.')
                         img = self.img_1D_to_2D(img_1D, 1024, 1024, r_fourier = fourier_filter)
                         data.append(img)
-
-                    
-
                 ## Track NDs
                 self.ND_list, ls_mx = self.track_NDs(self.ND_list, data[-1], r_search = self.r_track, number_bg_pts= n_bg_pts)
 
@@ -268,6 +319,8 @@ class wODMRSpyrelet(WFSpyrelet):
                 acq_dict = {
                     'sweep_idx': sweep,                         # sweep idx
                     'f': f,                            # any frequency info
+                    'f1': f-sideband,
+                    'f2': f+sideband,
                     'time': time.time() - self.t0,                   # time since start of experiment
                     'z_pos': self.z_pos                     # z position
                 }
@@ -281,11 +334,11 @@ class wODMRSpyrelet(WFSpyrelet):
             print(f'Finished sweep {sweep+1}/{sweeps}, time elapsed: {time.time() - self.t0} seconds.')
 
     #### FINALIZE HELPER FUNCTIONS ###############################################################################################
-    def save_config(self, data_download, sweeps, alt_label, rf_amplitude, frequencies, gain, exp_time, readout_time, ROI_xy):
+    def save_config(self, data_download, sweeps, alt_label, rf_amplitude, frequencies, gain, exp_time, readout_time, ROI_xy, sideband):
         total_time = time.time() - self.t0
         if data_download:
-            config = {'VERSION': 2, 'label': self.label, 'gain': self.gain, 'sweeps': sweeps, 'alt_label': alt_label, 'rf': rf_amplitude,'NDs_input': eval(ROI_xy),'tparams': self.trackpy_params,
-                      'NDs': self.ND_list, 'n_ND': len(self.ND_list), 'freqs': frequencies, 'exp_time': exp_time.m, 'readout_time': readout_time.m, 'total_time': total_time} 
+            config = {'VERSION': 2, 'label': self.label, 'gain': self.gain, 'sweeps': sweeps, 'alt_label': alt_label, 'rf': rf_amplitude,'NDs_input': eval(ROI_xy), 'tparams': self.trackpy_params,
+                      'NDs': self.ND_list, 'n_ND': len(self.ND_list), 'freqs': frequencies, 'sideband': sideband.m, 'exp_time': exp_time.m, 'readout_time': readout_time.m, 'total_time': total_time} 
             os.mkdir(self.data_path+'\\data')
             with open(self.data_path+f'\\data\\config.pkl', 'wb') as file: 
                 pickle.dump(config, file)
@@ -293,8 +346,9 @@ class wODMRSpyrelet(WFSpyrelet):
                 file.write(str(config))
         return total_time
     ###########################################################################################################################
-    def finalize(self, exp_time, readout_time, sweeps, label, frequencies, gain, gain_setting, cooler, cam_trigger, rf_amplitude, uw_duty, uw_rep, mode, ROI_xy, alt_label, alt_sleep_time, trackpy_params, focus_bool,
-                   fourier_filter, data_path, save_image, data_download, shutdown, window_params, verbose, Misc): 
+    def finalize(self, exp_time, readout_time, sweeps, label, frequencies, gain, gain_setting, cooler, 
+                   cam_trigger, rf_amplitude, sideband, ROI_xy, alt_label, alt_sleep_time, trackpy_params, 
+                   focus_bool, fourier_filter,data_path, save_image, data_download, verbose, window_params, shutdown, Misc):  
         #### SG off ###############################################################################################
         self.finalize_sg()
         #### Cam close ###############################################################################################
@@ -302,17 +356,12 @@ class wODMRSpyrelet(WFSpyrelet):
         #### Additional Analysis ###############################################################################################
         # Ex. Quasilinear slope extraction, fitting, etc.
         #### Data saving ###############################################################################################
-        total_time = self.save_config(data_download, sweeps, alt_label, rf_amplitude, frequencies, gain, exp_time, readout_time, ROI_xy)
+        total_time = self.save_config(data_download, sweeps, alt_label, rf_amplitude, frequencies, gain, exp_time, readout_time, ROI_xy, sideband)
         #### Final Print Statements ###############################################################################################
         first_10_ROI = self.ND_list[:10]
         print(f'The updated ND locations: {first_10_ROI}... ({len(first_10_ROI)} of {len(self.ND_list)} shown)')
         print(f"Finalizing finished, total time: {total_time} seconds")
         return
-
-        
-        
-
-
     
 
     @PlotFormatInit(LinePlotWidget, ['ODMR_div'])
@@ -329,26 +378,65 @@ class wODMRSpyrelet(WFSpyrelet):
             latest_image = np.zeros((1024,1024))
         return latest_image
 
+
+    # ---------------
+    @Plot1D
+    def I1I2_curve(df, cache):
+        ND = 0
+        grouped = df.groupby('f')
+        sigs_left = grouped.I1
+        sigs_right = grouped.I2
+        bgs = grouped.bg
+        sigs_left_mean = sigs_left.apply(list).apply(lambda val_set: [vals_by_ND[ND] for vals_by_ND in val_set]).apply(np.mean)
+        sigs_right_mean = sigs_right.apply(list).apply(lambda val_set: [vals_by_ND[ND] for vals_by_ND in val_set]).apply(np.mean)
+        bgs_mean = bgs.apply(list).apply(lambda val_set: [vals_by_ND[ND] for vals_by_ND in val_set]).apply(np.mean)
+
+        sigs_diff = sigs_right_mean/bgs_mean - sigs_left_mean/bgs_mean
+        return {'I2I1': [sigs_diff.index, list(sigs_diff)]}
+    
+    @Plot1D
+    def I1I2_curve_raw(df, cache):
+        ND = 0
+        grouped = df.groupby('f')
+        sigs_left = grouped.I1
+        sigs_right = grouped.I2
+        sigs_left_mean = sigs_left.apply(list).apply(lambda val_set: [vals_by_ND[ND] for vals_by_ND in val_set]).apply(np.mean)
+        sigs_right_mean = sigs_right.apply(list).apply(lambda val_set: [vals_by_ND[ND] for vals_by_ND in val_set]).apply(np.mean)
+
+        sigs_diff = sigs_right_mean - sigs_left_mean
+        return {'I2I1_raw': [sigs_diff.index, list(sigs_diff)]}
+    
     @Plot1D
     def ODMR_div(df, cache):
         ND = 0
-        grouped = df.groupby('f')
-        sigs = grouped['sig'] #also returns  groupby object, still with 'f' as the index, but with only sigs associated. A list of sigs (which is itself a list)
-        bgs = grouped['bg']
-        sigs_averaged = sigs.apply(list).apply(lambda val_set: [vals_by_ND[ND] for vals_by_ND in val_set]).apply(np.mean)
-        bgs_averaged = bgs.apply(list).apply(lambda val_set: [vals_by_ND[ND] for vals_by_ND in val_set]).apply(np.mean)
-        return {'ODMR': [sigs_averaged.index, sigs_averaged/bgs_averaged]}
+        grouped1 = df.groupby('f1')
+        grouped2 = df.groupby('f2')
+        I1 = grouped1['I1'] #also returns  groupby object, still with 'f' as the index, but with only sigs associated. A list of sigs (which is itself a list)
+        I2 = grouped2['I2']
+        bgs1 = grouped1['bg']
+        bgs2 = grouped2['bg']
+        I1_averaged = I1.apply(list).apply(lambda val_set: [vals_by_ND[ND] for vals_by_ND in val_set]).apply(np.mean)
+        I2_averaged = I2.apply(list).apply(lambda val_set: [vals_by_ND[ND] for vals_by_ND in val_set]).apply(np.mean)
+        bgs1_averaged = bgs1.apply(list).apply(lambda val_set: [vals_by_ND[ND] for vals_by_ND in val_set]).apply(np.mean)
+        bgs2_averaged = bgs2.apply(list).apply(lambda val_set: [vals_by_ND[ND] for vals_by_ND in val_set]).apply(np.mean)
+        return {'I1': [I1_averaged.index, list(I1_averaged/bgs1_averaged)],
+                'I2': [I2_averaged.index, list(I2_averaged/bgs2_averaged)]}
 
     @Plot1D
     def raw_signals(df, cache):
         ND = 0
         try:
             grouped = df.groupby('f')
-            sigs = grouped['sig'] #also returns  groupby object, still with 'f' as the index, but with only sigs associated. A list of sigs (which is itself a list)
+            grouped1 = df.groupby('f1')
+            grouped2 = df.groupby('f2')
+            I1 = grouped1['I1'] #also returns  groupby object, still with 'f' as the index, but with only sigs associated. A list of sigs (which is itself a list)
+            I2 = grouped2['I2']
             bgs = grouped['bg']
-            sigs_averaged = sigs.apply(list).apply(lambda val_set: [vals_by_ND[ND] for vals_by_ND in val_set]).apply(np.mean)
+            I1_averaged = I1.apply(list).apply(lambda val_set: [vals_by_ND[ND] for vals_by_ND in val_set]).apply(np.mean)
+            I2_averaged = I2.apply(list).apply(lambda val_set: [vals_by_ND[ND] for vals_by_ND in val_set]).apply(np.mean)
             bgs_averaged = bgs.apply(list).apply(lambda val_set: [vals_by_ND[ND] for vals_by_ND in val_set]).apply(np.mean)
-            return {'sig': [sigs_averaged.index, sigs_averaged],
+            return {'I1': [I1_averaged.index, I1_averaged],
+                    'I2': [I2_averaged.index, I2_averaged],
                     'bg': [bgs_averaged.index, bgs_averaged]}
         except KeyError:
             return
@@ -359,11 +447,16 @@ class wODMRSpyrelet(WFSpyrelet):
         try:
             df = df[df.sweep_idx == df.sweep_idx.max()] # filter for latest sweep
             grouped = df.groupby('f')
-            sigs = grouped['sig'] #also returns  groupby object, still with 'f' as the index, but with only sigs associated. A list of sigs (which is itself a list)
+            grouped1 = df.groupby('f1')
+            grouped2 = df.groupby('f2')
+            I1 = grouped1['I1'] #also returns  groupby object, still with 'f' as the index, but with only sigs associated. A list of sigs (which is itself a list)
+            I2 = grouped2['I2']
             bgs = grouped['bg']
-            sigs_averaged = sigs.apply(list).apply(lambda val_set: [vals_by_ND[ND] for vals_by_ND in val_set]).apply(np.mean)
+            I1_averaged = I1.apply(list).apply(lambda val_set: [vals_by_ND[ND] for vals_by_ND in val_set]).apply(np.mean)
+            I2_averaged = I2.apply(list).apply(lambda val_set: [vals_by_ND[ND] for vals_by_ND in val_set]).apply(np.mean)
             bgs_averaged = bgs.apply(list).apply(lambda val_set: [vals_by_ND[ND] for vals_by_ND in val_set]).apply(np.mean)
-            return {'sig': [sigs_averaged.index, sigs_averaged],
+            return {'I1': [I1_averaged.index, I1_averaged],
+                    'I2': [I2_averaged.index, I2_averaged],
                     'bg': [bgs_averaged.index, bgs_averaged]}
         except KeyError:
             return
@@ -390,4 +483,7 @@ class wODMRSpyrelet(WFSpyrelet):
         normalized_dt_raw_arr = np.stack(normalized_dt_raw)
         mean_normalized = np.mean(normalized_dt_raw_arr, axis=0)
         return {'raw': [list(range(len(mean_normalized))),mean_normalized],}
-        
+    # -------------
+
+
+    

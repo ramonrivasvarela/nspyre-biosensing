@@ -214,8 +214,8 @@ class wODMRWidget(ExperimentWidget):
                 'display_text': 'Window Params',
                 'widget': QLineEdit("{'interval': 0, 'all_ROI': False, 'r_display': 16}"),
             },
-            'data_source': {
-                'display_text': 'Data Source',
+            'dataset': {
+                'display_text': 'Data Set',
                 'widget': QLineEdit('wfodmr')
             },
             'Misc': {
@@ -233,39 +233,28 @@ class wODMRWidget(ExperimentWidget):
             title='Widefield ODMR')
 class wODMRPlotWidget(FlexLinePlotWidget):
     
-    def data_processing_func(sink):
-        frequencies=sink.params['frequencies']
+    def data_processing_func(self, sink):
+        frequencies=sink.output['frequencies']
         n_freqs=len(frequencies)
         for i in range(sink.output['number_ND']):
-            sink.datasets[f"signal_{i}"]=[]
-            sink.datasets[f"background_{i}"]=[]
-            sink.datasets[f"signal_all_{i}"]=[]
             sink.datasets[f"signal_div_{i}"]=[]
-        for sweep in range(sink.params['sweeps']):
-            for i in range(sink.output['number_ND']):
-                signal_counts=np.empty(n_freqs)
-                signal_counts[:]=np.nan
-                sink.datasets[f"signal_{i}"].append(np.stack([frequencies, signal_counts], axis=1))
-                background_counts=np.empty(n_freqs)
-                background_counts[:]=np.nan
-                sink.datasets[f"background_{i}"].append(np.stack([frequencies, background_counts], axis=1))
-                signal_all_counts=np.empty(n_freqs)
-                signal_all_counts[:]=np.nan
-                sink.datasets[f"signal_all_{i}"].append(np.stack([frequencies, signal_all_counts], axis=1))
+        for sweep in range(sink.output['current_sweep']+1):
+            for ND in range(sink.output['number_ND']):
                 signal_div_counts=np.empty(n_freqs)
                 signal_div_counts[:]=np.nan
-                sink.datasets[f"signal_div_{i}"].append(np.stack([frequencies, signal_div_counts], axis=1))
+                sink.datasets[f"signal_div_{ND}"].append(np.stack([frequencies, signal_div_counts]))
                 for j in range(n_freqs):
-                    sink.datasets[f"signal_{i}"][-1][1][j]=sink.datasets["signal"][sweep][1][j][i]
-                    sink.datasets[f"background_{i}"][-1][1][j]=sink.datasets["background"][sweep][1][j][i]
-                    sink.datasets[f"signal_all_{i}"][-1][1][j]=sink.datasets["signal_all"][sweep][1][j][i]
-                    sink.datasets[f"signal_div_{i}"][-1][1][j]=sink.datasets["signal_div"][sweep][1][j][i]
+                    signal=sink.datasets[f"signal_{ND}"][sweep][1][j]
+                    background=sink.datasets[f"background_{ND}"][sweep][1][j]
+                    sink.datasets[f"signal_div_{ND}"][-1][1][j]=signal/background if background != 0 else np.nan
 
                     
-            return
+        return
     def __init__(self):
         super().__init__(data_processing_func=self.data_processing_func)
-        self.add_plot('signal_div_1', series='signal_1', scan_i='sweep', scan_j='', processing='Average')
+        self.add_plot('signal_0', series='signal_0', scan_i='', scan_j='', processing='Average', hidden=True)
+        self.add_plot('background_0', series='background_0', scan_i='', scan_j='', processing='Average', hidden=True)
+        self.add_plot('signal_div_0', series='signal_div_0', scan_i='', scan_j='', processing='Average')
 
         # retrieve legend object
         legend = self.line_plot.plot_widget.addLegend()

@@ -382,8 +382,8 @@ class WFSpyrelet():
                     if self.gain >= max_gain:
                         print(f"WARNING: gain at value {self.gain} higher than recommended max. Something is probably wrong with the experiment. To override, set Misc 'max_gain' to something else (default is 140).")
                         break
-                    if self.window: self.acquire({'window': self.format_windows(mgr, representative_img, focus_bool = False), 'time': time.time() - self.t0, 'autofocus_z': self.z_pos}) # dicey but I'm pretty sure format_windows runs first to update self.z_pos. Bad coding practice, though.
-                    else: self.acquire({})
+                    #if self.window: self.acquire({'window': self.format_windows(mgr, representative_img, focus_bool = False), 'time': time.time() - self.t0, 'autofocus_z': self.z_pos}) # dicey but I'm pretty sure format_windows runs first to update self.z_pos. Bad coding practice, though.
+                    #else: self.acquire({})
                     time.sleep(gain_wait_time)
                 if ct == max_checks:
                     print(f"Max checks reached without finding optimal gain. Either adjust starting guess, or alter 'max_checks' in Misc (default 20)")
@@ -405,8 +405,8 @@ class WFSpyrelet():
                         print(f'max pixel value: {max_value} low')
                     elif max_value >= ideal_pixel_range[1]:
                         print(f'max pixel value: {max_value} high')
-                    if self.window: self.acquire({'window': self.format_windows(mgr, representative_img, focus_bool = False), 'time': time.time() - self.t0, 'autofocus_z': self.z_pos})
-                    else: self.acquire({}) 
+                    #if self.window: self.acquire({'window': self.format_windows(mgr, representative_img, focus_bool = False), 'time': time.time() - self.t0, 'autofocus_z': self.z_pos})
+                    #else: self.acquire({}) 
                     time.sleep(gain_wait_time)
             if save == 'tracking':
                 with open(self.data_path+f'\\Full_s{0}.pkl', 'wb') as file:
