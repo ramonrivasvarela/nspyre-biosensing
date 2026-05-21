@@ -165,7 +165,6 @@ class PlaneScan:
                 datasets[f"stack_{z+1}"]= StreamingList(np.zeros((extent_steps + 1, line_scan_steps)))
                 origin = origin + stack_vector
                 for rep in range(repetitions):
-                    print(origin)
                     for s in range(extent_steps + 1):
                         # step_vals.append(adjust_step + s/(extent_steps) * np.linalg.norm(extent_vector))
                         
@@ -174,7 +173,6 @@ class PlaneScan:
                         
                         ## adding option for snake scan
                         if snake_scan == True and (s+1)%2 == 0:
-                            print('s:', s)
                             line_scan_start_pt = line_scan_stop_pt#-scan_vector/(line_scan_steps)
                             line_scan_stop_pt = origin + s/(extent_steps) * extent_vector#-scan_vector/(line_scan_steps)
                         
@@ -186,8 +184,6 @@ class PlaneScan:
                                                                 'y': line_scan_stop_pt[1],
                                                                 'z': line_scan_stop_pt[2]},
                                                             line_scan_steps, pts_per_step)
-                        print("running well.")
-                        #import pdb; pdb.set_trace()                    #print(s / extent_steps * np.linalg.norm(extent_vector))                    #print(np.linspace(0, np.linalg.norm(scan_vector), line_scan_steps))                    #print(z)                    #print(origin)                    #print(z - z_stack + 1)
 
                         ## in case of a snake scan
                         if snake_scan == True:
