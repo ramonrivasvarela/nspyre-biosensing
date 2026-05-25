@@ -1,4 +1,4 @@
-import experiments.wODMR
+import experiments.wI1I2
 
 from nspyre import ExperimentWidget
 from pyqtgraph import SpinBox
@@ -10,24 +10,10 @@ from special_widgets.flex_line_plot_widget_fitting import FlexLinePlotWidget
 MAXIMUM = 2147483647  # QSpinBox maximum
 
 
-class wODMRWidget(ExperimentWidget):
+class wI1I2Widget(ExperimentWidget):
     def __init__(self):
         # Pulse timings
-        exp_time_sb = SpinBox(
-            value=75e-3,
-            suffix='s',
-            siPrefix=True,
-            dec=True,
-            bounds=(1e-6, 1000),
-        )
-        readout_time_sb = SpinBox(
-            value=15e-3,
-            suffix='s',
-            siPrefix=True,
-            dec=True,
-            bounds=(1e-6, 1000),
-        )
-
+        
         # Routine
         sweeps_sb = QSpinBox()
         sweeps_sb.setMinimum(1)
@@ -82,7 +68,7 @@ class wODMRWidget(ExperimentWidget):
         alt_label_cb.setChecked(False)
 
         alt_sleep_time_sb = SpinBox(
-            value=0.0,
+            value=0.2,
             suffix='s',
             siPrefix=True,
             dec=True,
@@ -109,15 +95,31 @@ class wODMRWidget(ExperimentWidget):
         verbose_cb = QCheckBox()
         verbose_cb.setChecked(True)
 
+        fourier_filter_sb = QSpinBox()
+        fourier_filter_sb.setMinimum(0)
+        fourier_filter_sb.setMaximum(100)
+
         params_config = {
             # Pulse timings
             'exp_time': {
                 'display_text': 'Exposure Time',
-                'widget': exp_time_sb,
+                'widget': SpinBox(
+                    value=75e-3,
+                    suffix='s',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(1e-6, 1000),
+                ),
             },
             'readout_time': {
                 'display_text': 'Readout Time',
-                'widget': readout_time_sb,
+                'widget': SpinBox(
+                value=15e-3,
+                suffix='s',
+                siPrefix=True,
+                dec=True,
+                bounds=(1e-6, 1000),
+            ),
             },
             # Routine
             'sweeps': {
@@ -126,11 +128,11 @@ class wODMRWidget(ExperimentWidget):
             },
             'label': {
                 'display_text': 'Label',
-                'widget': QLineEdit('[t, 1, 0, 1, 0]'),
+                'widget': QLineEdit('[t, 1, 0, 2]'),
             },
             'frequencies': {
                 'display_text': 'Frequencies',
-                'widget': QLineEdit('[2.835e9, 2.905e9, 30]'),
+                'widget': QLineEdit('[2.864e9, 2.872e9, 30]'),
             },
             # Gain
             'gain': {
@@ -155,17 +157,15 @@ class wODMRWidget(ExperimentWidget):
                 'display_text': 'RF Amplitude',
                 'widget': rf_amplitude_sb,
             },
-            'uw_duty': {
-                'display_text': 'uW Duty',
-                'widget': uw_duty_sb,
-            },
-            'uw_rep': {
-                'display_text': 'uW Rep',
-                'widget': uw_rep_sb,
-            },
-            'mode': {
-                'display_text': 'Mode',
-                'widget': mode_cb,
+            'sideband': {
+                'display_text': 'Sideband',
+                'widget': SpinBox(
+                    value=12e6,
+                    suffix='Hz',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(0, 30e6),
+                ),
             },
             # Data acquisition
             'ROI_xy': {
@@ -187,6 +187,10 @@ class wODMRWidget(ExperimentWidget):
             'focus_bool': {
                 'display_text': 'Focus Bool',
                 'widget': focus_bool_cb,
+            },
+            'fourier_filter': {
+                'display_text': 'Fourier Filter',
+                'widget': fourier_filter_sb,
             },
             # Saving
             'data_path': {
@@ -216,7 +220,7 @@ class wODMRWidget(ExperimentWidget):
             },
             'dataset': {
                 'display_text': 'Data Set',
-                'widget': QLineEdit('wfodmr')
+                'widget': QLineEdit('wI1I2')
             },
             'Misc': {
                 'display_text': 'Misc',
@@ -227,26 +231,26 @@ class wODMRWidget(ExperimentWidget):
 
         super().__init__(
             params_config,
-            experiments.wODMR,
-            'wODMRSpyrelet',
+            experiments.wI1I2,
+            'wI1I2Spyrelet',
             'main',
             title='Widefield ODMR')
-class wODMRPlotWidget(FlexLinePlotWidget):
+class wI1I2PlotWidget(FlexLinePlotWidget):
     
     def data_processing_func(self, sink):
         frequencies=sink.output['frequencies']
         n_freqs=len(frequencies)
         for i in range(sink.output['number_ND']):
-            sink.datasets[f"signal_div_{i}"]=[]
+            sink.datasets[f"I1I2_{i}"]=[]
         for sweep in range(sink.output['current_sweep']+1):
             for ND in range(sink.output['number_ND']):
-                signal_div_counts=np.empty(n_freqs)
-                signal_div_counts[:]=np.nan
-                sink.datasets[f"signal_div_{ND}"].append(np.stack([frequencies, signal_div_counts]))
+                I1I2=np.empty(n_freqs)
+                I1I2[:]=np.nan
+                sink.datasets[f"I1I2_{ND}"].append(np.stack([frequencies, I1I2]))
                 for j in range(n_freqs):
-                    signal=sink.datasets[f"signal_{ND}"][sweep][1][j]
-                    background=sink.datasets[f"background_{ND}"][sweep][1][j]
-                    sink.datasets[f"signal_div_{ND}"][-1][1][j]=signal/background if background != 0 else np.nan
+                    I1=sink.datasets[f"I1_{ND}"][sweep][1][j]
+                    I2=sink.datasets[f"I2_{ND}"][sweep][1][j]
+                    sink.datasets[f"I1I2_{ND}"][-1][1][j]=2*(I2-I1)/(I2+I1) if (I2+I1) != 0 else np.nan
 
                     
         return
@@ -254,12 +258,12 @@ class wODMRPlotWidget(FlexLinePlotWidget):
         super().__init__(data_processing_func=self.data_processing_func)
         self.add_plot('signal_0', series='signal_0', scan_i='', scan_j='', processing='Average', hidden=True)
         self.add_plot('background_0', series='background_0', scan_i='', scan_j='', processing='Average', hidden=True)
-        self.add_plot('signal_div_0', series='signal_div_0', scan_i='', scan_j='', processing='Average')
+        self.add_plot('I1I2_0', series='I1I2_0', scan_i='', scan_j='', processing='Average')
 
         # retrieve legend object
         legend = self.line_plot.plot_widget.addLegend()
         # set the legend location
         legend.setOffset((-10, -50))
 
-        self.datasource_lineedit.setText('wfodmr')
+        self.datasource_lineedit.setText('wI1I2')
 

@@ -489,12 +489,36 @@ class WFSpyrelet():
             mgr.sg.set_rf_toggle(True)
             raise NotImplementedError('main loop initialization is highly dependent on the experiment and protocol. Please implement this function.')
         ## Analysis Functions (data formatting, analysis)
-        def img_1D_to_2D(self,img_1D,x_len,y_len):
+        def img_1D_to_2D(self,img_1D,x_len,y_len, r_fourier = 0):
+                '''
+                turns a singular 1D list of integers x_len*y_len long into a 2D array. Cuts and stacks, not snake-like formatting.
+                '''
+                arr = np.asarray(img_1D, dtype=int)
+                arr = arr.reshape((y_len, x_len))
+                arr = self.img_fourier_filter(arr, r_fourier) # Apply Fourier filter if specified
+                return arr.reshape((y_len, x_len))
+        
+        def img_fourier_filter(self, img, r_fourier):
             '''
-            turns a singular 1D list of integers x_len*y_len long into a 2D array. Cuts and stacks, not snake-like formatting.
+            Applies a high-pass Fourier filter to the input image, with a cutoff frequency determined by r_fourier. Should help eliminate laser profile and other low-frequency noise from the image, at the cost of potentially distorting the shapes of the NDs and making tracking less accurate. r_fourier should be set based on experience with the camera and sample, to balance noise reduction with ND shape preservation. 0 means no Fourier filter.
             '''
-            arr = np.asarray(img_1D, dtype=int)
-            return arr.reshape((y_len, x_len))
+            if r_fourier <= 0:
+                return img
+            # Apply low-pass Fourier filter to image
+            img_fft = np.fft.fft2(img)
+            img_fft_shifted = np.fft.fftshift(img_fft)
+            # Create low-pass filter (circular mask, keeping low frequencies)
+            rows, cols = img.shape
+            crow, ccol = rows // 2, cols // 2
+            y, x = np.ogrid[-crow:rows-crow, -ccol:cols-ccol]
+            mask = x*x + y*y >= r_fourier**2
+
+            # Apply filter and transform back
+            img_fft_filtered = img_fft_shifted * mask
+            img_fft = np.fft.ifftshift(img_fft_filtered)
+            img_filtered = np.fft.ifft2(img_fft).real
+            # img_filtered = img_filtered - np.min(img_filtered) # Shift to make minimum pixel value 0, to avoid issues with negative pixel values after Fourier filtering. Shouldn't affect tracking since it's based on relative pixel values, but could affect saving and visualization if not shifted back to a reasonable range.
+            return img_filtered
         
         def format_windows(self, mgr, img, focus_bool = False):
             '''

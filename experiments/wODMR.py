@@ -202,7 +202,7 @@ class wODMRSpyrelet(WFSpyrelet):
     def main(self, exp_time, readout_time, sweeps, label, frequencies, gain, gain_setting, cooler, cam_trigger, rf_amplitude, uw_duty, uw_rep, mode, ROI_xy, alt_label, alt_sleep_time, trackpy_params, focus_bool,
                    data_path, save_image, data_download, shutdown, window_params, verbose, dataset, Misc):
         params={"exp_time": exp_time, "readout_time": readout_time, "sweeps": sweeps, "label": label, "frequencies": frequencies, "gain": gain, "gain_setting": gain_setting, "cooler": cooler, "cam_trigger": cam_trigger, "rf_amplitude": rf_amplitude, "uw_duty": uw_duty, "uw_rep": uw_rep, "mode": mode, "ROI_xy": ROI_xy, "alt_label": alt_label, "alt_sleep_time": alt_sleep_time, "trackpy_params": trackpy_params, "focus_bool": focus_bool, "data_path": data_path, "save_image": save_image, "data_download": data_download, "shutdown": shutdown, "verbose": verbose, "window_params": window_params,  "Misc": Misc}
-        with InstrumentManager() as mgr, DataSource(dataset) as ds:
+        with InstrumentManager() as mgr, DataSource(dataset) as data_source:
             self.initialize(mgr, exp_time, readout_time, sweeps, label, frequencies, gain, gain_setting, cooler, cam_trigger, rf_amplitude, uw_duty, uw_rep, mode, ROI_xy,
                            alt_label,
                            alt_sleep_time,
@@ -244,6 +244,7 @@ class wODMRSpyrelet(WFSpyrelet):
             # if self.window:
             #     WindowList=StreamingList()
             n_freqs = len(self.sg_freqs)
+            time_initial= time.time()
             for sweep in range(sweeps):
                 ## main loop ################################################################################################################
                 self.unsaved_imgs = {} # dict to hold unsaved images for this sweep, key is img name, value is img to save.
@@ -287,13 +288,10 @@ class wODMRSpyrelet(WFSpyrelet):
                             data.append(img)
 
                     ## Track NDs
-                    self.ND_list, ls_mx = self.track_NDs(self.ND_list, data[-1], r_search=self.r_track, number_bg_pts=n_bg_pts)
+                    self.ND_list, _ = self.track_NDs(self.ND_list, data[-1], r_search=self.r_track, number_bg_pts=n_bg_pts)
 
                     ## ANALYSIS
                     output_dict = self.analyze_sig(data)
-                    print(f"type(output_dict): {type(output_dict)}")
-                    print(f"sig: {output_dict['sig']}, bg: {output_dict['bg']}")
-                    print(f"type(output_dict['sig']): {type(output_dict['sig'])}, type(output_dict['bg']): {type(output_dict['bg'])}")
                     for ND in range(len(self.ND_list)):
                         data_dict[f'signal_{ND}'][-1][1][i] = output_dict['sig'][ND]
                         data_dict[f'signal_{ND}'].updated_item(-1)
@@ -301,9 +299,7 @@ class wODMRSpyrelet(WFSpyrelet):
                         data_dict[f'background_{ND}'].updated_item(-1)
                         # data_dict[f'signal_all_{ND}'][-1][1][i] = output_dict['sig_all'][ND]
                         # data_dict[f'signal_all_{ND}'].updated_item(-1)
-                    print(f"self.z_pos: {self.z_pos}")
-                    print(f"type(self.z_pos): {type(self.z_pos)}")
-                    data_dict[f'z_pos'].append(np.array([np.array([current_time-self.t0]),np.array([self.z_pos])]))
+                    data_dict[f'z_pos'].append(np.array([np.array([current_time-time_initial]),np.array([self.z_pos])]))
                     data_dict[f'z_pos'].updated_item(-1)
 
                     
@@ -331,7 +327,7 @@ class wODMRSpyrelet(WFSpyrelet):
                     }
                     
                     
-                    ds.push(acq_dict) # push acquisition dict to data source, which will handle saving and plotting. Note that the data source is separate from the experiment, and can be used across different experiments for consistent saving and plotting.
+                    data_source.push(acq_dict) # push acquisition dict to data source, which will handle saving and plotting. Note that the data source is separate from the experiment, and can be used across different experiments for consistent saving and plotting.
                     if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
                         # the GUI has asked us nicely to exit
                         self.finalize(mgr,exp_time, readout_time, sweeps, frequencies, gain, rf_amplitude, ROI_xy, alt_label, data_download, shutdown)
