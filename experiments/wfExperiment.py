@@ -110,58 +110,10 @@ class WFSpyrelet():
         _logger.info('Created Experiment instance.')
 
 
-    def __exit__(self, exc_type, exc, tb):
+    def __exit__(self):
         """Perform experiment teardown."""
         _logger.info('Destroyed Experiment instance.')
 
-
-    PARAMS = {
-        #### ALL-WF-PARAMS
-        ## Pulse Timings
-        'exp_time':{'type':float,'units':'s','suffix': 's','default': 75e-3,},
-        'readout_time':{'type':float,'units':'s','suffix': 's','default': 15e-3,}, #must be greater than 39ms for EXTERNAL_EXPOSURE
-        ## Routine
-        'sweeps':{'type': int, 'default': 3}, 
-        'label':{'type': str, 'default': '[t, 1, 0, 1, 0]'}, #'[t, 1, 0, 2, 0]' for I1I2
-        'frequencies':{'type': str,'default': '[2.868e9, 2.871e9, 11]'}, #I1I2 Only | [start, stop, num_points]
-        ## Gain
-        'gain':{'type':int,'default': 2,'positive': True}, #EM gain for camera, goes from 1-272
-        'gain_setting':{'type': list,'items': ['optimize', 'override', 'use current'], 'default': 'optimize'},
-        ## Cam Settings
-        'cooler':{'type': str, 'default': '(False, 20)'},
-        'cam_trigger':{'type': list,'items': ['EXTERNAL_EXPOSURE','EXTERNAL_FT'], 'default': 'EXTERNAL_FT'},
-        ## SG
-        'rf_amplitude':{'type': float,'default': -15,},
-        ## Data Acquisition
-        'ROI_xy':{'type': str, 'default': '[(512,512)]'},
-        'alt_label': {'type': bool,'default': False}, # Alternate label to get more balanced results
-        'alt_sleep_time': {'type': float,'default': 0,'suffix': 's','units': 's'}, #sleep time between alternating labels, if alt_label is True
-        'trackpy_params': {'type': str,'default': "{'trackpy': True, 'sigma': 1.2, 'r_ND': 7, 'min_dist': 8, 'buffer': 35, 'bg_pts': []}"},
-        'focus_bool': {'type': bool, 'default':True}, # Whether to use the first ND as a focus point and keep it in the center of the image. If False, no autofocus is done and the first ND is treated like all the others.
-        ## Saving
-        'data_path': {'type': str,'default': 'Z:\\biosensing_setup\\data\\Widefield\\no_path_set'},
-        'save_image':{'type': list,'items': ['no_save', 'tracking','raw_images','raw_images_safe','[x]per_sweep','[x]all_sweep'], 'default': 'no_save'}, # determines how images are compressed when saved: do not save, save every image, save a float16 image per sweep, or save a float16 image per frequency
-        'data_download':{'type': bool,},
-        ## Debug
-        'shutdown': {'type': bool, 'default': True}, # Whether to shut down the camera SDK at the end of the experiment. May want to turn off for debugging to avoid needing to re-initialize the camera for each run.
-        'verbose': {'type': bool, 'default': True},
-        'window_params': {'type' : str, 'default' : "{'interval': 0, 'all_ROI': False, 'r_display': 16}"}, #parameters for display window updating
-        'Misc': {'type': str,'default': "{'DEBUG':False}" },
-        
-
-        #### VARIABLE-PARAMS, DEPENDENT ON EXPERIMENT.
-        ## Routine
-        'uw_duty':{'type': float,'default': 1,}, # ODMR   
-        'uw_rep':{'type': int,'default': 50,}, # ODMR
-        'mode':{'type': list,'items': ['QAM','AM'  ], 'default': 'QAM'}, # ODMR
-        'routine':{'type': str, 'default': '[2,3,100,0,-1]'}, #runs, sweeps, two-pt interval, two-pt averaging, total reps | I1I2_Track (w/ ODMR)
-        'sideband': {'type': float,'units':'Hz','suffix': 'Hz','default': 14e6,}, #I1I2_ODMR, I1I2_Track
-        'ZFS':{ 'type':float,'units':'Hz','suffix': 'Hz','default': 2.86878e9,}, #I1I2_Track
-        'QLS':{'type':str,'default': '[-5e-9]',}, #I1I2_Track
-        'QL_range': {'type': str,'default': '[2.868e9, 2.871e9]',}, #I1I2
-        'end_ODMR':{'type': bool, 'default': False}, #I1I2_Track (w/ ODMR)
-        'PID': {'type': str, 'default': "{'Kp':0.03, 'Ki': 0.005, 'Kd':0.01, 'Mem': 15, 'Mem_decay': 2.0}"}, #I1I2_Track
-    }
 
     #### INIT HELPER FUNCTIONS ###############################################################################################
     ## Param Setting Functions (set variables)

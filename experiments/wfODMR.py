@@ -66,7 +66,7 @@ class wODMRSpyrelet(WFSpyrelet):
         _logger.info('Created Experiment instance.')
 
 
-    def __exit__(self, exc_type, exc, tb):
+    def __exit__(self):
         """Perform experiment teardown."""
         _logger.info('Destroyed Experiment instance.')
 
@@ -241,8 +241,8 @@ class wODMRSpyrelet(WFSpyrelet):
                 data_dict[f'background_{ND}'] = StreamingList()
                 data_dict[f'signal_all_{ND}'] = StreamingList()
             data_dict['z_pos'] = StreamingList() # for tracking z position during experiment, to be added to acquisition dict
-            if self.window:
-                WindowList=StreamingList()
+            # if self.window:
+            #     WindowList=StreamingList()
             n_freqs = len(self.sg_freqs)
             for sweep in range(sweeps):
                 ## main loop ################################################################################################################
@@ -267,7 +267,7 @@ class wODMRSpyrelet(WFSpyrelet):
                         data_1D = self.GetPic_Alternating(mgr, self.main_seq, self.alt_seq, len(self.label), alt_sleep_time, saving=save_image) # Get data as list of 1D arrays, alternating between two labels
                     else:
                         data_1D = self.GetPic(mgr, self.main_seq, len(self.label), saving=save_image) 
-                        time.sleep(2)# Get data as list of 1D arrays, saving any images during wait if all images are to be saved
+                        # Get data as list of 1D arrays, saving any images during wait if all images are to be saved
                     # Go through the new data and format it. Add it to unsaved imgs.
                     current_time = time.time()
                     data = []
@@ -314,7 +314,7 @@ class wODMRSpyrelet(WFSpyrelet):
 
 
                     if self.window:
-                        WindowList.append(np.array([np.array([time.time()-self.t0]),np.array([ls_mx])]))
+                        # WindowList.append(np.array([np.array([time.time()-self.t0]),np.array([ls_mx])]))
                         data_dict['window'] = self.format_windows(mgr, data[-1], focus_bool=focus_bool)
 
                     acq_dict = {
@@ -334,15 +334,14 @@ class wODMRSpyrelet(WFSpyrelet):
                     ds.push(acq_dict) # push acquisition dict to data source, which will handle saving and plotting. Note that the data source is separate from the experiment, and can be used across different experiments for consistent saving and plotting.
                     if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
                         # the GUI has asked us nicely to exit
-                        self.finalize(mgr, exp_time, readout_time, sweeps, label, frequencies, gain, gain_setting, cooler, cam_trigger, rf_amplitude, uw_duty, uw_rep, mode, ROI_xy, alt_label, alt_sleep_time, trackpy_params, focus_bool,
-                    data_path, save_image, data_download, shutdown, window_params, verbose, Misc)
+                        self.finalize(mgr,exp_time, readout_time, sweeps, frequencies, gain, rf_amplitude, ROI_xy, alt_label, data_download, shutdown)
                         return
                 ###########################################################################
                 representative_img = img
                 self.save_after_sweep(img, save_image, sweep)
                 print(f'Finished sweep {sweep+1}/{sweeps}, time elapsed: {time.time() - self.t0} seconds.')
                 
-            self.finalize(mgr, exp_time, readout_time, sweeps, label, frequencies, gain, gain_setting, cooler, cam_trigger, rf_amplitude, uw_duty, uw_rep, mode, ROI_xy, alt_label, alt_sleep_time, trackpy_params, focus_bool, data_path, save_image, data_download, shutdown, window_params, verbose, Misc)
+            self.finalize(mgr,exp_time, readout_time, sweeps, frequencies, gain, rf_amplitude, ROI_xy, alt_label, data_download, shutdown)
             return
 
     #### FINALIZE HELPER FUNCTIONS ###############################################################################################
@@ -358,8 +357,7 @@ class wODMRSpyrelet(WFSpyrelet):
                 file.write(str(config))
         return total_time
     ###########################################################################################################################
-    def finalize(self, mgr,exp_time, readout_time, sweeps, label, frequencies, gain, gain_setting, cooler, cam_trigger, rf_amplitude, uw_duty, uw_rep, mode, ROI_xy, alt_label, alt_sleep_time, trackpy_params, focus_bool,
-                   data_path, save_image, data_download, shutdown, window_params, verbose, Misc): 
+    def finalize(self, mgr,exp_time, readout_time, sweeps, frequencies, gain, rf_amplitude, ROI_xy, alt_label, data_download, shutdown): 
         #### SG off ###############################################################################################
         self.finalize_sg(mgr)
         #### Cam close ###############################################################################################
