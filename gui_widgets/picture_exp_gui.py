@@ -22,10 +22,19 @@ get_param_value_funs={
 class PicturesWidget(ExperimentWidget):
     def __init__(self):
         params_config={
+            'zoom': {
+                'display_text': 'Zoom',
+                'widget': QCheckBox()
+            },
+            'zoom_coordinates': {
+                'display_text': 'Zoom (x, y, r)',
+                'widget': QtWidgets.QLineEdit('(512, 512, 16)')
+            },
             'picture': {
                 'display_text': 'Data Series',
                 'widget': QtWidgets.QLineEdit('picture')
             }
+
         }
 
         super().__init__(
@@ -44,5 +53,10 @@ class PicturesHeatMapWidget(HeatMapPlotWidget):
         super().__init__()
                 # open in read-only mode; adjust dataset name if needed
 
+<<<<<<< Updated upstream
         self.datasource_lineedit.setText('picture')
         super().add_heatmap("Picture", "picture_0")
+=======
+        self.datasource_lineedit.setText('latest_image')
+        super().add_heatmap("Picture", "picture")
+>>>>>>> Stashed changes

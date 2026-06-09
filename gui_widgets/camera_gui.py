@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QWidget, QFrame, QGridLayout, QPushButton, QLabel, QComboBox, QSpinBox
+from PyQt6.QtWidgets import QWidget, QFrame, QGridLayout, QPushButton, QLabel, QComboBox, QSpinBox, QDoubleSpinBox
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt, QTimer
 from nspyre import InstrumentManager
@@ -55,14 +55,14 @@ class CameraWidget(QWidget):
         self.trigger_combo.setStyleSheet("QComboBox { background-color: #2b2b2b; color: white; }")
         self.trigger_combo.setFixedHeight(30)
         self.trigger_combo.setFont(QFont(self.font, 12))
-        self.trigger_combo.currentTextChanged.connect(lambda t: self.camera.set_trigger_mode(t) if self.camera else print("No camera connected."))
+        self.trigger_combo.currentTextChanged.connect(lambda t: self.change_settings(self.trigger_combo, self.camera.set_trigger_mode, t))
 
         # Exposure time
         self.exp_label = QLabel("Exposure Time:")
         self.exp_label.setFixedHeight(20)
         self.exp_label.setStyleSheet("font-weight: bold")
         self.exp_input = SecLineEdit(75e-3)
-        self.exp_input.editingFinished.connect(lambda: self.camera.set_exposure_time(self.exp_input.secvalue) if self.camera else print("No camera connected."))
+        self.exp_input.editingFinished.connect(lambda: self.change_settings(self.exp_input, self.camera.set_exposure_time, self.exp_input.secvalue))
 
         # Shutter
         self.shutter_label = QLabel("Shutter:")
@@ -74,7 +74,7 @@ class CameraWidget(QWidget):
         self.shutter_combo.setStyleSheet("QComboBox { background-color: #2b2b2b; color: white; }")
         self.shutter_combo.setFixedHeight(30)
         self.shutter_combo.setFont(QFont(self.font, 12))
-        self.shutter_combo.currentTextChanged.connect(lambda s: self.camera.set_shutter(s) if self.camera else print("No camera connected."))
+        self.shutter_combo.currentTextChanged.connect(lambda s: self.change_settings(self.shutter_combo, self.camera.set_shutter, s))
 
         # Frame Transfer Mode
         self.frame_transfer_label = QLabel("Frame Transfer Mode:")
@@ -86,26 +86,36 @@ class CameraWidget(QWidget):
         self.frame_transfer_combo.setStyleSheet("QComboBox { background-color: #2b2b2b; color: white; }")
         self.frame_transfer_combo.setFixedHeight(30)
         self.frame_transfer_combo.setFont(QFont(self.font, 12))
-        self.frame_transfer_combo.currentTextChanged.connect(lambda mode: self.camera.set_frame_transfer_mode(mode) if self.camera else print("No camera connected."))
+        self.frame_transfer_combo.currentTextChanged.connect(lambda mode: self.change_settings(self.frame_transfer_combo, self.camera.set_frame_transfer_mode, mode))
 
         # Gain
         self.gain_label = QLabel("Gain:")
         self.gain_label.setFixedHeight(20)
         self.gain_label.setStyleSheet("font-weight: bold")
         self.gain_sb = QSpinBox()
+<<<<<<< Updated upstream
         self.gain_sb.setRange(1, 255)
         self.gain_sb.setValue(1)
         self.gain_sb.editingFinished.connect(lambda: self.camera.set_emccdgain(self.gain_sb.value()) if self.camera else print("No camera connected."))
+=======
+        self.gain_sb.setRange(0, 255)
+        self.gain_sb.editingFinished.connect(lambda : self.change_settings(self.gain_sb, self.camera.set_emccdgain, self.gain_sb.value()))
+>>>>>>> Stashed changes
 
         # Temperature
         self.temp_label = QLabel("Temperature:")
         self.temp_label.setFixedHeight(20)
         self.temp_label.setStyleSheet("font-weight: bold")
-        self.temp_input = TemperatureLineEdit(value=0, max=100, min=-100)
+        self.temp_input=QSpinBox()
+        self.temp_input.setRange(-100, 20)
+        self.temp_input.setSuffix(" °C")
         self.temp_input.editingFinished.connect(lambda: self.check_temperature_status())
 
         # Cooling controls
-        self.cool_input = TemperatureLineEdit(18, max=20, min=-100, asinteger=True)
+        self.cool_input=QSpinBox()
+        self.cool_input.setRange(-100, 20)
+        self.cool_input.setValue(18)
+        self.cool_input.setSuffix(" °C")
         self.cool_button = QPushButton("Cool To:")
         self.cool_button.clicked.connect(lambda: self.cool_button_clicked())
         
@@ -126,7 +136,7 @@ class CameraWidget(QWidget):
             "Image"
         ])
         self.read_mode_combo.setCurrentText('Image')
-        self.read_mode_combo.currentTextChanged.connect(lambda m: self.camera.set_read_mode(m) if self.camera else print("No camera connected."))
+        self.read_mode_combo.currentTextChanged.connect(lambda m: self.change_settings(self.read_mode_combo, self.camera.set_read_mode, m))
 
         # Acquisition mode
         self.acq_mode_label = QLabel("Acquisition Mode:")
@@ -140,8 +150,13 @@ class CameraWidget(QWidget):
             "Fast Kinetics",
             "Run till Abort"
         ])
+<<<<<<< Updated upstream
         self.acq_mode_combo.setCurrentText('Single Scan')
         self.acq_mode_combo.currentTextChanged.connect(lambda m: self.camera.set_acquisition_mode(m) if self.camera else print("No camera connected."))
+=======
+        self.acq_mode_combo.setCurrentText('Kinetics')
+        self.acq_mode_combo.currentTextChanged.connect(lambda m: self.change_settings(self.acq_mode_combo, self.camera.set_acquisition_mode, m))
+>>>>>>> Stashed changes
 
         # Number of accumulations
         self.acc_label = QLabel("Num. Accumulations:")
@@ -150,7 +165,7 @@ class CameraWidget(QWidget):
         self.acc_sb = QSpinBox()
         self.acc_sb.setRange(1, 1000)
         self.acc_sb.setValue(1)
-        self.acc_sb.editingFinished.connect(lambda: self.camera.set_number_accumulations(self.acc_sb.value()) if self.camera else print("No camera connected."))
+        self.acc_sb.editingFinished.connect(lambda : self.change_settings(self.acc_sb, self.camera.set_number_accumulations, self.acc_sb.value()))
 
         # Number of kinetics
         self.kinetics_label = QLabel("Num. Kinetics:")
@@ -159,14 +174,14 @@ class CameraWidget(QWidget):
         self.kinetics_sb = QSpinBox()
         self.kinetics_sb.setRange(1, 1000)
         self.kinetics_sb.setValue(1)
-        self.kinetics_sb.editingFinished.connect(lambda: self.camera.set_number_kinetics(self.kinetics_sb.value()) if self.camera else print("No camera connected."))
+        self.kinetics_sb.editingFinished.connect(lambda : self.change_settings(self.kinetics_sb, self.camera.set_number_kinetics, self.kinetics_sb.value()))
 
         # Action buttons
         self.refresh_button = QPushButton("Refresh")
         self.refresh_button.clicked.connect(lambda: self.refresh_camera_settings())
         
-        self.set_button = QPushButton("Set")
-        self.set_button.clicked.connect(lambda: self.set_button_clicked())
+        # self.set_button = QPushButton("Set")
+        # self.set_button.clicked.connect(lambda: self.set_button_clicked())
         
         self.cooler_status_button = QPushButton("Stop Cooling")
         self.cooler_status_button.clicked.connect(lambda: self.cooler_status_button_clicked())
@@ -219,7 +234,7 @@ class CameraWidget(QWidget):
         
         # Action buttons
         layout.addWidget(self.refresh_button, 12, 1, 1, 1)
-        layout.addWidget(self.set_button, 12, 2, 1, 1)
+        # layout.addWidget(self.set_button, 12, 2, 1, 1)
         layout.addWidget(self.stop_cooling_button, 12, 3, 1, 1)
 
         main_layout = QGridLayout(self)
@@ -304,6 +319,27 @@ class CameraWidget(QWidget):
         self.camera_on = (status == 20002)
         print("Camera is connected." if self.camera_on else "Camera is not connected.")
         return status
+
+    # ==================== Setting Change Methods ====================
+
+    def change_settings(self, button, setting_func, value):
+        """
+        General method to change a camera setting and update button color.
+        
+        Args:
+            button: The QPushButton associated with the setting
+            setting_func: The function to call to change the setting
+            value: The value to set for the setting
+        """
+        ret=setting_func(value)
+        if ret == 20002:
+            self.refresh_camera_settings()
+            self.set_button_color(button, 'grey')
+        else:
+            self.refresh_camera_settings()
+            self.set_button_color(button, 'red')
+        
+        
 
     # ==================== Temperature and Cooling Methods ====================
 
@@ -482,48 +518,48 @@ class CameraWidget(QWidget):
         self.kinetics_sb.setValue(self.camera.number_kinetics)
         self.frame_transfer_combo.setCurrentText(self.camera.frame_transfer_mode)
 
-    def set_button_clicked(self):
-        """
-        Handle clicks on the "Set" button.
-        Applies all current UI settings to the camera if camera is connected.
-        """
-        if not self.camera:
-            print("No camera connected.")
-            return
+    # def set_button_clicked(self):
+    #     """
+    #     Handle clicks on the "Set" button.
+    #     Applies all current UI settings to the camera if camera is connected.
+    #     """
+    #     if not self.camera:
+    #         print("No camera connected.")
+    #         return
         
-        status = self.check_power_status()
-        if status == 20002:  # Camera is connected
-            self.set_camera_settings()
+    #     status = self.check_power_status()
+    #     if status == 20002:  # Camera is connected
+    #         self.set_camera_settings()
 
-    def set_camera_settings(self):
-        """
-        Apply all UI settings to the camera hardware.
-        Sets acquisition mode, read mode, frame transfer, trigger mode,
-        image dimensions, accumulations, kinetics, exposure time,
-        gain, and shutter settings. Prints acquisition timings after applying.
-        """
-        if not self.camera:
-            print("No camera connected.")
-            return
+    # def set_camera_settings(self):
+    #     """
+    #     Apply all UI settings to the camera hardware.
+    #     Sets acquisition mode, read mode, frame transfer, trigger mode,
+    #     image dimensions, accumulations, kinetics, exposure time,
+    #     gain, and shutter settings. Prints acquisition timings after applying.
+    #     """
+    #     if not self.camera:
+    #         print("No camera connected.")
+    #         return
         
-        self.camera.set_acquisition_mode(self.acq_mode_combo.currentText())
-        self.camera.set_read_mode(self.read_mode_combo.currentText())
-        self.camera.set_frame_transfer_mode(self.frame_transfer_combo.currentText())
-        self.camera.set_trigger_mode(self.trigger_combo.currentText())
+    #     self.camera.set_acquisition_mode(self.acq_mode_combo.currentText())
+    #     self.camera.set_read_mode(self.read_mode_combo.currentText())
+    #     self.camera.set_frame_transfer_mode(self.frame_transfer_combo.currentText())
+    #     self.camera.set_trigger_mode(self.trigger_combo.currentText())
         
-        _, width, height = self.camera.get_detector()
-        self.camera.set_image(width=width, height=height)
+    #     _, width, height = self.camera.get_detector()
+    #     self.camera.set_image(width=width, height=height)
         
-        self.camera.set_number_accumulations(self.acc_sb.value())
-        self.camera.set_number_kinetics(self.kinetics_sb.value())
-        self.camera.set_exposure_time(self.exp_input.secvalue)
-        self.camera.set_emccdgain(self.gain_sb.value())
-        self.camera.set_shutter(self.shutter_combo.currentText())
+    #     self.camera.set_number_accumulations(self.acc_sb.value())
+    #     self.camera.set_number_kinetics(self.kinetics_sb.value())
+    #     self.camera.set_exposure_time(self.exp_input.secvalue)
+    #     self.camera.set_emccdgain(self.gain_sb.value())
+    #     self.camera.set_shutter(self.shutter_combo.currentText())
         
-        time.sleep(0.1)  # Allow time for settings to apply
-        ret, exp, accum_t, kinetic_t = self.camera.get_acquisition_timings()
-        print(f"Actual exposure={exp:.6f}s, accum_t={accum_t:.6f}s, kinetic_t={kinetic_t:.6f}s")
+        # time.sleep(0.1)  # Allow time for settings to apply
+        # ret, exp, accum_t, kinetic_t = self.camera.get_acquisition_timings()
+        # print(f"Actual exposure={exp:.6f}s, accum_t={accum_t:.6f}s, kinetic_t={kinetic_t:.6f}s")
 
-        self.check_temperature_status()
-        self.check_cooler_status()
+        # self.check_temperature_status()
+        # self.check_cooler_status()
 

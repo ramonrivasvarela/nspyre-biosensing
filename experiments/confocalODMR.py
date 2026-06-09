@@ -7,19 +7,12 @@ from nspyre import DataSource, StreamingList # FOR SAVING
 from nspyre import experiment_widget_process_queue # FOR LIVE GUI CONTROL
 from nspyre import InstrumentManager # FOR OPERATING INSTRUMENTS
 #### GENERAL IMPORTS
-import time
 import datetime as Dt
 import numpy as np
-import rpyc.utils.classic
 from scipy import optimize
 
 from rpyc.utils.classic import obtain
 
-
-import nidaqmx
-from nidaqmx.constants import (AcquisitionType, CountDirection, Edge,
-    READ_ALL_AVAILABLE, TaskMode, TriggerType)
-from nidaqmx.stream_readers import CounterReader
 from experiments.spatialfb import SpatialFeedback
 ####
 

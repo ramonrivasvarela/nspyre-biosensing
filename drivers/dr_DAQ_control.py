@@ -239,6 +239,10 @@ class DAQCounter:
     ### MOTION TASKS SECTION ###
     
     def move(self, target: dict):
+        """
+        Move to the target position by generating a linear voltage ramp and writing it to the AO task. The counter can be read during the move to obtain data corresponding to each point in the ramp.
+        target: dict of axis name to position in units, e.g. {'x': 10, 'y': 20, 'z': 50}. If a certain coordinate is not included, the current position will be used for that coordinate.
+        """
         target = obtain(target)
         axis_order = [name for name in ('x', 'y', 'z') if name in self.axes]
         axis_order += [name for name in self.axes if name not in axis_order]

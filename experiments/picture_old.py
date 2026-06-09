@@ -10,12 +10,13 @@ Written on 6/12/2025
 from nspyre import nspyre_init_logger
 import logging
 from pathlib import Path
-from nspyre import DataSource # FOR SAVING
+from nspyre import DataSource, StreamingList # FOR SAVING
 from nspyre import experiment_widget_process_queue # FOR LIVE GUI CONTROL
 from nspyre import InstrumentManager # FOR OPERATING INSTRUMENTS
 #### GENERAL IMPORTS
 import time
 import numpy as np
+import nidaqmx
 ####
 
 _HERE = Path(__file__).parent
@@ -54,7 +55,7 @@ class Pictures:
         """Perform experiment teardown."""
         _logger.info('Destroyed Pictures instance.')
 
-    def take_picture(self, zoom: bool=False, zoom_coordinates: str=None, picture: str=None, single_picture: bool=False):
+    def take_picture(self, picture: str):
         """
         confocal counts vs time experiment that is static (does not track), under constant illumination.
 
@@ -64,7 +65,6 @@ class Pictures:
             
         """
         with InstrumentManager() as mgr, DataSource(picture) as picture_data:  # +1 to account for signal being a difference of counts
-<<<<<<< Updated upstream
             ret, state=mgr.Camera.get_status()
             if ret != 20002:
                 raise RuntimeError(f"Camera not ready, status code: {ret}")
@@ -74,47 +74,29 @@ class Pictures:
                 mgr.Camera.abort_acquisition()
             _, width, height=mgr.Camera.get_detector()  # Get the detector size
             mgr.Camera.set_image()
-            exposure_time_ns=int(mgr.Camera.exposure_time*1.2*1e9)
-            mgr.Pulser.stream([(exposure_time_ns, [3])])
+            mgr.Pulser.stream([(1000000000, [3])])
             time.sleep(0.1)  # Give time to start acquisition
-=======
-            ret, _ = mgr.Camera.get_status()
-            if ret != 20002:  # 20002 means "Camera is currently acquiring data"
-                print("Camera is not acquiring data. Check camera status.")
-                return
-            mgr.Pulses.set_state([7])
->>>>>>> Stashed changes
             mgr.Camera.start_acquisition()
             ret, _ = mgr.Camera.get_status()
-            if ret != 20002:  # 20002 means "Camera is currently acquiring data"
-                print("Camera is not acquiring data. Check camera status.")
+            print(f"Start Acquisition returned {ret}")
+            if not ret == 20002:
+                print('Starting Acquisition Failed, ending process...')
                 return
-<<<<<<< Updated upstream
             #print('Starting Acquisition', ret)
             time.sleep(0.1) #Give time to start acquisition
             #mgr.Pulser.stream_umOFF([3], 1) 
-            if mgr.Camera.trigger_mode != "Internal":
-                mgr.Pulser.stream([(exposure_time_ns, [1])])  # Start the pulser to trigger the camera
-                mgr.Pulser.stream([(exposure_time_ns, [1]), (exposure_time_ns, [3])])
+            if mgr.Camera.trigger_mode != "internal":
+                mgr.Pulser.stream([(1000000000, [3])])  # Start the pulser to trigger the camera
+                mgr.Pulser.stream([(100000000, [1]), (1000000000, [3])])
             timeout_counter = 0
             while(mgr.Camera.get_total_number_images_acquired()[1]<mgr.Camera.number_kinetics and timeout_counter<=100): #20 second hard-coded limit!
                 time.sleep(0.05)#Might want to base wait time on pulse streamer signal
-                if mgr.Camera.trigger_mode != "Internal":
-                    mgr.Pulser.stream([(exposure_time_ns, [1])])  # Start the pulser to trigger the camera
-                    mgr.Pulser.stream([(exposure_time_ns, [1]), (exposure_time_ns, [3])])
                 timeout_counter+=1
             mgr.Camera.abort_acquisition()
             ret, data, _, _ = mgr.Camera.get_images_16(1,1,1024**2) #cut out first image here
             #print("Number of images collected in current acquisition: ", mgr.sdk.GetTotalNumberImagesAcquired()[1])
             # temp_image = self.img_1D_to_2D(all_data[:1024**2],1024,1024) 
-            num_images = mgr.Camera.get_total_number_images_acquired()[1]
-            print(f"Number of images acquired: {num_images}")
-            pictures={}
-            for img_idx in range(1, num_images + 1):
-                ret, data, _, _ = mgr.Camera.get_images_16(img_idx, 1, 1024**2)
-                temp_image = self.img_1D_to_2D(data, 1024, 1024)
-                pictures["picture_0"]=(temp_image)
-                temp_image = self.img_1D_to_2D(data, 1024, 1024)
+            temp_image = self.img_1D_to_2D(data, 1024, 1024)
             # TODO: experiment with making the above line of code less disgusting. Depends on how particular NSpyre is about having np.arrays.
             
             print("Running well.")
@@ -123,63 +105,22 @@ class Pictures:
             temp_image=np.asarray(temp_image)
             print(type(temp_image))
             print(type(temp_image[0]))
-=======
-            x_len=mgr.Camera.x_len
-            y_len=mgr.Camera.y_len
-            if zoom:
-                if zoom_coordinates is None:
-                    print("Zoom coordinates not provided. Cannot zoom.")
-                    return
-                zoom_coords = eval(zoom_coordinates)  # Expecting a string like "((x_start, x_end), (y_start, y_end))"
-                zoom_x_start, zoom_x_end = zoom_coords[0]-zoom_coords[2], zoom_coords[0]+zoom_coords[2]
-                zoom_y_start, zoom_y_end = zoom_coords[1]-zoom_coords[2], zoom_coords[1]+zoom_coords[2]
-
-            time.sleep(0.1)  # wait for the camera to acquire some data
-            ret=mgr.Camera.wait_for_acquisition_timeout(timeout_seconds=1)
-            mgr.Pulses.set_state_off()
-            _, number_images_acquired = mgr.Camera.get_total_number_images_acquired() 
-            data_dic={}
-            if single_picture:
-                ret, data, _, _ = mgr.Camera.get_images_16(1, 1, 1024**2)
-                temp_image=self.img_1D_to_2D(data,x_len,y_len)
-                
-                if zoom:
-                    temp_image = temp_image[zoom_y_start:zoom_y_end, zoom_x_start:zoom_x_end]
-                data_dic[f'latest_image'] = temp_image
-            else:
-                for i in range(number_images_acquired):
-
-                    ret, data, _, _ = mgr.Camera.get_images_16(i, i, 1024**2)
-                    temp_image=self.img_1D_to_2D(data,x_len,y_len)
-                    
-                    if zoom:
-                        temp_image = temp_image[zoom_y_start:zoom_y_end, zoom_x_start:zoom_x_end]
-                    data_dic[f'image_{i}'] = temp_image
-                data_dic['latest']=temp_image
-
->>>>>>> Stashed changes
 
             picture_data.push({
                             'title': 'Picture',
                             'xlabel': 'Pixels',
                             'ylabel': 'Pixels',
-<<<<<<< Updated upstream
                             'xs': np.asarray(range(width)),
                             'ys': np.asarray(range(height)),
-                            'datasets': pictures,
-=======
-                            'xs': np.asarray(range(x_len)),
-                            'ys': np.asarray(range(y_len)),
-                            'datasets': data_dic
->>>>>>> Stashed changes
+                            'datasets': {'picture' : temp_image,
+                                        }
             })
+
+
             if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
-            # the GUI has asked us nicely to exit
-                return temp_image
-            
+                # the GUI has asked us nicely to exit
 
-
-
+                return
 
 
     #### INITIALIZATION METHODS

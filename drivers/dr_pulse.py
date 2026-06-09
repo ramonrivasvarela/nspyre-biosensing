@@ -23,9 +23,9 @@ class PulserClass():
         self.Pulser = PulseStreamer(ip)
         self.sequence = self.Pulser.createSequence()
         self.sub_sequence = self.Pulser.createSequence()
-        self.green_laser_on=False
-        self.blue_laser_on=False
-        self.switch_on=False
+        self.green_laser_on=False # channel number 7
+        self.blue_laser_on=False # channel number 3
+        self.switch_on=False # channel number 6
         self.analog0=0
         self.analog1=0
 

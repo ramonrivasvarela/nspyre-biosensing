@@ -28,26 +28,45 @@ class Camera():
         self.acquisition_mode="Kinetics"
         self.number_accumulations=1
         self.number_kinetics=1
-        self.width=None
-        self.height=None
+        self.x_len=None
+        self.y_len=None
 
         self.vs_speed=3
         self.hs_speed=0
         
+    # ========= String conversion function =======
 
+    def convert_string(self, input_string):
+        """
+        Convert a string to the format expected by the SDK functions.
+        This involves converting to lowercase and replacing certain characters.
+        """
+        return input_string.lower().replace("-", " ").replace("_", " ").replace("(", "").replace(")", "")
         
 
     def initialize(self):
         self.sdk=atmcd("")
         ret=self.sdk.Initialize("")
+        if ret == 20002:
+            self.set_acquisition_mode(self.acquisition_mode)
+            self.set_read_mode(self.read_mode)
+            self.set_trigger_mode(self.trigger_mode)
+            (ret, xpixels, ypixels) = self.get_detector()
+            self.set_image(xpixels, ypixels)
+            self.x_len = xpixels
+            self.y_len = ypixels
+            self.set_exposure_time(self.exposure_time)
+            self.set_emccdgain(self.emccdgain)
+            self.set_shutter(self.shutter)
         return ret
         
         
     def set_trigger_mode(self, trigger_mode):
-        if self.sdk is None:
-            return 20000  # Not initialized
+        if not self.is_camera_idle():
+            raise RuntimeError("Cannot change trigger mode while camera is not idle.")
+
         if type(trigger_mode) is str:
-            mode = trigger_mode.lower().replace("-", " ").replace("(", "").replace(")", "")
+            mode = self.convert_string(trigger_mode)
         if mode == "internal" or mode == 0:
             mode="Internal"
             ret = self.sdk.SetTriggerMode(0)
@@ -66,48 +85,53 @@ class Camera():
 
 
     def set_temperature(self, temp_value:int):
-        if self.sdk is None:
-            return 20000  # Not initialized
+        if not self.sdk:
+            return 20000 # Not initialized
         ret=self.sdk.SetTemperature(temp_value)
         if ret==20002:
             self.temperature_goal=temp_value
         return ret
 
     def cool(self):
-        if self.sdk is None:
+        if not self.sdk:
             return 20000  # Not initialized
         ret=self.sdk.CoolerON()
         return ret
     
     def stop_cooling(self):
-        if self.sdk is None:
+        if not self.sdk:
             return 20000  # Not initialized
         ret=self.sdk.CoolerOFF()
         return ret
 
     def get_temperature_status(self):
-        if self.sdk is None:
+        if not self.sdk:
             return 20000, None  # Not initialized
+        if not self.is_camera_idle():
+            raise RuntimeError("Cannot get temperature status while camera is not idle.")
+
         err, temp = self.sdk.GetTemperatureF()
         return err, temp
 
  
 
     def start_acquisition(self):
-        if self.sdk is None:
-            return 20000  # Not initialized
+        if not self.is_camera_idle():
+            raise RuntimeError("Cannot start acquisition while camera is not idle.")
+
         ret=self.sdk.StartAcquisition()
         return ret
         
     def prepare_acquisition(self):
-        if self.sdk is None:
-            return 20000  # Not initialized
+        if not self.is_camera_idle():
+            raise RuntimeError("Cannot prepare acquisition while camera is not idle.")
+
         ret=self.sdk.PrepareAcquisition()
         return ret
     
     def abort_acquisition(self):
-        if self.sdk is None:
-            return 20000  # Not initialized
+        if not self.sdk:
+            return 20000
         ret=self.sdk.AbortAcquisition()
         return ret
     
@@ -124,14 +148,16 @@ class Camera():
             raise RuntimeError(f"GetTotalNumberImagesAcquired failed (code {ret})")
 
     def set_emccdgain(self, gain:int):
-        if self.sdk is None:
-            return 20000  # Not initialized
+        if not self.is_camera_idle():
+            raise RuntimeError("Cannot change EMCCD gain while camera is not idle.")
         ret=self.sdk.SetEMCCDGain(gain)
         if ret==20002:
             self.emccdgain=gain
         return ret
 
     def get_emccdgain(self):
+        if not self.is_camera_idle():
+            raise RuntimeError("Cannot get EMCCD gain while camera is not idle.")
         if self.sdk is None:
             return 20000, None  # Not initialized
         ret, gain = self.sdk.GetEMCCDGain()
@@ -149,9 +175,21 @@ class Camera():
 
         return ret, state
 
-    def cool_old(self, temp_value):
+    def is_camera_idle(self):
+        """
+        Check if the camera is ready for acquisition.
+        """
         if self.sdk is None:
-            return 20000  # Not initialized
+            return False  # Not initialized
+        ret, state = self.get_status()
+        if ret != 20002:
+            print(f"GetStatus() failed (code {ret})")
+            return False
+        return state == self.errors.Camera_States.CAMERA_IDLE
+
+    def cool_old(self, temp_value):
+        if not self.sdk:
+            return 20000        
         ret = self.set_temperature(temp_value)
         if ret != 20002:
             print(f"SetTemperature({temp_value}) failed (code {ret})")
@@ -180,6 +218,8 @@ class Camera():
         return ret
 
     def set_exposure_time(self, exp_time:float):
+        if not self.is_camera_idle():
+            raise RuntimeError("Cannot change exposure time while camera is not idle.")
         if self.sdk is None:
             return 20000  # Not initialized
         ret=self.sdk.SetExposureTime(exp_time)
@@ -187,6 +227,20 @@ class Camera():
             self.exposure_time=exp_time
             print(f"Exposure time set to {exp_time} seconds.")
 
+    def wait_for_acquisition_timeout(self, timeout_seconds:int):
+        """
+        Wait for acquisition to complete, with a timeout.
+
+        Args:
+            timeout_seconds: Maximum time to wait for acquisition to complete, in seconds.
+        Returns:
+            True if acquisition completed within the timeout, False if timeout was reached.
+        """
+        if self.sdk is None:
+            raise RuntimeError("Camera SDK not initialized.")
+        ret=self.sdk.WaitForAcquisitionTimeout(timeout_seconds*1000)  # SDK expects milliseconds
+        return ret == 20002
+    
     def get_images_16(self, first, last, size):
         if self.sdk is None:
             return 20000, None, None, None  # Not initialized
@@ -194,6 +248,8 @@ class Camera():
         return ret, all_data, validfirst, validlast
     
     def get_images(self, first, last, size):
+        if not self.sdk:
+            return 20000, None, None, None  # Not initialized
         ret, all_data, validfirst, validlast=self.sdk.GetImages(first, last, size)
         return ret, all_data, validfirst, validlast
     
@@ -205,8 +261,8 @@ class Camera():
         return ret
 
     def set_number_kinetics(self, number_kinetics:int): 
-        if self.sdk is None:
-            return 20000  # Not initialized
+        if not self.is_camera_idle():
+            raise RuntimeError("Cannot change number of kinetics while camera is not idle.")
         ret = self.sdk.SetNumberKinetics(number_kinetics)
         if ret == 20002:
             self.number_kinetics = number_kinetics
@@ -216,8 +272,8 @@ class Camera():
             raise RuntimeError(f"SetNumberKinetics failed with error code {ret}.")
     
     def set_number_accumulations(self, number_accumulations:int):
-        if self.sdk is None:
-            return 20000  # Not initialized
+        if not self.is_camera_idle():
+            raise RuntimeError("Cannot change number of accumulations while camera is not idle.")
         ret = self.sdk.SetNumberAccumulations(number_accumulations) 
         if ret == 20002:
             self.number_accumulations = number_accumulations
@@ -227,10 +283,12 @@ class Camera():
             raise RuntimeError(f"SetNumberAccumulations failed with error code {ret}.")
 
     def set_shutter(self, mode):
+        if not self.is_camera_idle():
+            raise RuntimeError("Cannot change shutter mode while camera is not idle.")
         if self.sdk is None:
             return 20000  # Not initialized
         if type(mode) is str:
-            mode = mode.lower().replace("-", " ")
+            mode = self.convert_string(mode)
         if mode == "auto" or mode=="automatic" or mode == 0:
             ret = self.sdk.SetShutter(0, 0, 27, 27)
             mode = "Automatic"
@@ -285,10 +343,10 @@ class Camera():
         return ret, total
 
     def set_read_mode(self, mode):
-        if self.sdk is None:
-            return 20000  # Not initialized
+        if not self.is_camera_idle():
+            raise RuntimeError("Cannot change read mode while camera is not idle.")
         if type(mode) is str:
-            mode = mode.lower().replace("-", " ")
+            mode = self.convert_string(mode)
         if mode == "full vertical binning" or mode == 0:
             mode = "Full Vertical Binning"
             ret = self.sdk.SetReadMode(0)  
@@ -312,10 +370,10 @@ class Camera():
             return ret
 
     def set_frame_transfer_mode(self, mode):
-        if self.sdk is None:
-            return 20000  # Not initialized
+        if not self.is_camera_idle():
+            raise RuntimeError("Cannot change frame transfer mode while camera is not idle.")
         if type(mode) is str:
-            mode = mode.lower().replace("-", " ")
+            mode = self.convert_string(mode)
         if mode == "off" or mode=="conventional" or mode == 0:
             mode = "OFF"
             ret = self.sdk.SetFrameTransferMode(0)
@@ -330,10 +388,10 @@ class Camera():
             return ret
 
     def set_acquisition_mode(self, mode):
-        if self.sdk is None:
-            return 20000  # Not initialized
+        if not self.is_camera_idle():
+            raise RuntimeError("Cannot change acquisition mode while camera is not idle.")
         if type(mode) is str:
-            mode = mode.lower().replace("-", " ")
+            mode = self.convert_string(mode)
         if mode == "single scan" or mode == 1:
             mode = "Single Scan"
             ret = self.sdk.SetAcquisitionMode(1)
@@ -360,12 +418,12 @@ class Camera():
         """
         Get the detector size.
         """
-        if self.sdk is None:
-            return 20000, None, None  # Not initialized
+        if not self.is_camera_idle():
+            raise RuntimeError("Cannot get detector size while camera is not idle.")
         ret, width, height = self.sdk.GetDetector()
         if ret == 20002:
-            self.width = width
-            self.height = height
+            self.x_len = width
+            self.y_len = height
             return ret, width, height
         else:
             raise RuntimeError(f"GetDetector failed with error code {ret}.")
@@ -374,15 +432,15 @@ class Camera():
         """
         Set the image.
         """
-        if self.sdk is None:
-            return 20000  # Not initialized
+        if not self.is_camera_idle():
+            raise RuntimeError("Cannot set image while camera is not idle.")
         if width is not None:
-            self.width = width
+            self.x_len = width
         if height is not None:
-            self.height = height
-        if self.width is None or self.height is None:
+            self.y_len = height
+        if self.x_len is None or self.y_len is None:
             raise ValueError("Width and height must be set before calling set_image.")
-        ret = self.sdk.SetImage(1, 1, 1, self.width, 1, self.height)
+        ret = self.sdk.SetImage(1, 1, 1, self.x_len, 1, self.y_len)
         if ret == 20002:
             print("Image set successfully.")
             return ret
@@ -394,8 +452,8 @@ class Camera():
         """
         Get the acquisition timings.
         """
-        if self.sdk is None:
-            return 20000, None, None, None  # Not initialized
+        if not self.is_camera_idle():
+            raise RuntimeError("Cannot get acquisition timings while camera is not idle.")
         ret, exp_time, acc_time, kin_time = self.sdk.GetAcquisitionTimings()
         if ret == 20002:
             self.exposure_time = exp_time
@@ -407,8 +465,8 @@ class Camera():
         
 
     def set_VS_speed(self, speed:int):
-        if self.sdk is None:
-            return 20000  # Not initialized
+        if not self.is_camera_idle():
+            raise RuntimeError("Cannot change vertical shift speed while camera is not idle.")
         ret = self.sdk.SetVSSpeed(speed)
         if ret == 20002:
             self.vs_speed = speed
@@ -418,8 +476,8 @@ class Camera():
             raise RuntimeError(f"SetVSSpeed failed with error code {ret}.")
         
     def set_HS_speed(self, speed:int):
-        if self.sdk is None:
-            return 20000  # Not initialized
+        if not self.is_camera_idle():
+            raise RuntimeError("Cannot change horizontal shift speed while camera is not idle.")
         ret = self.sdk.SetHSSpeed(0, speed)
         if ret == 20002:
             self.hs_speed = speed
