@@ -54,7 +54,7 @@ class I1I2Widget(ExperimentWidget):
                         '5.2631579', '5.2083333', '5.05050505', '5', '4.4642857', '4.0322581', '3.78787879', '3.4722222',
                         '2.84090909', '2.5']
         sideband_frequency_cb.addItems(sideband_items)
-        sideband_frequency_cb.setCurrentText("10.1010101")
+        sideband_frequency_cb.setCurrentText('12.345679')
         # New params_config dictionary using only display_text and widget:
         track_z_cb = QCheckBox()
         track_z_cb.setChecked(True)
@@ -185,7 +185,7 @@ class I1I2Widget(ExperimentWidget):
             },
             'search_PID': {
                 'display_text': 'Search PID',
-                'widget': QLineEdit("(0.5,0.01,0)")
+                'widget': QLineEdit("(0.1,0.01,0)")
             },
             'search_integral_history': {
                 'display_text': 'Search Integral History',
