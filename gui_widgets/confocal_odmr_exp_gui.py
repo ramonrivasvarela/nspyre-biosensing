@@ -80,6 +80,9 @@ class ConfocalODMRWidget(ExperimentWidget):
         switch_cb=QCheckBox()
         switch_cb.setChecked(False)
 
+        verbose_cb=QCheckBox()
+        verbose_cb.setChecked(False)
+
         count_step_shrink_sb=QSpinBox()
         count_step_shrink_sb.setMinimum(1)
 
@@ -218,6 +221,10 @@ class ConfocalODMRWidget(ExperimentWidget):
             'mode': {
                 'display_text': 'Mode',
                 'widget': mode_cb
+            },
+            'verbose': {
+                'display_text': 'Verbose',
+                'widget': verbose_cb
             },
             'dataset':{
                 'display_text':'Data Set',

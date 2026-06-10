@@ -124,7 +124,7 @@ class ContinuousTracking():
             mgr.Pulser.stream_sequence(self.sequence, run_ct)
 
             data=obtain(mgr.DAQcontrol.read_to_data_array(read_timeout))
-            print("Data obtained from DAQ:", data)
+            # print("Data obtained from DAQ:", data)
             # self.current_counter_task.clear()
             
 
@@ -133,8 +133,8 @@ class ContinuousTracking():
 
 
         else:
-            print("-------------------")
-            print("\n\n\nWe are indeed running tracking code")
+            # print("-------------------")
+            # print("\n\n\nWe are indeed running tracking code")
             data, buffer_allocation, remaining_buffer = self.read_stream_flee( mgr, index, search, buffer_size, scan_distance, num_freq, run_ct, read_timeout)
 
         # data = self.read_stream_flee( mgr, index, search, buffer_size, scan_distance, num_freq, read_timeout)
@@ -152,7 +152,7 @@ class ContinuousTracking():
         # This move is now redundant - already done in data_analysis
         # mgr.DAQcontrol.move({'x': self.XYZ_center[0], 'y': self.XYZ_center[1], 'z': self.XYZ_center[2]})
         
-        print('\nHere is where the laser is currently pointing:', mgr.DAQcontrol.position)
+        # print('\nHere is where the laser is currently pointing:', mgr.DAQcontrol.position)
         if not do_not_run_feedback:
             for i, num in enumerate(search):
                 search[i] *= 0.9 if abs(self.drift[i]) < (2 / 5 * search[i]) else 1.2 if abs(self.drift[i]) > (
@@ -163,10 +163,10 @@ class ContinuousTracking():
         # Shivam: We are removing the last value of I2 from the buffer to not have the last photon count
         # This is because we do not have a clock at the last time period and so would only have 1 out of 2 relevant counts for that segment when subtracting
         # This means that we will effectively have n - 1 runs when setting the time per sg point for n runs
-        print("/n/n In process data/n")
-        print("The input buffer size is " + str(len(input_buffer)))
+        # print("/n/n In process data/n")
+        # print("The input buffer size is " + str(len(input_buffer)))
         effective_buffer = input_buffer[:-1]
-        print("The later effective buffer size is " + str(len(effective_buffer)))
+        # print("The later effective buffer size is " + str(len(effective_buffer)))
         # Shivam: sliced to new array 2nd element onwards subtracting all elements to the left (I1 - I0, I2 - I1, ... ,
         interval_data = effective_buffer[1:] - effective_buffer[:-1]
 
@@ -174,9 +174,9 @@ class ContinuousTracking():
         # This is needed for our calculation of total time of photon collection in advanced_tracking
 
         num_bins = int(len(interval_data) / 2)
-        print("The number of bins is " + str(num_bins))
+        # print("The number of bins is " + str(num_bins))
         # Shivam: sums interval data in steps of 4 (I1-I0+I5-I4+...) is the first element
-        print('type(interval_data):', type(interval_data))
+        # print('type(interval_data):', type(interval_data))
         sum_Is = [np.sum(interval_data[i::2]) for i in range(2)]
         # \ sum_Is = [#,#,#,#]
         # data = sum_Is[0]/sum_Is[1] - sum_Is[2]/sum_Is[3]
@@ -202,21 +202,21 @@ class ContinuousTracking():
             else:
                 print("Error in remaining buffer")
 
-            print("/n We are processing tracking data with feedback")
+            # print("/n We are processing tracking data with feedback")
 
-            print("Tracking buffer is " + str(tracking_buffer))
-            print("Length of tracking buffer is " + str(len(tracking_buffer)))
+            # print("Tracking buffer is " + str(tracking_buffer))
+            # print("Length of tracking buffer is " + str(len(tracking_buffer)))
 
             tracking_interval = tracking_buffer[1:] - tracking_buffer[:-1]
 
-            print("Tracking interval is " + str(tracking_interval))
-            print("Length of tracking interval is " + str(len(tracking_interval)))
+            # print("Tracking interval is " + str(tracking_interval))
+            # print("Length of tracking interval is " + str(len(tracking_interval)))
 
 
             # Shivam: This sums over the buffer allocation for each position step of the scan and stores in new array
             tracking_data = np.sum(tracking_interval.reshape(-1, buffer_allocation), axis=1)
-            print("Length of tracking data is " + str(len(tracking_data)))
-            print("Tracking data is " + str(tracking_data))
+            # print("Length of tracking data is " + str(len(tracking_data)))
+            # print("Tracking data is " + str(tracking_data))
 
             track_steps = np.linspace(self.XYZ_center[index] - search[index], self.XYZ_center[index] + search[index],
                                     len(tracking_data))
@@ -229,14 +229,14 @@ class ContinuousTracking():
     def read_stream_flee(self, mgr, index, search, buffer_size, scan_distance, num_freq, run_ct, read_timeout):
         ## total this has 180 ms of lag.
         # time_track = time.time()
-        print("self.XYZ_center is " + str(self.XYZ_center))
-        print("search is " + str(search))
-        print("type of self.XYZ_center:", type(self.XYZ_center))
-        print("type of self.XYZ_center[index]:", type(self.XYZ_center[index]))
-        print("type of search:", type(search))
-        print("type of search[index]:", type(search[index]))
+        # print("self.XYZ_center is " + str(self.XYZ_center))
+        # print("search is " + str(search))
+        # print("type of self.XYZ_center:", type(self.XYZ_center))
+        # print("type of self.XYZ_center[index]:", type(self.XYZ_center[index]))
+        # print("type of search:", type(search))
+        # print("type of search[index]:", type(search[index]))
         self.XYZ_center=obtain(self.XYZ_center)
-        print("type of self.XYZ_center after obtain:", type(self.XYZ_center))
+        # print("type of self.XYZ_center after obtain:", type(self.XYZ_center))
         xyz_steps = np.linspace(self.XYZ_center[index] - search[index], self.XYZ_center[index] + search[index],
                                 buffer_size)
                                 
@@ -247,20 +247,20 @@ class ContinuousTracking():
         pos_center_end[index] = xyz_steps[-1]
 
         distance_of_sweep = np.abs(pos_center_end[index] - pos_center_st[index])
-        print('distance_of_sweep:', distance_of_sweep)
-        print('Type of distance_of_sweep:', type(distance_of_sweep))
-        print('scan_distance:', scan_distance)
-        print('Type of scan distance:', type(scan_distance))
+        # print('distance_of_sweep:', distance_of_sweep)
+        # print('Type of distance_of_sweep:', type(distance_of_sweep))
+        # print('scan_distance:', scan_distance)
+        # print('Type of scan distance:', type(scan_distance))
         number_of_steps = math.ceil(distance_of_sweep / scan_distance[index])
-        print("The number of steps is " + str(number_of_steps))
+        # print("The number of steps is " + str(number_of_steps))
         effective_scan_distance = distance_of_sweep / number_of_steps
-        print("The effective scan distance is " + str(effective_scan_distance))
+        # print("The effective scan distance is " + str(effective_scan_distance))
         # Shivam: Subtracted by 2 because of the way the buffer is sliced to keep equal photon exposure for I1 and I2 
         effective_buffer_size = buffer_size - 2
-        print("The effective buffer size is " + str(effective_buffer_size))
+        # print("The effective buffer size is " + str(effective_buffer_size))
         # Shivam: Buffer allocation for each step of scan
         buffer_allocation = math.floor(effective_buffer_size / number_of_steps)
-        print("The buffer allocation is " + str(buffer_allocation))
+        # print("The buffer allocation is " + str(buffer_allocation))
         # import pdb; pdb.set_trace()
         # Shivam: Doing a 1 axis scan from the set start point till end point with buffer_size steps
         # Remaining buffer is for later calculations, but this function is primarily for the scan.
@@ -292,14 +292,14 @@ class ContinuousTracking():
     def data_analysis(self, mgr, tracking_data, track_steps, index, search, do_not_run_feedback, spot_size, num_bins, advanced_tracking, 
                  changing_search, search_error_array, search_integral_history):
         # Remove XYZ_center parameter, use self.XYZ_center instead
-        print("/n/n In data analysis/n")
+        # print("/n/n In data analysis/n")
         self.total_fluor = np.sum(tracking_data)
         
-        print("Total Fluorescence is " + str(self.total_fluor))
+        # print("Total Fluorescence is " + str(self.total_fluor))
         if do_not_run_feedback:
             return search, search_error_array
         
-        print('Out of XYZ = [0,1,2], this is the', index, 'axis')
+        # print('Out of XYZ = [0,1,2], this is the', index, 'axis')
 
         # Here we are attempting to fit to Gaussian
         p0 = [np.max(tracking_data), track_steps[np.argmax(tracking_data)], spot_size, np.min(tracking_data)]
@@ -313,22 +313,23 @@ class ContinuousTracking():
                 #     plotpeak / plotbackground - 1), '\n')
                 if np.min(track_steps) <= plot_center_fit <= np.max(track_steps):
                     if popt[0] < 0:
-                        print("negative fit")
+                        # print("negative fit")
+                        pass
                     else:
                         self.drift[index] = plot_center_fit - self.XYZ_center[index]
                         self.XYZ_center[index] = self.advanced_tracking(plot_center_fit, index)
                 else:
-                    print('Gaussian fit max is out of scanning range. Using maximum point instead')
+                    # print('Gaussian fit max is out of scanning range. Using maximum point instead')
                     max_count_position = track_steps[np.argmax(tracking_data)]
                     self.drift[index] = max_count_position - self.XYZ_center[index]
                     self.XYZ_center[index] = self.advanced_tracking(max_count_position, index)
             except:
-                print('no Gaussian fit')
+                # print('no Gaussian fit')
                 max_count_position = track_steps[np.argmax(tracking_data)]
                 self.drift[index] = max_count_position - self.XYZ_center[index]
                 self.XYZ_center[index] = self.advanced_tracking(max_count_position, index)
 
-            print("debugging, XYZ center is " + str(self.XYZ_center))
+            # print("debugging, XYZ center is " + str(self.XYZ_center))
             
             # MOVE IMMEDIATELY after updating position
             # Clamp move delta to a maximum step (e.g. max_step = 5e-6 for 5 µm or appropriate unit)
@@ -337,19 +338,19 @@ class ContinuousTracking():
             for ax in range(3):
                 delta = self.XYZ_center[ax] - current_position[ ['x','y','z'][ax] ]
                 if abs(delta) > max_step:
-                    print(f"[WARNING] large move on axis {ax}: {delta}, clamping to {max_step}")
+                    # print(f"[WARNING] large move on axis {ax}: {delta}, clamping to {max_step}")
                     self.XYZ_center[ax] = current_position[ ['x','y','z'][ax] ] + np.sign(delta)*max_step
             
             mgr.DAQcontrol.move({'x': self.XYZ_center[0], 'y': self.XYZ_center[1], 'z': self.XYZ_center[2]})
-            print("xyz positions set are " + str(self.XYZ_center[0]) + str(self.XYZ_center[1]) + str(self.XYZ_center[2]))
-            print('\nHere is where the laser is currently pointing:', mgr.DAQcontrol.position)
+            # print("xyz positions set are " + str(self.XYZ_center[0]) + str(self.XYZ_center[1]) + str(self.XYZ_center[2]))
+            # print('\nHere is where the laser is currently pointing:', mgr.DAQcontrol.position)
 
             if changing_search:
                 search_change = 0.0
                 ### Shivam: this is the new search change which is adaptive with PID control that has a target 
                 # to set search radius to double the drift
                 n = search_integral_history
-                print("search_error_array is " + str(search_error_array))
+                # print("search_error_array is " + str(search_error_array))
                 
                 search_error_pre = search_error_array[index][0]
                 # import pdb; pdb.set_trace()
@@ -357,14 +358,14 @@ class ContinuousTracking():
                 # Target value for search radius is twice the drift
                 search_error = (-1) * (search[index] - np.abs(self.drift[index]) * 2)
 
-                print("drift is " + str(self.drift[index]))
-                print("search_error is " + str(search_error))
+                # print("drift is " + str(self.drift[index]))
+                # print("search_error is " + str(search_error))
 
                 # The below line looks like: 
                 # [deque([0.0, 0.0, 0.0, 0.0, 0.0]), deque([0.0, 0.0, 0.0, 0.0, 0.0]), deque([0.0, 0.0, 0.0, 0.0, 0.0])]
                 
                 search_error_deques = [collections.deque(row) for row in search_error_array]
-                print("search_error_deques is " + str(search_error_deques))
+                # print("search_error_deques is " + str(search_error_deques))
 
                 # Append the latest search error value to the deque at the relevant index and remove the oldest value
                 search_error_deques[index].appendleft(search_error)
@@ -392,14 +393,14 @@ class ContinuousTracking():
                 search[index] =  (search[index] + search_change)
 
                 if search[index] > self.max_search[index]:
-                    print("Max search radius for index " + str(index) + " reached.")
+                    # print("Max search radius for index " + str(index) + " reached.")
                     search[index] = self.max_search[index]
 
                 if search[index] < self.min_search[index]:
                     print("Min search radius for index " + str(index) + " reached.")
                     search[index] = self.min_search[index]
 
-                print("Search radius for index " + str(index) + " is updated to " + str(search[index]))
+                # print("Search radius for index " + str(index) + " is updated to " + str(search[index]))
 
 
             else:
@@ -411,14 +412,14 @@ class ContinuousTracking():
 
             try:
                 # Shivam: popt is the return of the optimized values of curve parameters (array of form such as p0)
-                print("made it to before curve fit")
-                print("Track steps is " + str(track_steps))
-                print("Length of track steps is " + str(len(track_steps)))
-                print("Tracking data is " + str(tracking_data))
-                print("Length of tracking data is " + str(len(tracking_data)))
+                # print("made it to before curve fit")
+                # print("Track steps is " + str(track_steps))
+                # print("Length of track steps is " + str(len(track_steps)))
+                # print("Tracking data is " + str(tracking_data))
+                # print("Length of tracking data is " + str(len(tracking_data)))
                 popt, pcov = optimize.curve_fit(self.gaussian, track_steps, tracking_data, p0=p0)
-                print("popt[1] is " + str(popt[1]))
-                print("popt is " + str(popt))
+                # print("popt[1] is " + str(popt[1]))
+                # print("popt is " + str(popt))
                 plot_fitted = self.gaussian(track_steps, *popt)
                 plot_center_fit = popt[1]
                 # plotbackground = popt[3]
@@ -428,19 +429,20 @@ class ContinuousTracking():
                 if np.min(track_steps) <= plot_center_fit <= np.max(track_steps):
                     
                     if popt[0] < 0:
-                        print("negative fit")
+                        # print("negative fit")
+                        pass
 
                     else:
-                        print("Fitting to Gaussian")
+                        # print("Fitting to Gaussian")
                         self.drift[index] = plot_center_fit - self.XYZ_center[index]
                         self.XYZ_center[index] = plot_center_fit
                 else:
-                    print('Gaussian fit max is out of scanning range. Using maximum point instead')
+                    #print('Gaussian fit max is out of scanning range. Using maximum point instead')
                     max_count_position = track_steps[np.argmax(tracking_data)]
                     self.drift[index] = max_count_position - self.XYZ_center[index]
                     self.XYZ_center[index] = max_count_position
             except:
-                print('no Gaussian fit')
+                #print('no Gaussian fit')
                 max_count_position = track_steps[np.argmax(tracking_data)]
                 self.drift[index] = max_count_position - self.XYZ_center[index]
                 self.XYZ_center[index] = max_count_position
@@ -452,32 +454,32 @@ class ContinuousTracking():
             for ax in range(3):
                 delta = self.XYZ_center[ax] - current_position[ ['x','y','z'][ax] ]
                 if abs(delta) > max_step:
-                    print(f"[WARNING] large move on axis {ax}: {delta}, clamping to {max_step}")
+                    # print(f"[WARNING] large move on axis {ax}: {delta}, clamping to {max_step}")
                     self.XYZ_center[ax] = current_position[ ['x','y','z'][ax] ] + np.sign(delta)*max_step
             
             mgr.DAQcontrol.move({'x': self.XYZ_center[0], 'y': self.XYZ_center[1], 'z': self.XYZ_center[2]})
-            print("xyz positions set are " + str(self.XYZ_center[0]) + str(self.XYZ_center[1]) + str(self.XYZ_center[2]))
-            print('\nHere is where the laser is currently pointing:', mgr.DAQcontrol.position)
+            # print("xyz positions set are " + str(self.XYZ_center[0]) + str(self.XYZ_center[1]) + str(self.XYZ_center[2]))
+            # print('\nHere is where the laser is currently pointing:', mgr.DAQcontrol.position)
 
             if changing_search:
                 search_change = 0.0
                 ### Shivam: this is the new search change which is adaptive with PID control that has a target 
                 # to set search radius to double the drift
                 n = search_integral_history
-                print("search_error_array is " + str(search_error_array))
+                # print("search_error_array is " + str(search_error_array))
                 # Target value for search radius is twice the drift
                 search_error_pre = search_error_array[index][0]
                 #import pdb; pdb.set_trace()
                 search_error = (-1) * (search[index] - np.abs(self.drift[index]) * 2)
 
-                print("drift is " + str(self.drift[index]))
-                print("search_error is " + str(search_error))
+                # print("drift is " + str(self.drift[index]))
+                # print("search_error is " + str(search_error))
 
                 # The below line looks like: 
                 # [deque([0.0, 0.0, 0.0, 0.0, 0.0]), deque([0.0, 0.0, 0.0, 0.0, 0.0]), deque([0.0, 0.0, 0.0, 0.0, 0.0])]
                 
                 search_error_deques = [collections.deque(row) for row in search_error_array]
-                print("search_error_deques is " + str(search_error_deques))
+                # print("search_error_deques is " + str(search_error_deques))
 
                 # Append the latest search error value to the deque at the relevant index and remove the oldest value
                 search_error_deques[index].appendleft(search_error)
@@ -503,19 +505,19 @@ class ContinuousTracking():
                 
                 # Converting search[index] to float to do maths then back to nm for the variable
                 search[index] =  search[index] + search_change
-                print('type(search) is ' + str(type(search)))
-                print('type(search[index]) is ' + str(type(search[index])))
-                print('type(self.max_search) is ' + str(type(self.max_search)))
-                print('type(self.max_search[index]) is ' + str(type(self.max_search[index])))
+                # print('type(search) is ' + str(type(search)))
+                # print('type(search[index]) is ' + str(type(search[index])))
+                # print('type(self.max_search) is ' + str(type(self.max_search)))
+                # print('type(self.max_search[index]) is ' + str(type(self.max_search[index])))
                 if search[index] > self.max_search[index]:
-                    print("Max search radius for index " + str(index) + " reached.")
+                    # print("Max search radius for index " + str(index) + " reached.")
                     search[index] = self.max_search[index]
 
                 if search[index] < self.min_search[index]:
-                    print("Min search radius for index " + str(index) + " reached.")
+                    # print("Min search radius for index " + str(index) + " reached.")
                     search[index] = self.min_search[index]
 
-                print("Search radius for index " + str(index) + " is updated to " + str(search[index]))
+                # print("Search radius for index " + str(index) + " is updated to " + str(search[index]))
 
 
             else:
@@ -544,14 +546,14 @@ class ContinuousTracking():
         self.old_x_k = self.x_k
 
         # Shivam: This is the predicted position of the nanodiamond
-        print("w is " + str(self.w))
-        print("pk is " + str(self.p_k))
-        print("ck is " + str(c_k))
-        print("nk is " + str(self.n_k))
-        print("old xk is " + str(self.old_x_k))
+        # print("w is " + str(self.w))
+        # print("pk is " + str(self.p_k))
+        # print("ck is " + str(c_k))
+        # print("nk is " + str(self.n_k))
+        # print("old xk is " + str(self.old_x_k))
         self.x_k[index] = (self.w * self.old_x_k[index] + self.n_k[index] * self.p_k[index] * c_k) / (self.w + self.n_k[index] * self.p_k[index])
 
-        print("debugging, x_k is " + str(self.x_k))
+        # print("debugging, x_k is " + str(self.x_k))
 
         return self.x_k[index]
 

@@ -219,6 +219,7 @@ class I1I2(ContinuousTracking):
                 # Counts every time we measure a certain frequency value
                 self.counter = 0
                 for sweep in range(sweeps):
+                    print('\nStarting sweep number ' + str(sweep))
                     I1_empty=np.empty(n_freqs)
                     I1_empty[:]=np.nan
                     I2_empty=np.empty(n_freqs)

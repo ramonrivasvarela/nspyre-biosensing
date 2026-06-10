@@ -85,12 +85,13 @@ class ConfocalODMR():
         xyz_step: float = 60e-9,
         count_step_shrink: int = 2,
         starting_point: str = "current_position (ignore input)",
+        verbose: bool = False,
         dataset: str = "odmr"
     ):
         
         ## Set up key data structures
         INIT_PARAMS = [ runs, mode, frequencies, rf_amplitude, laser_lag, cooldown_time,
-                        probe_time, clock_duration, use_switch, timeout]
+                        probe_time, clock_duration, use_switch, timeout, verbose]
         signal=StreamingList()
         background=StreamingList()
 
@@ -112,6 +113,7 @@ class ConfocalODMR():
             'xyz_step': xyz_step,
             'count_step_shrink': count_step_shrink,
             'starting_point': starting_point,
+            'verbose': verbose,
             'dataset': dataset
 
         }
@@ -195,10 +197,10 @@ class ConfocalODMR():
     #### INITIALIZATION METHODS
 
     def initialize(self, mgr, runs, mode, frequencies, rf_amplitude, laser_lag, cooldown_time,
-                   probe_time, clock_duration, use_switch, timeout ):
+                   probe_time, clock_duration, use_switch, timeout, verbose):
         
         ## Prepare spyrelet parameters
-        self.VERBOSE = True # Add as param, make default False once done debugging
+        self.VERBOSE = verbose # Add as param, make default False once done debugging
 
         self.timeout=timeout #time to wait for clock before raising an error
         eval_frequencies=eval(frequencies)
