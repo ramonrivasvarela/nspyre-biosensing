@@ -8,15 +8,15 @@ fitting_functions = {
     },
     'Double Lorentzian': {
         'params': {
-            'A1': -0.2,
-            'A2': -0.2,
-            'x_1': 2.865e9,
-            'x_2': 2.875e9,
-            'gamma1': 1e6,
-            'gamma2': 1e6,
+            'A1': -0.02,
+            'A2': -0.02,
+            'x0': 2.868e9,
+            'Δx': 6e6,
+            'gamma1': 7e6,
+            'gamma2': 7e6,
             'C': 1
         },
-        'function': lambda x, A1, A2, x_1, x_2, gamma1, gamma2, C: A1 / ((x - x_1)**2/gamma1**2+1) + A2 / ((x - x_2)**2/gamma2**2+1) + C
+        'function': lambda x, A1, A2, x0, Δx, gamma1, gamma2, C: A1 / ((x - (x0-Δx))**2/gamma1**2+1) + A2 / ((x - (x0 + Δx))**2/gamma2**2+1) + C
     },
     'Exponential Decay': {
         'params': {

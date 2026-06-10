@@ -54,7 +54,7 @@ class Pictures:
         """Perform experiment teardown."""
         _logger.info('Destroyed Pictures instance.')
 
-    def take_picture(self, zoom: bool=False, zoom_coordinates: str=None, picture: str=None, single_picture: bool=False):
+    def take_picture(self, zoom: bool=False, zoom_coordinates="(512, 512, 12)", picture: str=None, single_picture: bool=False):
         """
         confocal counts vs time experiment that is static (does not track), under constant illumination.
 
@@ -77,12 +77,10 @@ class Pictures:
             x_len=mgr.Camera.x_len
             y_len=mgr.Camera.y_len
             if zoom:
-                if zoom_coordinates is None:
-                    print("Zoom coordinates not provided. Cannot zoom.")
-                    return
-                zoom_coords = eval(zoom_coordinates)  # Expecting a string like "((x_start, x_end), (y_start, y_end))"
-                zoom_x_start, zoom_x_end = zoom_coords[0]-zoom_coords[2], zoom_coords[0]+zoom_coords[2]
-                zoom_y_start, zoom_y_end = zoom_coords[1]-zoom_coords[2], zoom_coords[1]+zoom_coords[2]
+                if type(zoom_coordinates) == str:
+                    zoom_coords = eval(zoom_coordinates)  # Expecting a string like "((x_start, x_end), (y_start, y_end))"
+                zoom_x_start, zoom_x_end = zoom_coords[0]-zoom_coords[2], zoom_coords[0]+zoom_coords[2]+1
+                zoom_y_start, zoom_y_end = zoom_coords[1]-zoom_coords[2], zoom_coords[1]+zoom_coords[2]+1
 
             time.sleep(0.1)  # wait for the camera to acquire some data
             ret=mgr.Camera.wait_for_acquisition_timeout(timeout_seconds=1)

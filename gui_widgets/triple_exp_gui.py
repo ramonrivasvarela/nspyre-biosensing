@@ -150,15 +150,15 @@ class TripleExperimentWidget(ExperimentWidget):
                 'widget': track_z_cb
             },
             'odmr_dataset': {
-                'display_text': 'ODMR Data Source',
+                'display_text': 'ODMR Data Set',
                 'widget': QLineEdit("odmr")
             },
             'i1i2_dataset':{
-                'display_text': 'I1I2 Data Source',
+                'display_text': 'I1I2 Data Set',
                 'widget': QLineEdit("i1i2"),
             },
             'temptime_dataset': {
-                'display_text': 'Temperature Data Source',
+                'display_text': 'Temperature Data Set',
                 'widget': QLineEdit("temptime")
             }
 
