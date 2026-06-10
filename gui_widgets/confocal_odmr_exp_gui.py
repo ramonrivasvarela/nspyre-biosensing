@@ -274,4 +274,4 @@ class ConfocalODMRPlotWidget(FlexLinePlotWidget):
         # set the legend location
         legend.setOffset((-10, -50))
 
-        self.datasource_lineedit.setText('odmr')
+        self.datasource_lineedit.setText('ODMR')
