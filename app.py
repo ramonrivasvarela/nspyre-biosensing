@@ -82,7 +82,6 @@ def main():
                     'Counts vs Time' : MainWidgetItem(counts_exp_gui, 'CountsWidget', stretch=(1, 1)),
                     'Planescan' : MainWidgetItem(planescan_exp_gui, 'PlaneScanWidget', stretch=(1, 1)),
                     'Spatial Feedback': MainWidgetItem(spatial_feedback_exp_gui, 'SpatialFeedbackWidget', stretch=(1, 1)),
-                    'Pictures': MainWidgetItem(picture_exp_gui, 'PicturesWidget', stretch=(1, 1)),
                     'Confocal ODMR': MainWidgetItem(confocal_odmr_exp_gui, 'ConfocalODMRWidget', stretch=(1, 1)),
                     'Confocal I1I2': MainWidgetItem(i1i2_exp_gui, 'I1I2Widget', stretch=(1, 1)),
                     'Confocal TempVsTime': MainWidgetItem(temptime_exp_gui, 'TempTimeWidget', stretch=(1, 1)),

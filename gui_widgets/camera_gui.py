@@ -6,6 +6,7 @@ from special_widgets.unit_widgets import SecLineEdit, TemperatureLineEdit
 from pyqtgraph import SpinBox
 import time
 import numpy as np
+from gui_widgets.picture_exp_gui import PicturesWidget
 
 class CameraWidget(QWidget):
     """
@@ -120,7 +121,6 @@ class CameraWidget(QWidget):
         
         self.stop_cooling_button = QPushButton("Stop Cooling")
         self.stop_cooling_button.clicked.connect(lambda: self.stop_cooling_clicked())
-        self.stop_cooling_button.setVisible(False)
 
         # Read mode
         self.read_mode_label = QLabel("Read Mode:")
@@ -180,6 +180,13 @@ class CameraWidget(QWidget):
         self.cooler_status_button = QPushButton("Stop Cooling")
         self.cooler_status_button.clicked.connect(lambda: self.cooler_status_button_clicked())
 
+        # Pictures widget (show below camera controls)
+        try:
+            self.pictures_widget = PicturesWidget()
+        except Exception as e:
+            self.pictures_widget = None
+            print(f"Failed to create PicturesWidget: {e}")
+
     def create_layout(self):
         """
         Create and arrange the widget layout.
@@ -223,16 +230,19 @@ class CameraWidget(QWidget):
         
         # Temperature and cooling
         layout.addWidget(self.temp_output, 11, 1, 1, 1)
-        layout.addWidget(self.cool_button, 11, 2, 1, 1)
-        layout.addWidget(self.cool_input, 11, 3, 1, 1)
-        
+        layout.addWidget(self.cool_button, 12, 1, 1, 1)
+        layout.addWidget(self.cool_input, 12, 2, 1, 1)
+        layout.addWidget(self.stop_cooling_button, 11, 2, 1, 1)
         # Action buttons
-        layout.addWidget(self.refresh_button, 12, 1, 1, 1)
+        layout.addWidget(self.refresh_button, 13, 1, 1, 1)
         # layout.addWidget(self.set_button, 12, 2, 1, 1)
-        layout.addWidget(self.stop_cooling_button, 12, 3, 1, 1)
+        
 
         main_layout = QGridLayout(self)
         main_layout.addWidget(frame, 0, 0, 1, 1)
+        # add the pictures widget below the camera controls if available
+        if getattr(self, 'pictures_widget', None) is not None:
+            main_layout.addWidget(self.pictures_widget, 1, 0, 1, 1)
         self.setLayout(main_layout)
 
     # ==================== Utility Methods ====================
