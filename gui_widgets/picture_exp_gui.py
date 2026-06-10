@@ -60,5 +60,5 @@ class PicturesHeatMapWidget(HeatMapPlotWidget):
         super().__init__()
                 # open in read-only mode; adjust dataset name if needed
 
-        self.datasource_lineedit.setText('image')
-        super().add_heatmap("Picture", "latest_picture")
+        self.datasource_lineedit.setText('picture')
+        super().add_heatmap("Latest", "latest_image")

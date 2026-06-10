@@ -1,33 +1,11 @@
-from PyQt6.QtWidgets import QWidget, QFrame, QGridLayout, QPushButton, QLabel, QComboBox, QSpinBox, QDoubleSpinBox
+from PyQt6.QtWidgets import QLineEdit, QWidget, QFrame, QGridLayout, QPushButton, QLabel, QComboBox, QSpinBox
 from PyQt6.QtGui import QFont
-from PyQt6.QtCore import Qt, QTimer, QObject, QThread, pyqtSignal
+from PyQt6.QtCore import Qt, QTimer
 from nspyre import InstrumentManager
 from special_widgets.unit_widgets import SecLineEdit, TemperatureLineEdit
+from pyqtgraph import SpinBox
 import time
 import numpy as np
-
-
-class CameraInitWorker(QObject):
-    finished = pyqtSignal(object, int)
-    failed = pyqtSignal(str)
-
-    def __init__(self, camera=None):
-        super().__init__()
-        self._camera = camera
-
-    def run(self):
-        try:
-            camera = self._camera
-            if camera is None:
-                camera = InstrumentManager().Camera
-            if camera is None:
-                self.failed.emit("Could not get camera from InstrumentManager.")
-                return
-
-            ret = camera.initialize()
-            self.finished.emit(camera, ret)
-        except Exception as e:
-            self.failed.emit(str(e))
 
 class CameraWidget(QWidget):
     """
@@ -46,8 +24,6 @@ class CameraWidget(QWidget):
         self.font = font
         self.camera_on = False
         self.cooling_timer = None
-        self._camera_init_thread = None
-        self._camera_init_worker = None
         
         try:
             self.camera = InstrumentManager().Camera
@@ -86,7 +62,12 @@ class CameraWidget(QWidget):
         self.exp_label = QLabel("Exposure Time:")
         self.exp_label.setFixedHeight(20)
         self.exp_label.setStyleSheet("font-weight: bold")
-        self.exp_input = SecLineEdit(75e-3)
+        self.exp_input=SpinBox(
+            value=75e-3,
+            suffix='s',
+            siPrefix=True,
+            dec=True,
+        )
         self.exp_input.editingFinished.connect(lambda: self.change_settings(self.exp_input, self.camera.set_exposure_time, self.exp_input.secvalue))
 
         # Shutter
@@ -95,7 +76,7 @@ class CameraWidget(QWidget):
         self.shutter_label.setStyleSheet("font-weight: bold")
         self.shutter_combo = QComboBox()
         self.shutter_combo.addItems(["Closed", "Open", "Automatic"])
-        self.shutter_combo.setCurrentText("Auto")
+        self.shutter_combo.setCurrentText("Automatic")
         self.shutter_combo.setStyleSheet("QComboBox { background-color: #2b2b2b; color: white; }")
         self.shutter_combo.setFixedHeight(30)
         self.shutter_combo.setFont(QFont(self.font, 12))
@@ -119,16 +100,15 @@ class CameraWidget(QWidget):
         self.gain_label.setStyleSheet("font-weight: bold")
         self.gain_sb = QSpinBox()
         self.gain_sb.setRange(1, 255)
+        self.gain_sb.setValue(2)
         self.gain_sb.editingFinished.connect(lambda : self.change_settings(self.gain_sb, self.camera.set_emccdgain, self.gain_sb.value()))
 
         # Temperature
         self.temp_label = QLabel("Temperature:")
         self.temp_label.setFixedHeight(20)
         self.temp_label.setStyleSheet("font-weight: bold")
-        self.temp_input=QSpinBox()
-        self.temp_input.setRange(-100, 20)
-        self.temp_input.setSuffix(" °C")
-        self.temp_input.editingFinished.connect(lambda: self.check_temperature_status())
+        self.temp_output=QLineEdit()
+        self.temp_output.editingFinished.connect(lambda: self.check_temperature_status())
 
         # Cooling controls
         self.cool_input=QSpinBox()
@@ -242,7 +222,7 @@ class CameraWidget(QWidget):
         layout.addWidget(self.frame_transfer_combo, 10, 2, 1, 1)
         
         # Temperature and cooling
-        layout.addWidget(self.temp_input, 11, 1, 1, 1)
+        layout.addWidget(self.temp_output, 11, 1, 1, 1)
         layout.addWidget(self.cool_button, 11, 2, 1, 1)
         layout.addWidget(self.cool_input, 11, 3, 1, 1)
         
@@ -292,61 +272,30 @@ class CameraWidget(QWidget):
             return
 
         if not self.camera:
-            self._start_camera_initialization()
-            return
+            try:
+                self.camera = InstrumentManager().Camera
+            except Exception as e:
+                print(f"Failed to get camera from InstrumentManager: {e}")
+                self.set_button_color(self.power_button, 'red')
+                return
 
-        status, _ = self.camera.get_status()
-
-        if status == 20002:
-            self.camera_on = True
-            self.set_button_color(self.power_button, 'green')
-            self.refresh_camera_settings()
-        else:
-            self._start_camera_initialization()
-
-    def _set_power_button_busy(self, busy: bool):
-        self.power_button.setEnabled(not busy)
-        self.power_button.setText("Connecting..." if busy else "Power")
-
-    def _start_camera_initialization(self):
-        if self._camera_init_thread is not None and self._camera_init_thread.isRunning():
-            return
-
-        self._set_power_button_busy(True)
-        self.set_button_color(self.power_button, 'grey')
-
-        self._camera_init_thread = QThread(self)
-        self._camera_init_worker = CameraInitWorker(self.camera)
-        self._camera_init_worker.moveToThread(self._camera_init_thread)
-
-        self._camera_init_thread.started.connect(self._camera_init_worker.run)
-        self._camera_init_worker.finished.connect(self._on_camera_initialized)
-        self._camera_init_worker.failed.connect(self._on_camera_init_failed)
-        self._camera_init_worker.finished.connect(self._camera_init_thread.quit)
-        self._camera_init_worker.failed.connect(self._camera_init_thread.quit)
-        self._camera_init_thread.finished.connect(self._camera_init_worker.deleteLater)
-        self._camera_init_thread.finished.connect(self._camera_init_thread.deleteLater)
-
-        self._camera_init_thread.start()
-
-    def _on_camera_initialized(self, camera, ret):
-        self.camera = camera
-        self.camera_on = ret == 20002
-        self._set_power_button_busy(False)
-
-        if ret == 20002:
-            self.set_button_color(self.power_button, 'green')
-            self.refresh_camera_settings()
-        else:
-            print(f"Camera initialize failed with code {ret}")
+        # Initialize camera directly
+        try:
+            print("Initializing camera...")
+            ret = self.camera.initialize()
+            if ret == 20002:
+                self.camera_on = True
+                self.set_button_color(self.power_button, 'green')
+                self.refresh_camera_settings()
+                print("Camera initialized successfully.")
+            else:
+                print(f"Camera initialize failed with code {ret}")
+                self.set_button_color(self.power_button, 'red')
+                self.camera_on = False
+        except Exception as e:
+            print(f"Failed to initialize camera: {e}")
             self.set_button_color(self.power_button, 'red')
-
-    def _on_camera_init_failed(self, message):
-        self.camera_on = False
-        self._set_power_button_busy(False)
-        self.camera = None
-        self.set_button_color(self.power_button, 'red')
-        print(f"Failed to connect to camera: {message}")
+            self.camera_on = False
 
     def check_power_status(self):
         """
@@ -410,22 +359,22 @@ class CameraWidget(QWidget):
         
         if status == 20036:  # DRV_TEMP_STABILIZED
             color = 'green'
-            self.temp_input.set_value(temp)
+            self.temp_output.setText(f"{temp:.2f} °C")
         elif status in (20037, 20035):  # NOT_REACHED or NOT_STABILIZED
             color = 'blue'
-            self.temp_input.set_value(temp)
+            self.temp_output.setText(f"{temp:.2f} °C")
         elif status == 20040:  # DRV_TEMP_DRIFT
             color = 'yellow'
-            self.temp_input.set_value(temp)
+            self.temp_output.setText(f"{temp:.2f} °C")
         elif status == 20034:  # DRV_TEMP_OFF
             color = 'red'
-            self.temp_input.set_value(temp)
+            self.temp_output.setText(f"{temp:.2f} °C")
         else:
             color = "red"
-            self.temp_input.setText("Not available")
+            self.temp_output.setText("Not available")
         
-        self.temp_input.setStyleSheet(f"background-color: {color}")
-        print(f"Temperature status {status}, temp {temp} °C")
+        self.temp_output.setStyleSheet(f"background-color: {color}")
+        print(f"Temperature status {status}, temp {temp:.2f} °C")
         return status
 
     def cool_button_clicked(self):
@@ -442,7 +391,7 @@ class CameraWidget(QWidget):
         if self.cooling_timer:
             self.cooling_timer.stop()
         
-        goal = self.cool_input.value
+        goal = self.cool_input.value()
         print(f"Cooling to {goal} °C")
         ret = self.camera.cool_old(int(goal))
         self.check_temperature_status()
@@ -553,9 +502,9 @@ class CameraWidget(QWidget):
         self.check_temperature_status()
         
         if self.camera.temperature_goal is not None:
-            self.cool_input.set_value(self.camera.temperature_goal)
+            self.cool_input.setValue(self.camera.temperature_goal)
         
-        self.exp_input.set_value(self.camera.exposure_time)
+        self.exp_input.setValue(self.camera.exposure_time)
         self.trigger_combo.setCurrentText(self.camera.trigger_mode)
         self.shutter_combo.setCurrentText(self.camera.shutter)
         self.gain_sb.setValue(self.camera.emccdgain)

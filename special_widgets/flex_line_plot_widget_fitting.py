@@ -176,6 +176,8 @@ class FittingManager(QtWidgets.QWidget):
         title_label.setStyleSheet('font-weight: bold')
         self.layout.addWidget(title_label)
 
+        self.fitting_functions = fitting_functions
+
 
         self.current_fitting = 'Linear'
 
@@ -226,7 +228,7 @@ class FittingManager(QtWidgets.QWidget):
     def _add_fitting_widget(self, fitting_type: str):
         self.fitting_widget = QtWidgets.QWidget()
         self.fitting_layout = QtWidgets.QFormLayout(self.fitting_widget)
-        for param_name, value in fitting_functions[fitting_type]['params'].items():
+        for param_name, value in self.fitting_functions[fitting_type]['params'].items():
             param_label = QtWidgets.QLabel(param_name)
             line_edit = QtWidgets.QLineEdit(self._format_param(value))
             line_edit.setValidator(QtGui.QDoubleValidator())
@@ -243,7 +245,7 @@ class FittingManager(QtWidgets.QWidget):
         text = line_edit.text()
         try:
             parsed_value = float(text)
-            fitting_functions[fitting_type]['params'][param_name] = parsed_value
+            self.fitting_functions[fitting_type]['params'][param_name] = parsed_value
             line_edit.setText(self._format_param(parsed_value))
         except ValueError:
             _logger.error(f'Invalid value for parameter [{param_name}]: [{text}].')
@@ -261,13 +263,13 @@ class FittingManager(QtWidgets.QWidget):
             _logger.error('Both Plot Name and Fit Series must be provided.')
             return
         
-        if self.current_fitting in fitting_functions.keys():
-            model_fn = fitting_functions[self.current_fitting]['function']
+        if self.current_fitting in self.fitting_functions.keys():
+            model_fn = self.fitting_functions[self.current_fitting]['function']
         else:
             _logger.error(f'Unsupported fitting type [{self.current_fitting}].')
             return
 
-        initial_params = dict(fitting_functions[self.current_fitting]['params'])
+        initial_params = dict(self.fitting_functions[self.current_fitting]['params'])
         self.create_fit.emit(plot_name, fit_series, model_fn, initial_params)
     
         
@@ -738,9 +740,9 @@ np.array([[4, 5, 6], [3.4, 3.6, 3.5]])])
         except Exception as err:
             _logger.error(f'Error creating fit: {err}')
             return
-        self.fitting_manager.fitting_parameters[
+        self.fitting_manager.fitting_functions[
             self.fitting_manager.current_fitting
-        ].update(fitted_params)
+        ]['params']=fitted_params
 
         self.fitting_manager._open_fitting()
         if fit_series in self.line_plot.plot_settings.series_settings:
@@ -776,6 +778,7 @@ class _FlexLinePlotWidget(LinePlotWidget):
         self.title=title
         self.xlabel=xlabel
         self.ylabel=ylabel
+        self.fit_data = {}  # Store fit data to persist across source changes
         if self.title is not None:
             self.set_title(self.title)
         if self.xlabel is not None:
@@ -936,7 +939,11 @@ class _FlexLinePlotWidget(LinePlotWidget):
 
                     # pick out the particular data series
                     try:
-                        data = self.plot_settings.sink.datasets[series]
+                        # Check if this is a fit series stored separately
+                        if series in self.fit_data:
+                            data = self.fit_data[series]
+                        else:
+                            data = self.plot_settings.sink.datasets[series]
                     except KeyError:
                         #_logger.error(f'Data series [{series}] does not exist.')
                         continue
@@ -1123,6 +1130,7 @@ class _FlexLinePlotWidget(LinePlotWidget):
         y_fit_full = model_for_curve_fit(x, *popt)
 
         fit_arr = np.vstack([x, y_fit_full])
-        sink.datasets[fit_series_name] = [fit_arr]
+        # Store fit data separately to persist across source changes (not in sink.datasets)
+        self.fit_data[fit_series_name] = [fit_arr]
 
         return {k: float(v) for k, v in zip(param_names, popt)}

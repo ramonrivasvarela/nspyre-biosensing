@@ -229,9 +229,9 @@ class I1I2(ContinuousTracking):
                     for f, freq in enumerate(freqs):
                         index=(index+1)%3
                         if (not track_z) and (index == 2):
-                            continue
+                            index=(index+1)%3
                         elif (index == 2) and (index % z_cycle != 0):
-                            continue
+                            index=(index+1)%3
                         # time_start = time.time()
                         #import pdb; pdb.set_trace()
                         mgr.sg.set_frequency(freq)

@@ -18,7 +18,7 @@ class Camera():
         self.trigger_mode="Internal"
         
         self.temperature=20
-        self.emccdgain=1
+        self.emccdgain=2
         self.shutter="Auto"
         self.cooler_on=False
         self.temperature_goal=18
@@ -107,8 +107,6 @@ class Camera():
     def get_temperature_status(self):
         if not self.sdk:
             return 20000, None  # Not initialized
-        if not self.is_camera_idle():
-            raise RuntimeError("Cannot get temperature status while camera is not idle.")
 
         err, temp = self.sdk.GetTemperatureF()
         return err, temp
@@ -185,7 +183,7 @@ class Camera():
         if ret != 20002:
             print(f"GetStatus() failed (code {ret})")
             return False
-        return state == self.errors.Camera_States.CAMERA_IDLE
+        return state == 20073
 
     def cool_old(self, temp_value):
         if not self.sdk:
@@ -238,7 +236,7 @@ class Camera():
         """
         if self.sdk is None:
             raise RuntimeError("Camera SDK not initialized.")
-        ret=self.sdk.WaitForAcquisitionTimeout(timeout_seconds*1000)  # SDK expects milliseconds
+        ret=self.sdk.WaitForAcquisitionTimeOut(timeout_seconds*1000)  # SDK expects milliseconds
         return ret == 20002
     
     def get_images_16(self, first, last, size):

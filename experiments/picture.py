@@ -68,7 +68,7 @@ class Pictures:
             if ret != 20002:  # 20002 means "Camera is currently acquiring data"
                 print("Camera is not acquiring data. Check camera status.")
                 return
-            mgr.Pulses.set_state([7])
+            mgr.Pulser.set_state([3])
             mgr.Camera.start_acquisition()
             ret, _ = mgr.Camera.get_status()
             if ret != 20002:  # 20002 means "Camera is currently acquiring data"
@@ -84,7 +84,7 @@ class Pictures:
 
             time.sleep(0.1)  # wait for the camera to acquire some data
             ret=mgr.Camera.wait_for_acquisition_timeout(timeout_seconds=1)
-            mgr.Pulses.set_state_off()
+            mgr.Pulser.set_state_off()
             _, number_images_acquired = mgr.Camera.get_total_number_images_acquired() 
             data_dic={}
             if single_picture:
@@ -93,7 +93,7 @@ class Pictures:
                 
                 if zoom:
                     temp_image = temp_image[zoom_y_start:zoom_y_end, zoom_x_start:zoom_x_end]
-                data_dic[f'latest_image'] = temp_image
+                data_dic[f'latest_image'] = np.asarray(temp_image)
             else:
                 for i in range(number_images_acquired):
 
@@ -102,8 +102,9 @@ class Pictures:
                     
                     if zoom:
                         temp_image = temp_image[zoom_y_start:zoom_y_end, zoom_x_start:zoom_x_end]
+                        temp_image=np.asarray(temp_image)
                     data_dic[f'image_{i}'] = temp_image
-                data_dic['latest']=temp_image
+                data_dic['latest_image']=temp_image
 
 
             picture_data.push({

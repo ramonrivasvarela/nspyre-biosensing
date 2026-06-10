@@ -949,14 +949,10 @@ class _HeatMapPlotWidget(HeatMapWidget):
 
     def _new_source(self, data_set_name: str):
         # connect to a new data set
-        
-
-        
         with QtCore.QMutexLocker(self.heatmap_settings.sink_mutex):
             try:
-                if self.heatmap_settings.sink is not None:
-                    self.heatmap_settings.sink.stop()
-                    self.heatmap_settings.sink = None
+
+                
                 self.heatmap_settings.sink = DataSink(data_set_name)
                 
                     
@@ -1117,7 +1113,7 @@ class _HeatMapPlotWidget(HeatMapWidget):
     def teardown(self):
         """Clean up."""
         # run on the plot_settings thread since we'll need to acquire mutexes
-        self._close_source()
+        self.heatmap_settings.run_safe(self._close_source)
 
     def _close_source(self):
         """Disconnect from the data source."""
