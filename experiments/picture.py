@@ -17,11 +17,12 @@ from nspyre import InstrumentManager # FOR OPERATING INSTRUMENTS
 import time
 import numpy as np
 ####
+from experiments.wfExperiment import WFSpyrelet
 
 _HERE = Path(__file__).parent
 _logger = logging.getLogger(__name__)
 
-class Pictures:
+class Pictures(WFSpyrelet):
     """Pictures experiments."""
 
     def __init__(self, queue_to_exp=None, queue_from_exp=None):
@@ -32,8 +33,7 @@ class Pictures:
             queue_from_exp: A multiprocessing Queue object used to send messages
                 to the GUI from the experiment.
         """
-        self.queue_to_exp = queue_to_exp
-        self.queue_from_exp = queue_from_exp
+        super().__init__(queue_to_exp, queue_from_exp)
 
     def __enter__(self):
         """Perform experiment setup."""
@@ -64,61 +64,64 @@ class Pictures:
             
         """
         with InstrumentManager() as mgr, DataSource(picture) as picture_data:  # +1 to account for signal being a difference of counts
-            ret, _ = mgr.Camera.get_status()
-            if ret != 20002:  # 20002 means "Camera is currently acquiring data"
-                print("Camera is not acquiring data. Check camera status.")
-                return
-            mgr.Pulser.set_state([3])
-            mgr.Camera.start_acquisition()
-            ret, _ = mgr.Camera.get_status()
-            if ret != 20002:  # 20002 means "Camera is currently acquiring data"
-                print("Camera is not acquiring data. Check camera status.")
-                return
-            x_len=mgr.Camera.x_len
-            y_len=mgr.Camera.y_len
-            if zoom:
-                if type(zoom_coordinates) == str:
-                    zoom_coords = eval(zoom_coordinates)  # Expecting a string like "((x_start, x_end), (y_start, y_end))"
-                zoom_x_start, zoom_x_end = zoom_coords[0]-zoom_coords[2], zoom_coords[0]+zoom_coords[2]+1
-                zoom_y_start, zoom_y_end = zoom_coords[1]-zoom_coords[2], zoom_coords[1]+zoom_coords[2]+1
-
-            time.sleep(0.1)  # wait for the camera to acquire some data
-            ret=mgr.Camera.wait_for_acquisition_timeout(timeout_seconds=1)
-            mgr.Pulser.set_state_off()
-            _, number_images_acquired = mgr.Camera.get_total_number_images_acquired() 
-            data_dic={}
-            if single_picture:
-                ret, data, _, _ = mgr.Camera.get_images_16(1, 1, 1024**2)
-                temp_image=self.img_1D_to_2D(data,x_len,y_len)
-                
+            if mgr.Camera.trigger_mode == 'Internal':
+                ret, _ = mgr.Camera.get_status()
+                if ret != 20002:  # 20002 means "Camera is currently acquiring data"
+                    print("Camera is not acquiring data. Check camera status.")
+                    return
+                mgr.Pulser.set_state([3])
+                mgr.Camera.start_acquisition()
+                ret, _ = mgr.Camera.get_status()
+                if ret != 20002:  # 20002 means "Camera is currently acquiring data"
+                    print("Camera is not acquiring data. Check camera status.")
+                    return
+                x_len=mgr.Camera.x_len
+                y_len=mgr.Camera.y_len
                 if zoom:
-                    temp_image = temp_image[zoom_y_start:zoom_y_end, zoom_x_start:zoom_x_end]
-                data_dic[f'latest_image'] = np.asarray(temp_image)
-            else:
-                for i in range(number_images_acquired):
+                    if type(zoom_coordinates) == str:
+                        zoom_coords = eval(zoom_coordinates)  # Expecting a string like "((x_start, x_end), (y_start, y_end))"
+                    zoom_x_start, zoom_x_end = zoom_coords[0]-zoom_coords[2], zoom_coords[0]+zoom_coords[2]+1
+                    zoom_y_start, zoom_y_end = zoom_coords[1]-zoom_coords[2], zoom_coords[1]+zoom_coords[2]+1
 
-                    ret, data, _, _ = mgr.Camera.get_images_16(i, i, 1024**2)
+                time.sleep(0.1)  # wait for the camera to acquire some data
+                ret=mgr.Camera.wait_for_acquisition_timeout(timeout_seconds=1)
+                mgr.Pulser.set_state_off()
+                _, number_images_acquired = mgr.Camera.get_total_number_images_acquired() 
+                data_dic={}
+                if single_picture:
+                    ret, data, _, _ = mgr.Camera.get_images_16(1, 1, 1024**2)
                     temp_image=self.img_1D_to_2D(data,x_len,y_len)
                     
                     if zoom:
                         temp_image = temp_image[zoom_y_start:zoom_y_end, zoom_x_start:zoom_x_end]
-                        temp_image=np.asarray(temp_image)
-                    data_dic[f'image_{i}'] = temp_image
-                data_dic['latest_image']=temp_image
+                    data_dic[f'latest_image'] = np.asarray(temp_image)
+                else:
+                    for i in range(number_images_acquired):
+
+                        ret, data, _, _ = mgr.Camera.get_images_16(i, i, 1024**2)
+                        temp_image=self.img_1D_to_2D(data,x_len,y_len)
+                        
+                        if zoom:
+                            temp_image = temp_image[zoom_y_start:zoom_y_end, zoom_x_start:zoom_x_end]
+                            temp_image=np.asarray(temp_image)
+                        data_dic[f'image_{i}'] = temp_image
+                    data_dic['latest_image']=temp_image
 
 
-            picture_data.push({
-                            'title': 'Picture',
-                            'xlabel': 'Pixels',
-                            'ylabel': 'Pixels',
-                            'xs': np.asarray(range(x_len)),
-                            'ys': np.asarray(range(y_len)),
-                            'datasets': data_dic
-            })
-            if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
-            # the GUI has asked us nicely to exit
-                return temp_image
-            
+                picture_data.push({
+                                'title': 'Picture',
+                                'xlabel': 'Pixels',
+                                'ylabel': 'Pixels',
+                                'xs': np.asarray(range(x_len)),
+                                'ys': np.asarray(range(y_len)),
+                                'datasets': data_dic
+                })
+                if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
+                # the GUI has asked us nicely to exit
+                    return temp_image
+            else:
+                self.seq=mgr.Pulser.WF_prep_gain_seq(num_kinetics=1, exposure_time_ns=100_000_000, trigger_mode='external') 
+                
 
 
 

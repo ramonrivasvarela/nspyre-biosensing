@@ -4,7 +4,7 @@ import numpy as np
 fitting_functions = {
     'Linear': {
         'params': {'m': 1e-9, 'x_0': 2.87e9},
-        'function': lambda x, m, x_0: m * (x - x_0) + 1
+        'function': lambda x, m, x_0: m * (x - x_0) 
     },
     'Double Lorentzian': {
         'params': {
