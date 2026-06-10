@@ -1,6 +1,6 @@
 import numpy as np
 
-from nspyre import FlexLinePlotWidget
+
 from nspyre import ExperimentWidget
 from pyqtgraph import SpinBox
 from pyqtgraph.Qt import QtWidgets
@@ -12,7 +12,7 @@ import experiments.odmrcenterFM
 
 import pyqtgraph as pg
 
-from special_widgets.heat_map_plot_widget import HeatMapPlotWidget
+from special_widgets.flex_line_plot_widget_fitting import FlexLinePlotWidget
 
 cmap = pg.colormap.get('viridis')  
 MAXIMUM=2147483647
