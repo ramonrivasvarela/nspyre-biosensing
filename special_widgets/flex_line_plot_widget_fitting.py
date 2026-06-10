@@ -13,6 +13,7 @@ from nspyre import DataSink
 from nspyre import QThreadSafeObject
 from nspyre.gui.widgets.layout import tree_layout
 from nspyre import LinePlotWidget
+from special_widgets.fitting_functions import fitting_functions
 
 _logger = logging.getLogger(__name__)
 
@@ -175,23 +176,7 @@ class FittingManager(QtWidgets.QWidget):
         title_label.setStyleSheet('font-weight: bold')
         self.layout.addWidget(title_label)
 
-        self.fitting_parameters = {
-            'Linear': {'m': 1e-9, 'x_0': 2.87e9},
-            'Double Lorentzian': {
-                'A1': -0.2,
-                'A2': -0.2,
-                'x_1': 2.865e9,
-                'x_2': 2.875e9,
-                'gamma1': 1e6,
-                'gamma2': 1e6,
-                'C': 1,
-            },
-            'Exponential Decay': {
-                'A': 1,
-                'tau': 1,
-                'C': 0,
-            },
-        }
+
         self.current_fitting = 'Linear'
 
         self.selector_area=QtWidgets.QWidget()
@@ -241,7 +226,7 @@ class FittingManager(QtWidgets.QWidget):
     def _add_fitting_widget(self, fitting_type: str):
         self.fitting_widget = QtWidgets.QWidget()
         self.fitting_layout = QtWidgets.QFormLayout(self.fitting_widget)
-        for param_name, value in self.fitting_parameters[fitting_type].items():
+        for param_name, value in fitting_functions[fitting_type]['params'].items():
             param_label = QtWidgets.QLabel(param_name)
             line_edit = QtWidgets.QLineEdit(self._format_param(value))
             line_edit.setValidator(QtGui.QDoubleValidator())
@@ -258,7 +243,7 @@ class FittingManager(QtWidgets.QWidget):
         text = line_edit.text()
         try:
             parsed_value = float(text)
-            self.fitting_parameters[fitting_type][param_name] = parsed_value
+            fitting_functions[fitting_type]['params'][param_name] = parsed_value
             line_edit.setText(self._format_param(parsed_value))
         except ValueError:
             _logger.error(f'Invalid value for parameter [{param_name}]: [{text}].')
@@ -275,18 +260,14 @@ class FittingManager(QtWidgets.QWidget):
         if not plot_name or not fit_series:
             _logger.error('Both Plot Name and Fit Series must be provided.')
             return
-
-        if self.current_fitting == 'Linear':
-            model_fn = linear_model
-        elif self.current_fitting == 'Double Lorentzian':
-            model_fn = double_lorentzian_model
-        elif self.current_fitting == 'Exponential Decay':
-            model_fn = expontential_decay_model
+        
+        if self.current_fitting in fitting_functions.keys():
+            model_fn = fitting_functions[self.current_fitting]['function']
         else:
             _logger.error(f'Unsupported fitting type [{self.current_fitting}].')
             return
 
-        initial_params = dict(self.fitting_parameters[self.current_fitting])
+        initial_params = dict(fitting_functions[self.current_fitting]['params'])
         self.create_fit.emit(plot_name, fit_series, model_fn, initial_params)
     
         

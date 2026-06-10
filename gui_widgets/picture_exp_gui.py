@@ -21,6 +21,9 @@ get_param_value_funs={
 
 class PicturesWidget(ExperimentWidget):
     def __init__(self):
+
+        single_picture_cb = QCheckBox()
+        single_picture_cb.setChecked(True)
         params_config={
             'zoom': {
                 'display_text': 'Zoom',
@@ -29,6 +32,10 @@ class PicturesWidget(ExperimentWidget):
             'zoom_coordinates': {
                 'display_text': 'Zoom (x, y, r)',
                 'widget': QtWidgets.QLineEdit('(512, 512, 16)')
+            },
+            'single_picture': {
+                'display_text': 'Single Picture',
+                'widget': single_picture_cb
             },
             'picture': {
                 'display_text': 'Data Series',

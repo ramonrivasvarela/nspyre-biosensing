@@ -1,10 +1,33 @@
 from PyQt6.QtWidgets import QWidget, QFrame, QGridLayout, QPushButton, QLabel, QComboBox, QSpinBox, QDoubleSpinBox
 from PyQt6.QtGui import QFont
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, QObject, QThread, pyqtSignal
 from nspyre import InstrumentManager
 from special_widgets.unit_widgets import SecLineEdit, TemperatureLineEdit
 import time
 import numpy as np
+
+
+class CameraInitWorker(QObject):
+    finished = pyqtSignal(object, int)
+    failed = pyqtSignal(str)
+
+    def __init__(self, camera=None):
+        super().__init__()
+        self._camera = camera
+
+    def run(self):
+        try:
+            camera = self._camera
+            if camera is None:
+                camera = InstrumentManager().Camera
+            if camera is None:
+                self.failed.emit("Could not get camera from InstrumentManager.")
+                return
+
+            ret = camera.initialize()
+            self.finished.emit(camera, ret)
+        except Exception as e:
+            self.failed.emit(str(e))
 
 class CameraWidget(QWidget):
     """
@@ -23,6 +46,8 @@ class CameraWidget(QWidget):
         self.font = font
         self.camera_on = False
         self.cooling_timer = None
+        self._camera_init_thread = None
+        self._camera_init_worker = None
         
         try:
             self.camera = InstrumentManager().Camera
@@ -258,37 +283,70 @@ class CameraWidget(QWidget):
         Attempts to connect if no camera exists, or toggles power state.
         Updates button color to reflect connection status.
         """
+        if self.camera and self.camera_on:
+            print("Turning camera off...")
+            ret = self.camera.shutdown()
+            color = 'black' if ret == 20002 else 'red'
+            self.camera_on = False if ret == 20002 else True
+            self.set_button_color(self.power_button, color)
+            return
+
         if not self.camera:
-            try:
-                self.camera = InstrumentManager().Camera
-                self.refresh_camera_settings()
-            except Exception as e:
-                print(f"Failed to connect to camera: {e}")
-                self.camera = None
-                self.set_button_color(self.power_button, 'red')
-                return
-        
+            self._start_camera_initialization()
+            return
+
         status, _ = self.camera.get_status()
-        
-        if status == 20002:  # Camera is connected
-            if self.camera_on:
-                print("Turning camera off...")
-                ret = self.camera.shutdown()
-                color = 'black' if ret == 20002 else 'red'
-                self.camera_on = False if ret == 20002 else True
-            else:
-                color = 'green'
-                self.camera_on = True
+
+        if status == 20002:
+            self.camera_on = True
+            self.set_button_color(self.power_button, 'green')
+            self.refresh_camera_settings()
         else:
-            if self.camera_on:
-                color = 'black'
-                self.camera_on = False
-            else:
-                ret = self.camera.initialize()
-                color = 'green' if ret == 20002 else 'red'
-                self.camera_on = True if ret == 20002 else False
-            
-        self.set_button_color(self.power_button, color)
+            self._start_camera_initialization()
+
+    def _set_power_button_busy(self, busy: bool):
+        self.power_button.setEnabled(not busy)
+        self.power_button.setText("Connecting..." if busy else "Power")
+
+    def _start_camera_initialization(self):
+        if self._camera_init_thread is not None and self._camera_init_thread.isRunning():
+            return
+
+        self._set_power_button_busy(True)
+        self.set_button_color(self.power_button, 'grey')
+
+        self._camera_init_thread = QThread(self)
+        self._camera_init_worker = CameraInitWorker(self.camera)
+        self._camera_init_worker.moveToThread(self._camera_init_thread)
+
+        self._camera_init_thread.started.connect(self._camera_init_worker.run)
+        self._camera_init_worker.finished.connect(self._on_camera_initialized)
+        self._camera_init_worker.failed.connect(self._on_camera_init_failed)
+        self._camera_init_worker.finished.connect(self._camera_init_thread.quit)
+        self._camera_init_worker.failed.connect(self._camera_init_thread.quit)
+        self._camera_init_thread.finished.connect(self._camera_init_worker.deleteLater)
+        self._camera_init_thread.finished.connect(self._camera_init_thread.deleteLater)
+
+        self._camera_init_thread.start()
+
+    def _on_camera_initialized(self, camera, ret):
+        self.camera = camera
+        self.camera_on = ret == 20002
+        self._set_power_button_busy(False)
+
+        if ret == 20002:
+            self.set_button_color(self.power_button, 'green')
+            self.refresh_camera_settings()
+        else:
+            print(f"Camera initialize failed with code {ret}")
+            self.set_button_color(self.power_button, 'red')
+
+    def _on_camera_init_failed(self, message):
+        self.camera_on = False
+        self._set_power_button_busy(False)
+        self.camera = None
+        self.set_button_color(self.power_button, 'red')
+        print(f"Failed to connect to camera: {message}")
 
     def check_power_status(self):
         """
@@ -506,49 +564,3 @@ class CameraWidget(QWidget):
         self.acc_sb.setValue(self.camera.number_accumulations)
         self.kinetics_sb.setValue(self.camera.number_kinetics)
         self.frame_transfer_combo.setCurrentText(self.camera.frame_transfer_mode)
-
-    # def set_button_clicked(self):
-    #     """
-    #     Handle clicks on the "Set" button.
-    #     Applies all current UI settings to the camera if camera is connected.
-    #     """
-    #     if not self.camera:
-    #         print("No camera connected.")
-    #         return
-        
-    #     status = self.check_power_status()
-    #     if status == 20002:  # Camera is connected
-    #         self.set_camera_settings()
-
-    # def set_camera_settings(self):
-    #     """
-    #     Apply all UI settings to the camera hardware.
-    #     Sets acquisition mode, read mode, frame transfer, trigger mode,
-    #     image dimensions, accumulations, kinetics, exposure time,
-    #     gain, and shutter settings. Prints acquisition timings after applying.
-    #     """
-    #     if not self.camera:
-    #         print("No camera connected.")
-    #         return
-        
-    #     self.camera.set_acquisition_mode(self.acq_mode_combo.currentText())
-    #     self.camera.set_read_mode(self.read_mode_combo.currentText())
-    #     self.camera.set_frame_transfer_mode(self.frame_transfer_combo.currentText())
-    #     self.camera.set_trigger_mode(self.trigger_combo.currentText())
-        
-    #     _, width, height = self.camera.get_detector()
-    #     self.camera.set_image(width=width, height=height)
-        
-    #     self.camera.set_number_accumulations(self.acc_sb.value())
-    #     self.camera.set_number_kinetics(self.kinetics_sb.value())
-    #     self.camera.set_exposure_time(self.exp_input.secvalue)
-    #     self.camera.set_emccdgain(self.gain_sb.value())
-    #     self.camera.set_shutter(self.shutter_combo.currentText())
-        
-        # time.sleep(0.1)  # Allow time for settings to apply
-        # ret, exp, accum_t, kinetic_t = self.camera.get_acquisition_timings()
-        # print(f"Actual exposure={exp:.6f}s, accum_t={accum_t:.6f}s, kinetic_t={kinetic_t:.6f}s")
-
-        # self.check_temperature_status()
-        # self.check_cooler_status()
-

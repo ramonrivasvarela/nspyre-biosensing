@@ -219,11 +219,11 @@ class I1I2Widget(ExperimentWidget):
                 'widget': QCheckBox()
             },
             'dataset': {
-                'display_text': 'Data Source',
+                'display_text': 'Data Set',
                 'widget': QLineEdit('I1I2'),
             },
             'tracking_dataset': {
-                'display_text': 'Tracking Data Source',
+                'display_text': 'Tracking Data Set',
                 'widget': QLineEdit('I1I2_tracking'),
             }
         }

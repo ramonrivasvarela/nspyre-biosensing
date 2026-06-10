@@ -294,7 +294,7 @@ class TempTimeWidget(ExperimentWidget):
                 'widget': QLineEdit("[30, 30]")
             },
             'dataset':{
-                'display_text': 'Data Source',
+                'display_text': 'Data Set',
                 'widget': QLineEdit("TvT")
             }
         }
