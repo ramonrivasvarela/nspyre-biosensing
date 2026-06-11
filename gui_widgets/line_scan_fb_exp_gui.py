@@ -1,23 +1,21 @@
 import numpy as np
 
-from nspyre import FlexLinePlotWidget
 from nspyre import ExperimentWidget
 from pyqtgraph import SpinBox
 from pyqtgraph.Qt import QtWidgets
 from PyQt6.QtWidgets import QSpinBox, QLineEdit, QCheckBox
 
-import experiments.testing_axis
+import experiments.line_scan_fb
 
 
 
 import pyqtgraph as pg
 
-from special_widgets.heat_map_plot_widget import HeatMapPlotWidget
 
 cmap = pg.colormap.get('viridis')  
 
 
-class LineScanFBAxisWidget(ExperimentWidget):
+class LineScanFBWidget(ExperimentWidget):
     def __init__(self):
         n_points_sb = QSpinBox()
         n_points_sb.setMinimum(1)
@@ -92,8 +90,8 @@ class LineScanFBAxisWidget(ExperimentWidget):
         }
 
         super().__init__(params_config, 
-                        experiments.testing_axis,
-                        'TestingAxis',
+                        experiments.line_scan_fb,
+                        'LineScanFB',
                         'main',
                         title='testing axis')
 

@@ -21,7 +21,7 @@ from nspyre import nspyreApp
 from gui_widgets import laser_gui
 from gui_widgets import instrument_gui
 from gui_widgets import camera_gui
-from gui_widgets import counts_exp_gui, picture_exp_gui, planescan_exp_gui, confocal_odmr_exp_gui, spatial_feedback_exp_gui, i1i2_exp_gui, temptime_exp_gui, triple_exp_gui, odmrcenter_exp_gui, testing_axis_exp_gui, tracking_gui, wodmr_exp_gui, wI1I2_exp_gui, wf_autofocus_gui
+from gui_widgets import counts_exp_gui, picture_exp_gui, planescan_exp_gui, confocal_odmr_exp_gui, spatial_feedback_exp_gui, i1i2_exp_gui, temptime_exp_gui, triple_exp_gui, odmrcenter_exp_gui, testing_axis_exp_gui, tracking_gui, wodmr_exp_gui, wI1I2_exp_gui, wf_autofocus_gui, line_scan_fb_exp_gui
 
 from nspyre import InstrumentManager
 
@@ -91,6 +91,7 @@ def main():
                     'WFODMR': MainWidgetItem(wodmr_exp_gui, 'wODMRWidget', stretch=(1, 1)),
                     'wI1I2': MainWidgetItem(wI1I2_exp_gui, 'wI1I2Widget', stretch=(1, 1)),
                     'WFAutofocus': MainWidgetItem(wf_autofocus_gui, 'WFAutofocusWidget', stretch=(1, 1)),
+                    'Line Scan Feedback': MainWidgetItem(line_scan_fb_exp_gui, 'LineScanFBWidget', stretch=(1, 1)),
                     },
                 
                 'Plotting' : {

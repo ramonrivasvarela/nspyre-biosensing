@@ -164,11 +164,6 @@ class CrosshairManager(QtWidgets.QWidget):
         item_layout = QtWidgets.QHBoxLayout()
         item_layout.setContentsMargins(2, 2, 2, 2)
         
-        # ID label
-        id_label = QtWidgets.QLabel(f"#{crosshair_id}:")
-        id_label.setMaximumWidth(30)
-        item_layout.addWidget(id_label)
-        
         # X coordinate edit
         x_label = QtWidgets.QLabel("X:")
         x_label.setMaximumWidth(15)

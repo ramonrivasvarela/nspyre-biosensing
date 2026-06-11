@@ -17,7 +17,7 @@ _logger = logging.getLogger(__name__)
 
 
 
-class TestingAxis:
+class LineScanFB:
     def __init__(self, queue_to_exp=None, queue_from_exp=None):
         """
         Args:
@@ -54,7 +54,9 @@ class TestingAxis:
             'scan_distance': scan_distance,
             'n_steps': n_steps,
             'time_per_point': time_per_point,
-            'points_per_step': points_per_step
+            'points_per_step': points_per_step,
+            'spot_size': spot_size,
+            'convergence_threshold': convergence_threshold,
         }
         self.ns_probe_time=int(time_per_point*1e9)
         print("ns_probe_time", self.ns_probe_time)
@@ -67,7 +69,8 @@ class TestingAxis:
         
         
         with InstrumentManager() as mgr, DataSource(dataset) as ds:
-            self.initial=rpyc.utils.classic.obtain(mgr.DAQcontrol.position)
+            # might need rpyc.utils.classic.obtain for some of these, if they are not automatically retrieved as proxy objects
+            self.initial=mgr.DAQcontrol.position
             self.XYZ_center=[self.initial[index] for index in ['x', 'y', 'z']]
             self.drift=[0, 0, 0]
             self.initialize(mgr, time_per_point)

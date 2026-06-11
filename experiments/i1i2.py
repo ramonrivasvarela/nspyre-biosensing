@@ -118,14 +118,12 @@ class I1I2(ContinuousTracking):
             y_tracking=StreamingList()
             z_tracking=StreamingList()
             total_fluor_tracking=StreamingList()
-            # Shivam: The following is the classical case where we are not tracking
-            # while taking I1 and I2 data
+
             n_freqs=len(freqs)
             start_t= time.time()
             I1_data=np.empty(n_freqs)
             I2_data=np.empty(n_freqs)
-            # I1_sweeps.append(np.stack([freqs, I1_data]))
-            # I2_sweeps.append(np.stack([freqs, I2_data]))
+
             if not continuous_tracking:
                 
                 for sweep in range(sweeps):
@@ -189,19 +187,7 @@ class I1I2(ContinuousTracking):
                                 # the GUI has asked us nicely to exit
                                 return self.finalize(mgr, data_download, I1_sweeps, I2_sweeps)
                                 
-                        # tracking_data_source.push({
-                        #     'title': 'Tracking Data',
-                        #     'xlabel': 'Time (s)',
-                        #     'datasets': {
-                        #         'I1_tracking': I1_tracking,
-                        #         'I2_tracking': I2_tracking,
-                        #     }
-                        # })
-                        #self.mongo_acquire(data_I1, data_I2, sweep, f, sb_freq, self.total_fluor)
-                        
-                        # print('time from start of frequency sweep:', time.time() - time_start)
-                
-                # Finalize the experiment after all sweeps are complete
+
                 return self.finalize(mgr, data_download, I1_sweeps, I2_sweeps)
 
             else:
