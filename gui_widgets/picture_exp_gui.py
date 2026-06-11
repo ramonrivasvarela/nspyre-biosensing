@@ -25,17 +25,17 @@ class PicturesWidget(ExperimentWidget):
         single_picture_cb = QCheckBox()
         single_picture_cb.setChecked(True)
         params_config={
-            'zoom': {
-                'display_text': 'Zoom',
-                'widget': QCheckBox()
+            'readout_time': {
+                'display_text': 'Readout Time (External Trigger Only)',
+                'widget': pg.SpinBox(value=0.015, bounds=(0, 1), suffix='s', siPrefix=True, dec=True)
             },
-            'zoom_coordinates': {
-                'display_text': 'Zoom (x, y, r)',
-                'widget': QtWidgets.QLineEdit('(512, 512, 16)')
+            'trigger_time': {
+                'display_text': 'Trigger Time (External Trigger Only)',
+                'widget': pg.SpinBox(value=0.01, bounds=(0, 1), suffix='s', siPrefix=True, dec=True)
             },
-            'single_picture': {
-                'display_text': 'Single Picture',
-                'widget': single_picture_cb
+            'buffer_time': {
+                'display_text': 'Buffer Time (External Trigger Only)',
+                'widget': pg.SpinBox(value=0.005, bounds=(0, 1), suffix='s', siPrefix=True, dec=True)
             },
             'picture': {
                 'display_text': 'Data Series',

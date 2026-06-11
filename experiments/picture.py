@@ -54,7 +54,7 @@ class Pictures(WFSpyrelet):
         """Perform experiment teardown."""
         _logger.info('Destroyed Pictures instance.')
 
-    def take_picture(self, zoom: bool=False, zoom_coordinates="(512, 512, 12)", picture: str=None, single_picture: bool=False):
+    def take_picture(self, readout_time=15e-3, trigger_time=10e-3, buffer_time=5e-3, picture: str=None,):
         """
         confocal counts vs time experiment that is static (does not track), under constant illumination.
 
@@ -64,63 +64,87 @@ class Pictures(WFSpyrelet):
             
         """
         with InstrumentManager() as mgr, DataSource(picture) as picture_data:  # +1 to account for signal being a difference of counts
-            if mgr.Camera.trigger_mode == 'Internal':
-                ret, _ = mgr.Camera.get_status()
-                if ret != 20002:  # 20002 means "Camera is currently acquiring data"
-                    print("Camera is not acquiring data. Check camera status.")
-                    return
+            ret, _ = mgr.Camera.get_status()
+            if ret != 20002:  # 20002 means "Camera is currently acquiring data"
+                print(f"GetStatus failed with code {ret}. Check camera status.")
+                return
+            # if zoom:
+            #     if type(zoom_coordinates) == str:
+            #         zoom_coords = eval(zoom_coordinates)  # Expecting a string like "((x_start, x_end), (y_start, y_end))"
+            #     zoom_x_start, zoom_x_end = zoom_coords[0]-zoom_coords[2], zoom_coords[0]+zoom_coords[2]+1
+            #     zoom_y_start, zoom_y_end = zoom_coords[1]-zoom_coords[2], zoom_coords[1]+zoom_coords[2]+1
+            x_len=mgr.Camera.x_len
+            y_len=mgr.Camera.y_len
+            self.trigger_mode=mgr.Camera.trigger_mode
+            
+            if self.trigger_mode == 'Internal':
+                
                 mgr.Pulser.set_state([3])
                 mgr.Camera.start_acquisition()
                 ret, _ = mgr.Camera.get_status()
                 if ret != 20002:  # 20002 means "Camera is currently acquiring data"
-                    print("Camera is not acquiring data. Check camera status.")
+                    print(f"GetStatus failed with code {ret}. Check camera status.")
                     return
-                x_len=mgr.Camera.x_len
-                y_len=mgr.Camera.y_len
-                if zoom:
-                    if type(zoom_coordinates) == str:
-                        zoom_coords = eval(zoom_coordinates)  # Expecting a string like "((x_start, x_end), (y_start, y_end))"
-                    zoom_x_start, zoom_x_end = zoom_coords[0]-zoom_coords[2], zoom_coords[0]+zoom_coords[2]+1
-                    zoom_y_start, zoom_y_end = zoom_coords[1]-zoom_coords[2], zoom_coords[1]+zoom_coords[2]+1
+                
 
                 time.sleep(0.1)  # wait for the camera to acquire some data
                 ret=mgr.Camera.wait_for_acquisition_timeout(timeout_seconds=1)
                 mgr.Pulser.set_state_off()
                 _, number_images_acquired = mgr.Camera.get_total_number_images_acquired() 
                 data_dic={}
-                if single_picture:
-                    ret, data, _, _ = mgr.Camera.get_images_16(1, 1, 1024**2)
+
+                for i in range(1, number_images_acquired+1):
+
+                    ret, data, _, _ = mgr.Camera.get_images_16(i, i, 1024**2)
                     temp_image=self.img_1D_to_2D(data,x_len,y_len)
                     
-                    if zoom:
-                        temp_image = temp_image[zoom_y_start:zoom_y_end, zoom_x_start:zoom_x_end]
-                    data_dic[f'latest_image'] = np.asarray(temp_image)
-                else:
-                    for i in range(number_images_acquired):
-
-                        ret, data, _, _ = mgr.Camera.get_images_16(i, i, 1024**2)
-                        temp_image=self.img_1D_to_2D(data,x_len,y_len)
-                        
-                        if zoom:
-                            temp_image = temp_image[zoom_y_start:zoom_y_end, zoom_x_start:zoom_x_end]
-                            temp_image=np.asarray(temp_image)
-                        data_dic[f'image_{i}'] = temp_image
-                    data_dic['latest_image']=temp_image
+                    # if zoom:
+                    #     temp_image = temp_image[zoom_y_start:zoom_y_end, zoom_x_start:zoom_x_end]
+                    #     temp_image=np.asarray(temp_image)
+                    data_dic[f'image_{i}'] = temp_image
+                data_dic['latest_image']=temp_image
 
 
-                picture_data.push({
+                
+            else:
+                
+                self.num_kinetics=int(mgr.Camera.num_kinetics*1e9)
+                self.exp_time=int(mgr.Camera.exposure_time*1e9)
+                self.readout_time=int(readout_time*1e9)
+                self.trigger_time=int(trigger_time*1e9)
+                self.buffer_time=int(buffer_time*1e9)
+                if self.trigger_mode == 'External':
+                    self.trigger_time = self.exp_time
+                    if self.readout_time<0.059 * 1e9:
+                        print('WARNING readout time should be at least 59 ms in pulse-length-exposure mode')
+                else: 
+                    if self.exp_time < self.trigger_time:
+                        print(f'WARNING exposure time {self.exp_time/1e6} ms is less than trigger time {self.trigger_time/1e6} ms. This may cause issues due to coding. Need to understand minimum trigger length.')
+                        raise Exception()
+                    elif self.exp_time + self.readout_time < 0.08 * 1e9:
+                        print('WARNING May experience failure from exposure + readout < 80 ms due to pulses being missed.')
+                    if self.readout_time<0.005 * 1e9:
+                        print('WARNING readout time should be at least 5 ms even with frame transfer, experiment may fail ')
+                self.pic_seq=mgr.Pulser.WF_prep_gain_seq(n=self.num_kinetics, exp=self.exp_time, read=self.readout_time, trig=self.trigger_time, buff=self.buffer_time)
+                img_data=self.img_1D_to_2D(self.GetPicSimple(mgr, self.pic_seq, self.num_kinetics, self.x_len, self.y_len))
+                data_dic={}
+                for i in range(int(self.num_kinetics)):
+                    data_dic[f'image_{i}'] = img_data[i]
+                    # if zoom:
+                    #     data_dic[f'image_{i}'] = data_dic[f'image_{i}'][zoom_y_start:zoom_y_end, zoom_x_start:zoom_x_end]
+                data_dic['latest_image']=img_data[-1]
+            picture_data.push({
                                 'title': 'Picture',
                                 'xlabel': 'Pixels',
                                 'ylabel': 'Pixels',
                                 'xs': np.asarray(range(x_len)),
                                 'ys': np.asarray(range(y_len)),
                                 'datasets': data_dic
-                })
-                if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
-                # the GUI has asked us nicely to exit
-                    return temp_image
-            else:
-                self.seq=mgr.Pulser.WF_prep_gain_seq(num_kinetics=1, exposure_time_ns=100_000_000, trigger_mode='external') 
+            })
+            if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
+            # the GUI has asked us nicely to exit
+                return temp_image
+
                 
 
 
