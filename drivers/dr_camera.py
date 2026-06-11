@@ -60,7 +60,7 @@ class Camera():
             self.set_shutter(self.shutter)
         return ret
         
-        
+    ### WARNING (Ramon): I don't love my conventions for storing camera settings in the Camera class. It might be nice to replace strings with enums or something more robust, and to have a more systematic way of keeping track of the current settings.
     def set_trigger_mode(self, trigger_mode):
         if not self.is_camera_idle():
             raise RuntimeError("Cannot change trigger mode while camera is not idle.")

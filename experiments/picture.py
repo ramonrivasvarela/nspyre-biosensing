@@ -73,6 +73,8 @@ class Pictures(WFSpyrelet):
             #         zoom_coords = eval(zoom_coordinates)  # Expecting a string like "((x_start, x_end), (y_start, y_end))"
             #     zoom_x_start, zoom_x_end = zoom_coords[0]-zoom_coords[2], zoom_coords[0]+zoom_coords[2]+1
             #     zoom_y_start, zoom_y_end = zoom_coords[1]-zoom_coords[2], zoom_coords[1]+zoom_coords[2]+1
+
+            ### WARNING (Ramon): There might be some issues with confusing the x and y lengths with width vs height. Need to confirm that the x_len and y_len are correct for the img_1D_to_2D function and that they correspond to the correct dimensions of the image. 
             x_len=mgr.Camera.x_len
             y_len=mgr.Camera.y_len
             self.trigger_mode=mgr.Camera.trigger_mode
@@ -106,9 +108,17 @@ class Pictures(WFSpyrelet):
 
 
                 
-            else:
-                
-                self.num_kinetics=int(mgr.Camera.num_kinetics*1e9)
+            elif self.trigger_mode == 'External' or self.trigger_mode == 'External Exposure (Bulb)':
+                self.acquisition_mode=mgr.Camera.acquisition_mode
+                if self.acquisition_mode == 'Kinetics' or self.acquisition_mode == 'Fast Kinetics':
+                    self.num_pictures=int(mgr.Camera.number_kinetics*1e9)
+                elif self.acquisition_mode == 'Single Scan':
+                    self.num_pictures=1
+                elif self.acquisition_mode == 'Run Till Abort':
+                    print('WARNING: This function is not implemented for Run Till Abort mode.')
+                    return
+                elif self.acquisition_mode == "Accumulate":
+                    self.num_pictures=int(mgr.Camera.number_accumulations*1e9)
                 self.exp_time=int(mgr.Camera.exposure_time*1e9)
                 self.readout_time=int(readout_time*1e9)
                 self.trigger_time=int(trigger_time*1e9)
@@ -125,10 +135,10 @@ class Pictures(WFSpyrelet):
                         print('WARNING May experience failure from exposure + readout < 80 ms due to pulses being missed.')
                     if self.readout_time<0.005 * 1e9:
                         print('WARNING readout time should be at least 5 ms even with frame transfer, experiment may fail ')
-                self.pic_seq=mgr.Pulser.WF_prep_gain_seq(n=self.num_kinetics, exp=self.exp_time, read=self.readout_time, trig=self.trigger_time, buff=self.buffer_time)
-                img_data=self.img_1D_to_2D(self.GetPicSimple(mgr, self.pic_seq, self.num_kinetics, self.x_len, self.y_len))
+                self.pic_seq=mgr.Pulser.WF_prep_gain_seq(n=self.num_pictures, exp=self.exp_time, read=self.readout_time, trig=self.trigger_time, buff=self.buffer_time)
+                img_data=self.img_1D_to_2D(self.GetPicSimple(mgr, self.pic_seq, self.num_pictures, self.x_len, self.y_len))
                 data_dic={}
-                for i in range(int(self.num_kinetics)):
+                for i in range(int(self.num_pictures)):
                     data_dic[f'image_{i}'] = img_data[i]
                     # if zoom:
                     #     data_dic[f'image_{i}'] = data_dic[f'image_{i}'][zoom_y_start:zoom_y_end, zoom_x_start:zoom_x_end]

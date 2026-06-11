@@ -75,7 +75,7 @@ class I1I2(ContinuousTracking):
                    continuous_tracking=False, searchXYZ="(0.5, 0.5, 0.5)", max_search="(1, 1, 1)", min_search="(0.1, 0.1, 0.1)", 
                    scan_distance="(0.03, 0.03, 0.05)", changing_search=False, search_PID="(0.5,0.01,0)", 
                    search_integral_history=5, spot_size=400e-9, advanced_tracking=False, 
-                   diffusion_constant=200, data_download=False, dataset='I1I2', tracking_dataset='I1I2_tracking'):
+                   diffusion_constant=200, data_download=False, dataset='I1I2'):
         params={'sampling_rate': sampling_rate,
                 'time_per_sgpoint': time_per_sgpoint,
                 'mwPulseTime': mwPulseTime,
@@ -102,7 +102,7 @@ class I1I2(ContinuousTracking):
                 'diffusion_constant': diffusion_constant,
                 'data_download': data_download,
                 'data_source': dataset,}
-        with InstrumentManager() as mgr, DataSource(dataset) as data_source, DataSource(tracking_dataset) as tracking_data_source:
+        with InstrumentManager() as mgr, DataSource(dataset) as data_source:
             self.initialize(mgr, sampling_rate,
                    time_per_sgpoint, mwPulseTime, clockPulseTime, rf_amplitude,
                     frequencies, slope_range, sideband_frequency,
@@ -162,15 +162,7 @@ class I1I2(ContinuousTracking):
                         # Shivam: equivalent of return statement, since acquired into mongo database
                         if self.VERBOSE:
                             print('are we doing this????')
-                        data_source.push({
-                            'params':params,
-                            'xlabel': 'Frequency (Hz)',
-                            'datasets':{
-                                'I1': I1_sweeps,
-                                'I2': I2_sweeps
-                            }
-                        })
-
+                        
                         current_position = mgr.DAQcontrol.position
                         x_tracking.append(np.array([np.array([time_current-start_t]), np.array([current_position['x']])]))
                         x_tracking.updated_item(-1)
@@ -180,16 +172,19 @@ class I1I2(ContinuousTracking):
                         z_tracking.updated_item(-1)
                         total_fluor_tracking.append(np.array([np.array([time_current-start_t]), np.array([data_I1 + data_I2])]))
                         total_fluor_tracking.updated_item(-1)
-                        tracking_data_source.push({
-                            'title': 'Tracking Data',
-                            'xlabel': 'Time (s)',
-                            'datasets': {
+                        data_source.push({
+                            'params':params,
+                            'xlabel': 'Frequency (Hz)',
+                            'datasets':{
+                                'I1': I1_sweeps,
+                                'I2': I2_sweeps, 
                                 'x_pos': x_tracking,
                                 'y_pos': y_tracking,
                                 'z_pos': z_tracking,
                                 'total_fluor': total_fluor_tracking,
                             }
                         })
+
                         if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
                                 # the GUI has asked us nicely to exit
                                 return self.finalize(mgr, data_download, I1_sweeps, I2_sweeps)
@@ -314,13 +309,6 @@ class I1I2(ContinuousTracking):
                             'datasets':{
                                 'I1': I1_sweeps,
                                 'I2': I2_sweeps,
-                            }
-                        })
-                        tracking_data_source.push({
-                            'title': 'Tracking Data',
-                            'xlabel': 'Time (s)',
-                            'datasets': {
-
                                 'x_pos': x_tracking,
                                 'y_pos': y_tracking,
                                 'z_pos': z_tracking,
@@ -328,9 +316,9 @@ class I1I2(ContinuousTracking):
                                 'x_search': X_search,
                                 'y_search': Y_search,
                                 'z_search': Z_search,
-
                             }
                         })
+
 
                         self.counter += 1
 

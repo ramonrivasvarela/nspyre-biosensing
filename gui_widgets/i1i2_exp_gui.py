@@ -222,10 +222,6 @@ class I1I2Widget(ExperimentWidget):
                 'display_text': 'Data Set',
                 'widget': QLineEdit('I1I2'),
             },
-            'tracking_dataset': {
-                'display_text': 'Tracking Data Set',
-                'widget': QLineEdit('I1I2_tracking'),
-            }
         }
         
         super().__init__(
