@@ -48,7 +48,7 @@ class TestingAxis:
         """Perform experiment teardown."""
         _logger.info('Destroyed Experiment instance.')
 
-    def main(self, runs, scan_distance, n_steps, time_per_point, points_per_step, spot_size, resolution, dataset):
+    def main(self, runs, scan_distance, n_steps, time_per_point, points_per_step, spot_size, convergence_threshold, dataset):
         params={
             'runs': runs,
             'scan_distance': scan_distance,
@@ -62,8 +62,9 @@ class TestingAxis:
         print("time_per_point", time_per_point)
         self.n_points=points_per_step
         scan_distance=eval(scan_distance)
-        self.resolution=resolution
+        self.convergence_threshold=convergence_threshold
         self.spot_size=spot_size
+        
         
         with InstrumentManager() as mgr, DataSource(dataset) as ds:
             self.initial=rpyc.utils.classic.obtain(mgr.DAQcontrol.position)
@@ -71,15 +72,11 @@ class TestingAxis:
             self.drift=[0, 0, 0]
             self.initialize(mgr, time_per_point)
             axis=['x', 'y', 'z']
-            line_scans = [StreamingList(), StreamingList(), StreamingList()]
+            positions=[StreamingList(), StreamingList(), StreamingList()]
+            fluorescence = StreamingList()
             mgr.DAQcontrol.create_counter()
             mgr.DAQcontrol.acq_rate=1/time_per_point
             self.found=[False, False, False]
-
-            x_position= StreamingList()
-            y_position= StreamingList()
-            z_position= StreamingList()
-
             time_initial = time.time()
 
             
@@ -90,29 +87,29 @@ class TestingAxis:
                     break
 
                 for index in range(3):
-                    self.scan_axis(
+                    positions, line_data = self.scan_axis(
                         mgr=mgr,
                         index=index,
                         scan_distance=scan_distance,
                         n_steps=n_steps,
                         points_per_step=points_per_step,
-                        line_scan=line_scans[index],
                     )
 
                     current_time = time.time() - time_initial
-                    x_position.append(np.array([[current_time], [self.XYZ_center[0]]]))
-                    y_position.append(np.array([[current_time], [self.XYZ_center[1]]]))
-                    z_position.append(np.array([[current_time], [self.XYZ_center[2]]]))
+                    self.fit_line_scan(index, line_data, positions)
+                    positions[index].append(np.array([[current_time], [self.XYZ_center[index]]]))
 
-                    x_position.updated_item(-1)
-                    y_position.updated_item(-1)
-                    z_position.updated_item(-1)
+                    positions[index].updated_item(-1)
+                    # fluorescence is the average of the line scan data
+                    fluorescence.append(np.array([[current_time], [np.average(line_data)]]))
+                    fluorescence.updated_item(-1)
 
-                    ds.push({'params': params, 'x_label': 'Time (s)', 
+                    ds.push({'params': params, 'x_label': 'Frequency (Hz)', 
                     'datasets':{
-                        'x_pos': x_position,
-                        'y_pos': y_position,
-                        'z_pos': z_position,
+                        'x_pos': positions[0],
+                        'y_pos': positions[1],
+                        'z_pos': positions[2],
+                        'total_fluor': fluorescence,
                     }})
 
 
@@ -131,7 +128,7 @@ class TestingAxis:
         mgr.DAQcontrol.acq_rate=1/time_per_point
         return
 
-    def scan_axis(self, mgr, index, scan_distance, n_steps, points_per_step, line_scan):
+    def scan_axis(self, mgr, index, scan_distance, n_steps, points_per_step):
         axis_key = ['x', 'y', 'z'][index]
         start = dict(self.initial)
         end = dict(self.initial)
@@ -141,13 +138,12 @@ class TestingAxis:
         line_data = mgr.DAQcontrol.line_scan(start, end, n_steps, points_per_step)
         line_data = rpyc.utils.classic.obtain(line_data)
 
-        position = np.linspace(
+        positions = np.linspace(
             self.XYZ_center[index] - scan_distance[index] / 2,
             self.XYZ_center[index] + scan_distance[index] / 2,
             n_steps * points_per_step,
         )
-        line_scan.append(np.stack([position, line_data]))
-        line_scan.updated_item(-1)
+        return positions, line_data
 
     def fit_line_scan(self, index, tracking_data, tracking_steps):
         p0 = [np.max(tracking_data), tracking_steps[np.argmax(tracking_data)], self.spot_size, np.min(tracking_data)]
@@ -164,7 +160,7 @@ class TestingAxis:
         except:
             new_position = tracking_steps[np.argmax(tracking_data)]
         self.drift[index] = new_position - self.XYZ_center[index]
-        if self.drift[index] < self.resolution:
+        if self.drift[index] < self.convergence_threshold:
             self.found[index] = True
         self.XYZ_center[index] = new_position
 
