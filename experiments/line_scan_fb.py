@@ -79,7 +79,7 @@ class LineScanFB:
             fluorescence = StreamingList()
             mgr.DAQcontrol.create_counter()
             mgr.DAQcontrol.acq_rate=1/time_per_point
-            self.found=[False, False, False]
+            self.found=[False, False, True]
             time_initial = time.time()
 
             
@@ -90,6 +90,8 @@ class LineScanFB:
                     break
 
                 for index in range(3):
+                    if self.found[index]:
+                        continue
                     print(f"Scanning {axis[index]} axis...")
                     print(f"Current {axis[index]} position: {self.XYZ_center[index]:.3f} um")
                     tracking_steps, line_data = self.scan_axis(
@@ -102,6 +104,7 @@ class LineScanFB:
 
                     current_time = time.time() - time_initial
                     self.fit_line_scan(index, line_data, tracking_steps)
+                    mgr.DAQcontrol.move({'x': self.XYZ_center[0], 'y': self.XYZ_center[1], 'z': self.XYZ_center[2]})
                     positions[index].append(np.array([[current_time], [self.XYZ_center[index]]]))
 
                     positions[index].updated_item(-1)
@@ -146,9 +149,12 @@ class LineScanFB:
         positions = np.linspace(
             self.XYZ_center[index] - scan_distance[index] / 2,
             self.XYZ_center[index] + scan_distance[index] / 2,
-            n_steps * points_per_step,
+            n_steps,
         )
         return positions, line_data
+    
+    def gaussian(self, x, A, mu, sigma, offset):
+        return A * np.exp(-(x - mu) ** 2 / (2 * sigma ** 2)) + offset
 
     def fit_line_scan(self, index, tracking_data, tracking_steps):
         p0 = [np.max(tracking_data), tracking_steps[np.argmax(tracking_data)], self.spot_size, np.min(tracking_data)]
@@ -157,26 +163,29 @@ class LineScanFB:
             plot_center_fit = popt[1]
             if np.min(tracking_steps) <= plot_center_fit <= np.max(tracking_steps):
                 if popt[0] < 0:
-                    pass
+                    print(("Fitted amplitude is negative, using max value instead:", tracking_steps[np.argmax(tracking_data)]))
+                    new_position = tracking_steps[np.argmax(tracking_data)]
+                    #pass
                 else:
                     print(("New position is from fit:", plot_center_fit))
                     new_position = plot_center_fit
+                    if abs(new_position - self.XYZ_center[index]) < self.convergence_threshold:
+                        print(f"Fitted position is within convergence threshold, marking axis as found. Drift: {new_position - self.XYZ_center[index]:.3f} um < Threshold: {self.convergence_threshold:.3f} um")
+                        self.found[index] = True
             else:
                 print(("Fitted position is outside of range, using max value instead:", tracking_steps[np.argmax(tracking_data)]))
                 new_position = tracking_steps[np.argmax(tracking_data)]
-        except:
+        except Exception as e:
+            print(f"Fit failed with error: {e}. Using max value instead.")
             print(("Fit failed, new position is from max value:", tracking_steps[np.argmax(tracking_data)]))
             new_position = tracking_steps[np.argmax(tracking_data)]
         self.drift[index] = new_position - self.XYZ_center[index]
-        print(f"Drift on {['x', 'y', 'z'][index]} axis: {self.drift[index]:.3f} um")
-        print(f"Convergence threshold: {self.convergence_threshold:.3f} um")
-        if self.drift[index] < self.convergence_threshold:
-            print(f"{['X', 'Y', 'Z'][index]} axis has converged. Drift: {self.drift[index]:.3f} um < Threshold: {self.convergence_threshold:.3f} um")
-            self.found[index] = True
         self.XYZ_center[index] = new_position
 
     def finalize(self,mgr):
+        print("Final XYZ position:", self.XYZ_center)
+        print("found axis:", self.found)
         mgr.Pulser.set_state_off()
         mgr.DAQcontrol.finalize_counter()
-        mgr.DAQcontrol.move(self.initial)
+        mgr.DAQcontrol.move({'x': self.XYZ_center[0], 'y': self.XYZ_center[1], 'z': self.XYZ_center[2]})
         return

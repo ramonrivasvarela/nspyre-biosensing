@@ -25,7 +25,7 @@ class LineScanFBWidget(ExperimentWidget):
         runs_sb = QSpinBox()
         runs_sb.setMinimum(1)
         runs_sb.setMaximum(100)
-        runs_sb.setValue(30)
+        runs_sb.setValue(10)
 
         n_steps_sb = QSpinBox()
         n_steps_sb.setMinimum(1)
@@ -47,7 +47,7 @@ class LineScanFBWidget(ExperimentWidget):
             },
             'scan_distance': {
                 'display_text': 'Scan Distance',
-                'widget': QLineEdit("(3, 3, 3)"),  # Default to 10 units
+                'widget': QLineEdit("(0.05, 0.05, 0.05)"),  # Default to 10 units
             },
             
 
@@ -72,7 +72,7 @@ class LineScanFBWidget(ExperimentWidget):
             'convergence_threshold': {
                 'display_text': 'Convergence Threshold',
                 'widget': SpinBox(
-                    value=50e-9,
+                    value=10e-9,
                     suffix='m',
                     siPrefix=True,
                     dec=True,
