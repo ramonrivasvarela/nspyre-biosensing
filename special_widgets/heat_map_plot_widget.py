@@ -417,7 +417,7 @@ np.array([[4, 5, 6], [3.4, 3.6, 3.5]])])
         crosshair_top_layout.setContentsMargins(0, 0, 0, 0)
         crosshair_top_layout.setSpacing(4)
 
-        self.crosshair_button = QtWidgets.QPushButton("Enable Crosshair")
+        self.crosshair_button = QtWidgets.QPushButton("Add Crosshair")
         self.crosshair_button.setCheckable(True)
         self.crosshair_button.clicked.connect(self._toggle_crosshair)
 

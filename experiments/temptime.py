@@ -815,7 +815,7 @@ class TemperatureVsTime(ContinuousTracking):
 
             mgr.DAQcontrol.finalize_counter()
 
-        if data_download:
-            save_excel(self.name)
-            print('The name of the excel data:', self.name)
+        # if data_download:
+        #     save_excel(self.name)
+        #     print('The name of the excel data:', self.name)
 

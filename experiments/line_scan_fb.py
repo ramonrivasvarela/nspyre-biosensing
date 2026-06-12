@@ -70,7 +70,7 @@ class LineScanFB:
         
         with InstrumentManager() as mgr, DataSource(dataset) as ds:
             # might need rpyc.utils.classic.obtain for some of these, if they are not automatically retrieved as proxy objects
-            self.initial=mgr.DAQcontrol.position
+            self.initial=rpyc.utils.classic.obtain(mgr.DAQcontrol.position)
             self.XYZ_center=[self.initial[index] for index in ['x', 'y', 'z']]
             self.drift=[0, 0, 0]
             self.initialize(mgr, time_per_point)
@@ -90,7 +90,9 @@ class LineScanFB:
                     break
 
                 for index in range(3):
-                    positions, line_data = self.scan_axis(
+                    print(f"Scanning {axis[index]} axis...")
+                    print(f"Current {axis[index]} position: {self.XYZ_center[index]:.3f} um")
+                    tracking_steps, line_data = self.scan_axis(
                         mgr=mgr,
                         index=index,
                         scan_distance=scan_distance,
@@ -99,7 +101,7 @@ class LineScanFB:
                     )
 
                     current_time = time.time() - time_initial
-                    self.fit_line_scan(index, line_data, positions)
+                    self.fit_line_scan(index, line_data, tracking_steps)
                     positions[index].append(np.array([[current_time], [self.XYZ_center[index]]]))
 
                     positions[index].updated_item(-1)
@@ -157,13 +159,19 @@ class LineScanFB:
                 if popt[0] < 0:
                     pass
                 else:
+                    print(("New position is from fit:", plot_center_fit))
                     new_position = plot_center_fit
             else:
+                print(("Fitted position is outside of range, using max value instead:", tracking_steps[np.argmax(tracking_data)]))
                 new_position = tracking_steps[np.argmax(tracking_data)]
         except:
+            print(("Fit failed, new position is from max value:", tracking_steps[np.argmax(tracking_data)]))
             new_position = tracking_steps[np.argmax(tracking_data)]
         self.drift[index] = new_position - self.XYZ_center[index]
+        print(f"Drift on {['x', 'y', 'z'][index]} axis: {self.drift[index]:.3f} um")
+        print(f"Convergence threshold: {self.convergence_threshold:.3f} um")
         if self.drift[index] < self.convergence_threshold:
+            print(f"{['X', 'Y', 'Z'][index]} axis has converged. Drift: {self.drift[index]:.3f} um < Threshold: {self.convergence_threshold:.3f} um")
             self.found[index] = True
         self.XYZ_center[index] = new_position
 
