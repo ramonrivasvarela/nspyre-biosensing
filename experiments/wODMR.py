@@ -345,7 +345,7 @@ class wODMRSpyrelet(WFSpyrelet):
         total_time = time.time() - self.t0
         if data_download:
             config = {'VERSION': 2, 'label': self.label, 'gain': self.gain, 'sweeps': sweeps, 'alt_label': alt_label, 'rf': rf_amplitude,'NDs_input': eval(ROI_xy),
-                      'NDs': self.ND_list, 'n_ND': len(self.ND_list), 'freqs': frequencies, 'exp_time': exp_time.m, 'readout_time': readout_time.m, 'total_time': total_time} 
+                      'NDs': self.ND_list, 'n_ND': len(self.ND_list), 'freqs': frequencies, 'exp_time': exp_time, 'readout_time': readout_time, 'total_time': total_time} 
             os.mkdir(self.data_path+'\\data')
             with open(self.data_path+f'\\data\\config.pkl', 'wb') as file: 
                 pickle.dump(config, file)

@@ -293,7 +293,7 @@ class wI1I2Spyrelet(WFSpyrelet):
                     mgr.sg.set_frequency(f) 
                     if self.Misc.get('pdb', False): import pdb; pdb.set_trace()
                     if alt_label:
-                        data_1D = self.GetPic_Alternating(mgr, self.main_seq, self.alt_seq, len(self.label), alt_sleep_time.m, saving = save_image) # Get data as list of 1D arrays, alternating between two labels
+                        data_1D = self.GetPic_Alternating(mgr, self.main_seq, self.alt_seq, len(self.label), alt_sleep_time, saving = save_image) # Get data as list of 1D arrays, alternating between two labels
                     else:
                         data_1D = self.GetPic(mgr, self.main_seq, len(self.label), saving = save_image) # Get data as list of 1D arrays, saving any images during wait if all images are to be saved
                     # Go through the new data and format it. Add it to unsaved imgs.
@@ -373,7 +373,7 @@ class wI1I2Spyrelet(WFSpyrelet):
         total_time = time.time() - self.t0
         if data_download:
             config = {'VERSION': 2, 'label': self.label, 'gain': self.gain, 'sweeps': sweeps, 'alt_label': alt_label, 'rf': rf_amplitude,'NDs_input': eval(ROI_xy), 'tparams': self.trackpy_params,
-                      'NDs': self.ND_list, 'n_ND': len(self.ND_list), 'freqs': frequencies, 'sideband': sideband.m, 'exp_time': exp_time.m, 'readout_time': readout_time.m, 'total_time': total_time} 
+                      'NDs': self.ND_list, 'n_ND': len(self.ND_list), 'freqs': frequencies, 'sideband': sideband, 'exp_time': exp_time, 'readout_time': readout_time, 'total_time': total_time} 
             os.mkdir(self.data_path+'\\data')
             with open(self.data_path+f'\\data\\config.pkl', 'wb') as file: 
                 pickle.dump(config, file)

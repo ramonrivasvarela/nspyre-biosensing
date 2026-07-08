@@ -60,14 +60,13 @@ class SpatialFeedback():
             prefix=Path(__file__).stem,
             file_size=10_000_000,
         )
-        _logger.info('Created PlaneScan instance.')
-
+        _logger.info('Created SpatialFeedback instance.')
     def __exit__(self):
         """Perform experiment teardown."""
-        _logger.info('Destroyed PlaneScan instance.')
+        _logger.info('Destroyed SpatialFeedback instance.')
 
     def spatial_feedback(self, do_z=True, xyz_step=0.05,
-            shrink_every_x_iter=1, starting_point='default', probe_time=0.40, initial_position="(0,0,50)", n_points=1, counter_already_exists=False, dataset='feedback'):
+            shrink_every_x_iter=1, starting_point='default', probe_time=0.40, initial_position="(0,0,50)", n_points=1, counter_already_exists=False, total_fb_time=0.0, dataset='feedback'):
         self.n_points=n_points
         self.ns_clock_time = 10
 
@@ -83,6 +82,7 @@ class SpatialFeedback():
                     'initial_position': initial_position,
                     'n_points': n_points,
                     'counter_already_exists' : counter_already_exists,
+                    'total_fb_time': total_fb_time
                     }
             self.initialize(mgr, initial_position, starting_point, counter_already_exists)
             x_center = self.init_x
@@ -104,7 +104,7 @@ class SpatialFeedback():
             Z_pos=StreamingList()
             fluorescence=StreamingList()
 
-            while xyz_step >= 0.01:
+            while xyz_step >= 0.01 or total_fb_time != 0.0:
                 print('\n scanning z, x, y, with step size:', xyz_step)
                 #print('search_x:', search_x, 'search_y:', search_y, 'search_z:', search_z)
                 
@@ -151,7 +151,7 @@ class SpatialFeedback():
                                         'total_fluor': fluorescence,
                                         }
                             })
-                            if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
+                            if experiment_widget_process_queue(self.queue_to_exp) == 'stop' or (total_fb_time > 0 and time.time() - time_initial >= total_fb_time):
                                 # the GUI has asked us nicely to exit
                                 self.finalize(mgr, counter_already_exists)
                                 return
@@ -195,7 +195,7 @@ class SpatialFeedback():
                                         'total_fluor': fluorescence,
                                         }
                         })
-                        if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
+                        if experiment_widget_process_queue(self.queue_to_exp) == 'stop' or (total_fb_time > 0 and time.time() - time_initial >= total_fb_time):
                             # the GUI has asked us nicely to exit
                             self.finalize(mgr, counter_already_exists)
                             return
@@ -238,7 +238,7 @@ class SpatialFeedback():
                                         'total_fluor': fluorescence,
                                         }
                         })
-                        if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
+                        if experiment_widget_process_queue(self.queue_to_exp) == 'stop' or (total_fb_time > 0 and time.time() - time_initial >= total_fb_time):
                             # the GUI has asked us nicely to exit
                             self.finalize(mgr, counter_already_exists)
                             return

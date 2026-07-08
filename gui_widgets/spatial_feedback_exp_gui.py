@@ -80,6 +80,17 @@ class SpatialFeedbackWidget(ExperimentWidget):
                 'display_text': 'Starting Point',
                 'widget': starting_point_cb,
             },
+            'total_fb_time': {
+                'display_text': 'Total Feedback Time',
+                'widget': SpinBox(
+                    value=0.0,
+                    suffix='s',
+                    siPrefix=True,
+                    dec=True,
+                    bounds=(0, 100000),
+                ),
+            },
+
             'dataset':
             {
                 'display_text': 'Dataset Name',

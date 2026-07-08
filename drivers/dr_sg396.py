@@ -125,7 +125,11 @@ class SG396:
             value=1
         else:
             value=0
-        self.device.write(f"ENBR{value}")
+        try: # Because it sometimes failes
+            self.device.write(f"ENBR{value}")
+        except:
+            logger.info('Error: SG396 set_rf_toggle failed. Retrying...')
+            self.device.write(f"ENBR {value}")
 
     def get_lf_offset(self):
         """
@@ -206,7 +210,11 @@ class SG396:
         return float(self.device.query("FDEV?"))
     
     def set_FM_mod_dev(self, value):
-        self.device.write(f"FDEV {value}")
+        try:
+            self.device.write(f"FDEV {value}")
+        except:
+            logger.info('Error: SG396 set_FM_mod_dev failed. Retrying...')
+            self.device.write(f"FDEV {value}")
 
     # def get_mod_sweep_function(self):
     #     """
@@ -238,8 +246,12 @@ class SG396:
         return float(self.device.query('ADEP?'))
 
     def set_AM_mod_depth(self, value):
-        self.device.write(f"ADEP {value}")
-    
+        try: # Because it sometimes failes
+            self.device.write(f"ADEP {value}")
+        except:
+            logger.info('Error: SG396 set_AM_mod_depth failed. Retrying...')
+            self.device.write(f"ADEP {value}")
+
     # units = "Hz", limits = (0.1, 8.e6))
     
     def get_frequency(self):
@@ -253,7 +265,11 @@ class SG396:
         if value < 950e3 or value > 4.05e9:  
             raise ValueError("Frequency must be in range [950 kHz, 4.05 GHz].")
         
-        self.device.write(f"FREQ{value}")
+        try: # Because it sometimes failes
+            self.device.write(f"FREQ{value}")
+        except:
+            logger.info('Error: SG396 set_frequency failed. Retrying...')
+            self.device.write(f"FREQ {value}")
         
         logger.info(f"Set frequency to {value} Hz")
 

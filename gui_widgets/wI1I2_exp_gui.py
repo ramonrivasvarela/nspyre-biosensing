@@ -237,20 +237,45 @@ class wI1I2Widget(ExperimentWidget):
             title='Widefield ODMR')
 class wI1I2PlotWidget(FlexLinePlotWidget):
     
+    # def data_processing_func(self, sink):
+    #     frequencies=sink.output['frequencies']
+    #     n_freqs=len(frequencies)
+    #     for ND in range(sink.output['number_ND']):
+    #         sink.datasets[f"I1I2_{ND}"]=[]
+    #     for sweep in range(sink.output['current_sweep']+1):
+    #         for ND in range(sink.output['number_ND']):
+    #             I1I2=np.empty(n_freqs)
+    #             I1I2[:]=np.nan
+    #             sink.datasets[f"I1I2_{ND}"].append(np.stack([frequencies, I1I2]))
+    #             for j in range(n_freqs):
+    #                 I1=sink.datasets[f"I1_{ND}"][sweep][1][j]
+    #                 I2=sink.datasets[f"I2_{ND}"][sweep][1][j]
+    #                 bg=sink.datasets[f"background_{ND}"][sweep][1][j]
+    #                 sink.datasets[f"I1I2_{ND}"][-1][1][j]=2*(I2-I1)/(I2+I1) if (I2+I1) != 0 else np.nan
+
     def data_processing_func(self, sink):
         frequencies=sink.output['frequencies']
         n_freqs=len(frequencies)
-        for i in range(sink.output['number_ND']):
-            sink.datasets[f"I1I2_{i}"]=[]
-        for sweep in range(sink.output['current_sweep']+1):
-            for ND in range(sink.output['number_ND']):
-                I1I2=np.empty(n_freqs)
-                I1I2[:]=np.nan
-                sink.datasets[f"I1I2_{ND}"].append(np.stack([frequencies, I1I2]))
-                for j in range(n_freqs):
-                    I1=sink.datasets[f"I1_{ND}"][sweep][1][j]
-                    I2=sink.datasets[f"I2_{ND}"][sweep][1][j]
-                    sink.datasets[f"I1I2_{ND}"][-1][1][j]=2*(I2-I1)/(I2+I1) if (I2+I1) != 0 else np.nan
+        sideband = sink.params['sideband']
+        for ND in range(sink.output['number_ND']):
+            I1I2_sweeps = []
+            I1I2_bg_free_sweeps = []
+            I1_norm = []
+            I2_norm = []
+            for s,_ in enumerate(sink.datasets[f"I1_{ND}"]):
+                I1=sink.datasets[f"I1_{ND}"][s][1]
+                I2=sink.datasets[f"I2_{ND}"][s][1]
+                bg=sink.datasets[f"background_{ND}"][s][1]
+                pseudo_bg = (I1+I2)/2
+                I1I2_sweeps.append(np.stack([frequencies, (I2-I1)/bg if bg.any() else np.full_like(I1, np.nan)]))
+                I1I2_bg_free_sweeps.append(np.stack([frequencies, (I2-I1)/pseudo_bg]))
+                I1_norm.append(np.stack([np.array(frequencies)-sideband, I1/bg if bg.any() else I1/pseudo_bg]))
+                I2_norm.append(np.stack([np.array(frequencies)+sideband, I2/bg if bg.any() else I2/pseudo_bg]))
+            sink.datasets[f"I1I2_{ND}"] = I1I2_sweeps
+            sink.datasets[f"I1I2_bg_free_{ND}"] = I1I2_bg_free_sweeps
+            sink.datasets[f"I1_norm_{ND}"] = I1_norm
+            sink.datasets[f"I2_norm_{ND}"] = I2_norm
+
 
                     
         return
@@ -259,6 +284,9 @@ class wI1I2PlotWidget(FlexLinePlotWidget):
         self.add_plot('signal_0', series='signal_0', scan_i='', scan_j='', processing='Average', hidden=True)
         self.add_plot('background_0', series='background_0', scan_i='', scan_j='', processing='Average', hidden=True)
         self.add_plot('I1I2_0', series='I1I2_0', scan_i='', scan_j='', processing='Average')
+        self.add_plot('I1I2_bg_free_0', series='I1I2_bg_free_0', scan_i='', scan_j='', processing='Average', hidden=True)
+        self.add_plot('I1_norm_0', series='I1_norm_0', scan_i='', scan_j='', processing='Average', hidden=True)
+        self.add_plot('I2_norm_0', series='I2_norm_0', scan_i='', scan_j='', processing='Average', hidden=True)
 
         # retrieve legend object
         legend = self.line_plot.plot_widget.addLegend()

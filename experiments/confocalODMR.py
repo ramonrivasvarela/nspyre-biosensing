@@ -137,10 +137,10 @@ class ConfocalODMR():
                 # initialize to NaN
                 sig_counts = np.empty(n_freq)
                 sig_counts[:] = np.nan
-                signal.append(np.stack([self.frequencies*1e-9, sig_counts]))
+                signal.append(np.stack([self.frequencies, sig_counts]))
                 bg_counts = np.empty(n_freq)
                 bg_counts[:] = np.nan
-                background.append(np.stack([self.frequencies*1e-9, bg_counts]))
+                background.append(np.stack([self.frequencies, bg_counts]))
 
                 for i in range(n_freq):
                     if self.VERBOSE: print(f'  Starting frequency {i+1}/{n_freq} ({self.frequencies[i]*1e-9:.3f} GHz)...')
