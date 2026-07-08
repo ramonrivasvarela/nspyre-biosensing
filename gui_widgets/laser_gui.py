@@ -89,14 +89,15 @@ class InstWidget(QWidget):
         self.LAS_button = QPushButton("LAS") # CW mode operation
         self.LAS_button.clicked.connect(lambda:self.DLnsec_mode("LAS"))
 
-        
-
         self.EXT_button = QPushButton("EXT") # External trigger operation
         self.EXT_button.clicked.connect(lambda:self.DLnsec_mode("EXT"))
 
         self.RBT_button = QPushButton("Reboot") # External trigger operation
         self.RBT_button.clicked.connect(lambda:self.DLnsec_reboot())
 
+        # VALUE of laser power (in units of % diode current)
+        with InstrumentManager() as mgr:
+            self.DLnsec_pwr = mgr.DLnsec.get_power()  # Initialize with the current power value
     
         self.DLnsec_pwr_slider = QSlider()
         self.DLnsec_pwr_slider.setOrientation(Qt.Orientation.Horizontal)
@@ -105,12 +106,10 @@ class InstWidget(QWidget):
         self.DLnsec_pwr_slider.setMinimum(0)
         self.DLnsec_pwr_slider.setMaximum(100)
         self.DLnsec_pwr_slider.sliderReleased.connect(lambda: self.DLnsec_pwr_changed())
-        self.DLnsec_pwr_slider.setValue(0)
+        self.DLnsec_pwr_slider.setValue(self.DLnsec_pwr)
         self.DLnsec_pwr_slider.setFixedWidth(320)
-        # VALUE of laser power (in units of % diode current)
-        self.DLnsec_pwr = self.DLnsec_pwr_slider.value()
 
-        self.DLnsec_pwr_label = QLineEdit("0%")
+        self.DLnsec_pwr_label = QLineEdit(f"{self.DLnsec_pwr}%")
         self.DLnsec_pwr_label.setFont(QFont("Sanserif", 15))
         self.DLnsec_pwr_label.setFixedWidth(80)
         self.DLnsec_pwr_label.editingFinished.connect(lambda: self.DLnsec_pwr_text_changed())
@@ -119,6 +118,7 @@ class InstWidget(QWidget):
                 background-color: powderblue; /* Background color when hovered */
             }
         """)
+        
 
         self.DLnsec_status_label = QLabel("")
         self.DLnsec_status_label.setStyleSheet("color: white; background-color: black; border: 4px solid black;")
@@ -410,7 +410,7 @@ class InstWidget(QWidget):
         try:
             with InstrumentManager() as mgr:
                 self.DLnsec_pwr = self.DLnsec_pwr_slider.value()
-                mgr.DLnsec.power_settings(self.DLnsec_pwr)
+                mgr.DLnsec.set_power(self.DLnsec_pwr)
                 
         except Exception as e:
             self.DLnsec_pwr = 0
@@ -427,7 +427,7 @@ class InstWidget(QWidget):
             if val >= 0 and val <= 100:
                 try:
                     with InstrumentManager() as mgr:
-                        mgr.DLnsec.power_settings(self.DLnsec_pwr)
+                        mgr.DLnsec.set_power(self.DLnsec_pwr)
                     self.DLnsec_pwr = val
                 
                 except Exception as e:

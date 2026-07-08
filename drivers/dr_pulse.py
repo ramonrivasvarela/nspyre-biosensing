@@ -162,6 +162,7 @@ class PulserClass():
         self.Pulser.stream(sequence,n_runs, final = OutputState(digital_set, analog_set,0))
         self.record_state(digital_set, 0, analog_set)
 
+    ## An alternate way to deal with sequences
     def stream_converted_sequence(self, seqs, n_runs):
         self.Pulser.stream(self.convert_sequence(seqs), n_runs)
     def convert_sequence(self, seqs):
@@ -330,7 +331,7 @@ class PulserClass():
         self.Pulser.stream(pulse,runs, final = OutputState(digital_set, analog_set,0))
         self.record_state(digital_set, analog_set, 0)
 
-# This method of making sequences runs into trouble with rpyc. Do not use.
+# This method is outdated. Make the full sequence in the dr_pulse.py file and return the reference.
     def make_seq(self, clock = None, camera = None, laser_405 =  None, laser_488 = None, laser_647 = None, mirror = None, switch = None, laser = None, Q = None, I = None):
         seq = self.Pulser.createSequence()
         if clock is not None:
@@ -355,9 +356,7 @@ class PulserClass():
             seq.setAnalog(1, I)
         return seq
 
-
-
-    def ODMRHeatDissipation(self, ns_read_time, ns_clock_duration, ns_laser_lag, runs ,  wait_time):  
+    def ODMRHeatDissipation_OLD(self, ns_read_time, ns_clock_duration, ns_laser_lag, runs ,  wait_time):  
         #Developed by Tian-Xing at 20230720, for trainsent ODMR on WSP, for avoiding the Singlet Fission
         # laser_recharge is not used here, since we want to 'wait' after both sg and bg
         print('now setting up pulse sequence')
@@ -432,10 +431,10 @@ class PulserClass():
         
         return self.sequence
     
-    def ODMRNoWait(self,  ns_read_time, ns_clock_duration, ns_laser_lag, runs , mode = 'QAM',):
-        print('now setting up pulse sequence')
-        print('self.read_time:', ns_read_time)
-        print('self.clock_time:',  ns_clock_duration)        
+    def ODMRNoWait_OLD(self,  ns_read_time, ns_clock_duration, ns_laser_lag, runs , mode = 'QAM',):
+        # print('now setting up pulse sequence')
+        # print('self.read_time:', ns_read_time)
+        # print('self.clock_time:',  ns_clock_duration)        
         #self.laser_lag
         #self.laserLag_time = 80 #hard coded for now
         
@@ -561,12 +560,13 @@ class PulserClass():
 
         return experiment, new_pulse_time
     
-    def setup_no_wait(self, ns_laser_lag, ns_probe_time, ns_clock_duration, runs, mode, switch):
+    def ODMRNoWait(self, ns_laser_lag, ns_probe_time, ns_clock_duration, runs, mode, switch):
         '''
         Sets up the pulse sequence for ODMR without wait time. Returns the relevant instrument sequences as a dictionary
         '''
-        IQ0 = [-0.0025,-0.0025]
-        IQpx = [0.4461,-.0025]
+        sequence = self.Pulser.createSequence()
+        # IQ0 = [-0.0025,-0.0025]
+        # IQpx = [0.4461,-.0025]
         
         #if self.VERBOSE: 
         #    print('\n using sequence without wait time')
@@ -578,8 +578,8 @@ class PulserClass():
         laser = [(ns_laser_lag, 1)]
         clock = [(ns_laser_lag, 0)]
         if mode == 'QAM': 
-            mwQ = [(ns_laser_lag, IQ0[0])]
-            mwI = [(ns_laser_lag, IQ0[1])]
+            mwQ = [(ns_laser_lag, self.IQ0[0])]
+            mwI = [(ns_laser_lag, self.IQ0[1])]
         elif mode == 'AM':
             mwQ = [(ns_laser_lag, -1)]
         elif mode == 'NoMod':
@@ -594,8 +594,8 @@ class PulserClass():
         #### (mwOnOff repeating sequence defn)
         mwOnOff_laser = [(ns_probe_time, 1), (ns_probe_time, 1)]
         if mode == 'QAM':
-            mwOnOff_mwQ = [(ns_probe_time, IQpx[0]), (ns_probe_time, IQ0[0])]
-            mwOnOff_mwI = [(ns_probe_time, IQpx[1]), (ns_probe_time, IQ0[1])]
+            mwOnOff_mwQ = [(ns_probe_time, self.IQpx[0]), (ns_probe_time, self.IQ0[0])]
+            mwOnOff_mwI = [(ns_probe_time, self.IQpx[1]), (ns_probe_time, self.IQ0[1])]
         elif mode == 'AM':
             mwOnOff_mwQ = [(ns_probe_time, 0), (ns_probe_time, -1)]
         elif mode == 'NoMod':
@@ -618,8 +618,8 @@ class PulserClass():
         laser += [(ns_clock_duration, 0)]
         clock += [(ns_clock_duration, 1)]
         if mode == 'QAM':
-            mwQ += [(ns_clock_duration, IQ0[0])]
-            mwI += [(ns_clock_duration, IQ0[1])]
+            mwQ += [(ns_clock_duration, self.IQ0[0])]
+            mwI += [(ns_clock_duration, self.IQ0[1])]
         elif mode == 'AM':
             mwQ += [(ns_clock_duration, -1)] 
         elif mode == 'NoMod':
@@ -631,28 +631,30 @@ class PulserClass():
         #if self.VERBOSE:
         #    print('Finished setting up pulse sequence')
 
-        seq_dict = {'clock': clock,'laser': laser}
+        sequence.setDigital(self.channel_dict['clock'], clock)
+        sequence.setDigital(self.channel_dict['laser'], laser)
+
         if mode == 'QAM':
-            seq_dict['Q'] = mwQ
-            seq_dict['I'] = mwI
+            sequence.setAnalog(0, mwQ)
+            sequence.setAnalog(1, mwI)
         elif mode == 'AM':
-            seq_dict['Q'] = mwQ
+            sequence.setAnalog(0, mwQ)
         elif mode == 'NoMod':
             pass
 
         if switch:
-            seq_dict['switch'] = switch
+            sequence.setDigital(self.channel_dict['switch'], switch)
 
-        return seq_dict
+        return sequence
         
     ## still need to change this to new method
-    def setup_ODMR_wait(self, ns_laser_lag, ns_probe_time, ns_clock_duration, ns_cooldown_time, ns_pulsewait_time ,runs, mode, switch):
+    def ODMRWithWait(self, ns_laser_lag, ns_probe_time, ns_clock_duration, ns_cooldown_time, ns_pulsewait_time ,runs, mode, switch):
         '''
-        Sets up the pulse sequence for ODMR without wait time. Returns the relevant instrument sequences as a dictionary
+        Sets up the pulse sequence for ODMR with wait time. Returns the relevant instrument sequences as a dictionary
         '''
         
-        IQ0 = [-0.0025,-0.0025]
-        IQpx = [0.4461,-.0025]
+        sequence = self.Pulser.createSequence()
+       
         
         #if self.VERBOSE: 
         #    print('\n using sequence with wait time')
@@ -666,8 +668,8 @@ class PulserClass():
         laser = [(ns_laser_lag, 1)]
         clock = [(ns_laser_lag, 0)]
         if mode == 'QAM': 
-            mwQ = [(ns_laser_lag, IQ0[0])]
-            mwI = [(ns_laser_lag, IQ0[1])]
+            mwQ = [(ns_laser_lag, self.IQ0[0])]
+            mwI = [(ns_laser_lag, self.IQ0[1])]
         elif mode == 'AM':
             mwQ = [(ns_laser_lag, -1)]
         elif mode == 'NoMod':
@@ -683,10 +685,10 @@ class PulserClass():
         mwOnOff_laser = [(ns_probe_time, 1), (ns_cooldown_time,0),
                           (ns_probe_time, 1), (ns_cooldown_time,0), (ns_pulsewait_time, 0)]
         if mode == 'QAM':
-            mwOnOff_mwQ = [(ns_probe_time, IQpx[0]), 
-                            (ns_probe_time + 2 * ns_cooldown_time + ns_pulsewait_time, IQ0[0])]
-            mwOnOff_mwI = [(ns_probe_time, IQpx[1]), 
-                           (ns_probe_time + 2 * ns_cooldown_time + ns_pulsewait_time, IQ0[1])]
+            mwOnOff_mwQ = [(ns_probe_time, self.IQpx[0]), 
+                            (ns_probe_time + 2 * ns_cooldown_time + ns_pulsewait_time, self.IQ0[0])]
+            mwOnOff_mwI = [(ns_probe_time, self.IQpx[1]), 
+                           (ns_probe_time + 2 * ns_cooldown_time + ns_pulsewait_time, self.IQ0[1])]
         elif mode == 'AM':
             mwOnOff_mwQ = [(ns_probe_time, 0), 
                             (ns_probe_time + 2 * ns_cooldown_time + ns_pulsewait_time, -1)]
@@ -712,8 +714,8 @@ class PulserClass():
         laser += [(ns_clock_duration, 0)]
         clock += [(ns_clock_duration, 1)]
         if mode == 'QAM':
-            mwQ += [(ns_clock_duration, IQ0[0])]
-            mwI += [(ns_clock_duration, IQ0[1])]
+            mwQ += [(ns_clock_duration, self.IQ0[0])]
+            mwI += [(ns_clock_duration, self.IQ0[1])]
         elif mode == 'AM':
             mwQ += [(ns_clock_duration, -1)] 
         elif mode == 'NoMod':
@@ -725,20 +727,21 @@ class PulserClass():
         #if self.VERBOSE:
         #    print('Finished setting up pulse sequence')
 
-        seq_dict = {'clock': clock,'laser': laser}
+        
+        sequence.setDigital(self.channel_dict['clock'], clock)
+        sequence.setDigital(self.channel_dict['laser'], laser)
         if mode == 'QAM':
-            seq_dict['Q'] = mwQ
-            seq_dict['I'] = mwI
+            sequence.setAnalog(0, mwQ)
+            sequence.setAnalog(1, mwI)
         elif mode == 'AM':
-            seq_dict['Q'] = mwQ
+            sequence.setAnalog(0, mwQ)
         elif mode == 'NoMod':
             pass
 
         if switch:
-            seq_dict['switch'] = switch
+            sequence.setDigital(self.channel_dict['switch'], switch)
 
-        return seq_dict
-
+        return sequence
 
     def setup_LPvT(self, ns_read_time, ns_clock_time, freq_array, num_freq = 4):
         print('ns_read_time: ', ns_read_time)

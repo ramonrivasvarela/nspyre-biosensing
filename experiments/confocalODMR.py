@@ -214,16 +214,16 @@ class ConfocalODMR():
         
         self.ns_pulsewait_time = 0 #time to wait after each run. Not yet implemented as a parameter.
         
-        ## Prepare sequence
+        ## Prepare sequence | Needs to be adjusted because our understanding of the best way to deal
+        ## with the sequence has changed. That's why it looks a bit awkward. 
         if self.ns_cooldown_time == 0 and self.ns_pulsewait_time == 0:
             self.ODMR_label = [1, 0] # sig, bg
             if self.VERBOSE: print('ODMR, no wait time')
-            seq_dict = mgr.Pulser.setup_no_wait(self.ns_laser_lag, self.ns_probe_time, self.ns_clock_duration, runs, mode, use_switch)
+            self.seq = mgr.Pulser.ODMRNoWait(self.ns_laser_lag, self.ns_probe_time, self.ns_clock_duration, runs, mode, use_switch)
         else:
             self.ODMR_label = [1, 'x', 0, 'x'] # sig, discard, bg, discard
             if self.VERBOSE: print('ODMR, with wait time')
-            seq_dict = mgr.Pulser.setup_ODMR_wait(self.ns_laser_lag, self.ns_probe_time, self.ns_clock_duration, self.ns_cooldown_time, runs, mode, use_switch)
-        self.seq = mgr.Pulser.make_seq(**seq_dict)
+            self.seq = mgr.Pulser.ODMRWithWait(self.ns_laser_lag, self.ns_probe_time, self.ns_clock_duration, self.ns_cooldown_time, runs, mode, use_switch)
         if self.VERBOSE:
             import pickle, os
             print(f'saving sequence to seq.pkl in {os.getcwd()}')

@@ -75,11 +75,11 @@ class DLnsec:
         answer = self.read(b'*IDN')
         return str(answer)
 
-    def power_settings(self):
+    def get_power(self):
         answer = self.read(b'PWR?')
-        print('answer:', answer)
-        print(type(answer))
-        self.powerset = int(answer)
+        # print('answer:', answer)
+        # print(type(answer))
+        # self.powerset = int(answer)
         return int(answer)
         #import pdb; pdb.set_trace()
         # print('power settings:')
@@ -98,7 +98,7 @@ class DLnsec:
         #return self.read(b'PWR?')
         #return self.serial.readline().strip().decode()
         
-    def power_settings(self, value):
+    def set_power(self, value):
         strn = 'PWR' + '{:0d}'.format(int(value))
         print(strn)
         self.write(strn.encode())
