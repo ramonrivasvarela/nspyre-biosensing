@@ -3,7 +3,7 @@ import numpy as np
 
 from nspyre import ExperimentWidget
 from pyqtgraph.Qt import QtWidgets
-from PyQt6.QtWidgets import QSpinBox, QLineEdit, QCheckBox
+from PyQt6.QtWidgets import QSpinBox, QLineEdit, QCheckBox, QComboBox
 
 
 import pyqtgraph as pg
@@ -22,18 +22,36 @@ class PicturesWidget(ExperimentWidget):
 
         single_picture_cb = QCheckBox()
         single_picture_cb.setChecked(True)
+
+        routine_combo = QComboBox()
+        routine_combo.addItems(['Full Picture', 'ROI Pictures', 'Autofocus', 'Optimize Gain'])
+        routine_combo.setCurrentText('Full Picture')
+
         params_config={
             'readout_time': {
-                'display_text': 'Readout Time (External Trigger Only)',
+                'display_text': 'Readout Time ',
                 'widget': pg.SpinBox(value=0.015, bounds=(0, 1), suffix='s', siPrefix=True, dec=True)
             },
             'trigger_time': {
-                'display_text': 'Trigger Time (External Trigger Only)',
+                'display_text': 'Trigger Time ',
                 'widget': pg.SpinBox(value=0.01, bounds=(0, 1), suffix='s', siPrefix=True, dec=True)
             },
             'buffer_time': {
-                'display_text': 'Buffer Time (External Trigger Only)',
+                'display_text': 'Buffer Time ',
                 'widget': pg.SpinBox(value=0.005, bounds=(0, 1), suffix='s', siPrefix=True, dec=True)
+            },
+            'routine': {
+                'display_text': 'Routine',
+                'widget': routine_combo
+            },
+            'ROI': {
+                'display_text': 'ROI',
+                'widget': QtWidgets.QLineEdit(),
+                'default': '[(512, 512)]'
+            },
+            'window_size': {
+                'display_text': 'Window Size',
+                'widget': pg.SpinBox(value=16, bounds=(1, 512))
             },
             'picture': {
                 'display_text': 'Data Series',
