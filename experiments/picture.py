@@ -63,6 +63,7 @@ class Pictures(WFSpyrelet):
             time_per_point: time in seconds t
             
         """
+
         with InstrumentManager() as mgr, DataSource(picture) as picture_data:  # +1 to account for signal being a difference of counts
             ret, _ = mgr.Camera.get_status()
             if ret != 20002:  # 20002 means "Camera is currently acquiring data"
@@ -111,14 +112,14 @@ class Pictures(WFSpyrelet):
             elif self.trigger_mode == 'External' or self.trigger_mode == 'External Exposure (Bulb)':
                 self.acquisition_mode=mgr.Camera.acquisition_mode
                 if self.acquisition_mode == 'Kinetics' or self.acquisition_mode == 'Fast Kinetics':
-                    self.num_pictures=int(mgr.Camera.number_kinetics*1e9)
+                    self.num_pictures=int(mgr.Camera.number_kinetics)
                 elif self.acquisition_mode == 'Single Scan':
                     self.num_pictures=1
                 elif self.acquisition_mode == 'Run Till Abort':
                     print('WARNING: This function is not implemented for Run Till Abort mode.')
                     return
                 elif self.acquisition_mode == "Accumulate":
-                    self.num_pictures=int(mgr.Camera.number_accumulations*1e9)
+                    self.num_pictures=int(mgr.Camera.number_accumulations) # Untested
                 self.exp_time=int(mgr.Camera.exposure_time*1e9)
                 self.readout_time=int(readout_time*1e9)
                 self.trigger_time=int(trigger_time*1e9)
@@ -136,13 +137,15 @@ class Pictures(WFSpyrelet):
                     if self.readout_time<0.005 * 1e9:
                         print('WARNING readout time should be at least 5 ms even with frame transfer, experiment may fail ')
                 self.pic_seq=mgr.Pulser.WF_prep_gain_seq(n=self.num_pictures, exp=self.exp_time, read=self.readout_time, trig=self.trigger_time, buff=self.buffer_time)
-                img_data=self.img_1D_to_2D(self.GetPicSimple(mgr, self.pic_seq, self.num_pictures, self.x_len, self.y_len))
+                data_1D=self.GetPicBare(mgr, self.pic_seq, self.num_pictures)
+                print(len(data_1D))
                 data_dic={}
-                for i in range(int(self.num_pictures)):
-                    data_dic[f'image_{i}'] = img_data[i]
+                for i, img_1D in enumerate(data_1D):
+                    img_data=self.img_1D_to_2D(img_1D, x_len, y_len)
+                    data_dic[f'image_{i}'] = img_data
                     # if zoom:
                     #     data_dic[f'image_{i}'] = data_dic[f'image_{i}'][zoom_y_start:zoom_y_end, zoom_x_start:zoom_x_end]
-                data_dic['latest_image']=img_data[-1]
+                data_dic['latest_image']=img_data
             picture_data.push({
                                 'title': 'Picture',
                                 'xlabel': 'Pixels',

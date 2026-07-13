@@ -45,7 +45,6 @@ Helper Functions:
     = > track_NDs: Uses simple brightest-spot detection to track the locations of NDs across images, with options for search radius.
     = > analyze_sig: Experiment specific. Analyzes the signals from the tracked NDs in a given set of images, returns whatever metrics are relevant for the experiment.
 
-TODO: Plotting functions
 '''
 #### IMPORTS ###############################################################################################
 
@@ -374,6 +373,31 @@ class WFSpyrelet():
             bg_pts = self.trackpy_params.get('bg_pts', [])          # list of background points to include in tracking, in format [(x1,y1), (x2,y2), ...]
             return do_trackpy, r, thresh_sigma, min_distance, buffer, bg_pts
         
+        def GetPicBare(self, mgr, seq, n_pic, im_size = 1024**2, acq_sleep = 0.2, timeout_limit = 200):
+            '''
+            Runs an acquisition of n pictures over a given sequence, returns pictures as a parsed list of 1D arrays of length 'im_size'.
+            Does not assume any prior setup (self variables)
+            '''
+            ## Start 
+            mgr.Camera.start_acquisition()
+            ret = mgr.Camera.get_status()
+            if not ret[0] == 20002:
+                print('Starting Acquisition Failed, ending process...')
+                raise Exception()
+            time.sleep(acq_sleep) #Give time to start acquisition
+            ## Go
+            mgr.Pulser.stream_sequence(seq, 1, AM=False)
+            timeout_counter = 0
+            while(mgr.Camera.get_total_number_images_acquired()[1] < n_pic and timeout_counter <= timeout_limit):
+                time.sleep(0.05)#Might want to base wait time on pulse streamer signal
+                timeout_counter+=1
+                if timeout_counter == timeout_limit:
+                    print(f"timeout with {mgr.Camera.get_total_number_images_acquired()[1]} pictures.")
+            (ret, all_data, _, _) = mgr.Camera.get_images_16(1, n_pic, n_pic * 1024**2)
+            ## Done 
+            parsed_data = [all_data[i*im_size:i*im_size+im_size] for i in range(int(len(all_data)/im_size))]
+            return parsed_data
+
         ## Picture Functions (take pictures)
         def GetPicSimple(self, mgr, seq, n_pic, im_size = 1024**2, no_window = False):
             '''

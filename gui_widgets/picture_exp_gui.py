@@ -6,9 +6,6 @@ from pyqtgraph.Qt import QtWidgets
 from PyQt6.QtWidgets import QSpinBox, QLineEdit, QCheckBox
 
 
-import experiments.picture
-
-
 import pyqtgraph as pg
 
 from special_widgets.heat_map_plot_widget import HeatMapPlotWidget
@@ -19,6 +16,7 @@ get_param_value_funs={
             QSpinBox: lambda w: w.value(),
         }
 
+import experiments.picture
 class PicturesWidget(ExperimentWidget):
     def __init__(self):
 

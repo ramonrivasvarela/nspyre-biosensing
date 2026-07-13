@@ -22,6 +22,8 @@ from gui_widgets import laser_gui
 from gui_widgets import instrument_gui
 from gui_widgets import camera_gui
 from gui_widgets import counts_exp_gui, picture_exp_gui, planescan_exp_gui, confocal_odmr_exp_gui, spatial_feedback_exp_gui, i1i2_exp_gui, temptime_exp_gui, triple_exp_gui, odmrcenter_exp_gui, testing_axis_exp_gui, tracking_gui, wodmr_exp_gui, wI1I2_exp_gui, wf_autofocus_gui, line_scan_fb_exp_gui
+from gui_widgets import multi_blast_exp_gui
+
 
 from nspyre import InstrumentManager
 
@@ -78,37 +80,45 @@ def main():
                 },
                 'Save': MainWidgetItem(nspyre.gui.widgets.save, 'SaveWidget', stretch=(1, 1)),
                 'Load': MainWidgetItem(nspyre.gui.widgets.load, 'LoadWidget', stretch=(1, 1)),
-                'Experiments': {
-                    'Counts vs Time' : MainWidgetItem(counts_exp_gui, 'CountsWidget', stretch=(1, 1)),
+                'Main Experiments': {
                     'Planescan' : MainWidgetItem(planescan_exp_gui, 'PlaneScanWidget', stretch=(1, 1)),
                     'Spatial Feedback': MainWidgetItem(spatial_feedback_exp_gui, 'SpatialFeedbackWidget', stretch=(1, 1)),
                     'Confocal ODMR': MainWidgetItem(confocal_odmr_exp_gui, 'ConfocalODMRWidget', stretch=(1, 1)),
                     'Confocal I1I2': MainWidgetItem(i1i2_exp_gui, 'I1I2Widget', stretch=(1, 1)),
+                    'WFODMR': MainWidgetItem(wodmr_exp_gui, 'wODMRWidget', stretch=(1, 1)),
+                    'wI1I2': MainWidgetItem(wI1I2_exp_gui, 'wI1I2Widget', stretch=(1, 1)),
+                    'Multi Blast': MainWidgetItem(multi_blast_exp_gui, 'MultiBlastWidget', stretch=(1, 1)),
+                    },
+
+                'Main Plotting' : {
+                    'Plane Scan Heat Map': MainWidgetItem(planescan_exp_gui, 'PlaneScanHeatMapWidget', stretch=(1, 1)),
+                    'Tracking Plot': MainWidgetItem(tracking_gui, 'TrackingPlotWidget', stretch=(1, 1)),                    
+                    'Confocal ODMR Plot': MainWidgetItem(confocal_odmr_exp_gui, 'ConfocalODMRPlotWidget', stretch=(1, 1)),
+                    'Confocal I1I2 Plot': MainWidgetItem(i1i2_exp_gui, 'I1I2PlotWidget', stretch=(1, 1)),
+                    'Pictures Heat Map': MainWidgetItem(picture_exp_gui, 'PicturesHeatMapWidget', stretch=(1, 1)),                    
+                    'WFODMR Plot': MainWidgetItem(wodmr_exp_gui, 'wODMRPlotWidget', stretch=(1, 1)),
+                    'wI1I2 Plot': MainWidgetItem(wI1I2_exp_gui, 'wI1I2PlotWidget', stretch=(1, 1)),
+                    'Multi Blast Plot': MainWidgetItem(multi_blast_exp_gui, 'MultiBlastPlotWidget', stretch=(1, 1)),
+                },
+
+                'Other Experiments': {
+                    'WFAutofocus': MainWidgetItem(wf_autofocus_gui, 'WFAutofocusWidget', stretch=(1, 1)),
+                    'Line Scan Feedback': MainWidgetItem(line_scan_fb_exp_gui, 'LineScanFBWidget', stretch=(1, 1)),
+                    # 'Testing Axis': MainWidgetItem(testing_axis_exp_gui, 'TestingAxisWidget', stretch=(1, 1)),
+                    'Counts vs Time' : MainWidgetItem(counts_exp_gui, 'CountsWidget', stretch=(1, 1)),
                     'Confocal TempVsTime': MainWidgetItem(temptime_exp_gui, 'TempTimeWidget', stretch=(1, 1)),
                     'Triple Experiment': MainWidgetItem(triple_exp_gui, 'TripleExperimentWidget', stretch=(1, 1)),
                     'ODMR Center': MainWidgetItem(odmrcenter_exp_gui, 'ODMRCenterWidget', stretch=(1, 1)),
-                    'Testing Axis': MainWidgetItem(testing_axis_exp_gui, 'TestingAxisWidget', stretch=(1, 1)),
-                    'WFODMR': MainWidgetItem(wodmr_exp_gui, 'wODMRWidget', stretch=(1, 1)),
-                    'wI1I2': MainWidgetItem(wI1I2_exp_gui, 'wI1I2Widget', stretch=(1, 1)),
-                    'WFAutofocus': MainWidgetItem(wf_autofocus_gui, 'WFAutofocusWidget', stretch=(1, 1)),
-                    'Line Scan Feedback': MainWidgetItem(line_scan_fb_exp_gui, 'LineScanFBWidget', stretch=(1, 1)),
-                    },
-                
-                'Plotting' : {
-                    'Counts Flex Line Plot': MainWidgetItem(counts_exp_gui, 'CountsPlotWidget', stretch=(1, 1)),
-                    'Plane Scan Heat Map': MainWidgetItem(planescan_exp_gui, 'PlaneScanHeatMapWidget', stretch=(1, 1)),
-                    'Pictures Heat Map': MainWidgetItem(picture_exp_gui, 'PicturesHeatMapWidget', stretch=(1, 1)),
-                    'Confocal ODMR Flex Line Plot': MainWidgetItem(confocal_odmr_exp_gui, 'ConfocalODMRPlotWidget', stretch=(1, 1)),
-                    'Confocal I1I2 Flex Line Plot': MainWidgetItem(i1i2_exp_gui, 'I1I2PlotWidget', stretch=(1, 1)),
-                    'Confocal TempVsTime Flex Line Plot': MainWidgetItem(temptime_exp_gui, 'TempTimePlotWidget', stretch=(1, 1)),
-                    'Testing Axis Flex Line Plot': MainWidgetItem(testing_axis_exp_gui, 'TestingAxisPlotWidget', stretch=(1, 1)),
-                    'ODMR Center Flex Line Plot': MainWidgetItem(odmrcenter_exp_gui, 'ODMRCenterPlotWidget', stretch=(1, 1)),
-                    'ODMR Center Track Plot': MainWidgetItem(odmrcenter_exp_gui, 'ODMRCenterTrackPlotWidget', stretch=(1, 1)),
-                    'Tracking Flex Line Plot': MainWidgetItem(tracking_gui, 'TrackingPlotWidget', stretch=(1, 1)),
-                    'WFODMR Flex Line Plot': MainWidgetItem(wodmr_exp_gui, 'wODMRPlotWidget', stretch=(1, 1)),
-                    'wI1I2 Flex Line Plot': MainWidgetItem(wI1I2_exp_gui, 'wI1I2PlotWidget', stretch=(1, 1)),
+                },
 
+                'Other Plotting': {
+                    'Counts Plot': MainWidgetItem(counts_exp_gui, 'CountsPlotWidget', stretch=(1, 1)),
+                    # 'Testing Axis Flex Line Plot': MainWidgetItem(testing_axis_exp_gui, 'TestingAxisPlotWidget', stretch=(1, 1)),
+                    'ODMR Center Plot': MainWidgetItem(odmrcenter_exp_gui, 'ODMRCenterPlotWidget', stretch=(1, 1)),
+                    'ODMR Center Track Plot': MainWidgetItem(odmrcenter_exp_gui, 'ODMRCenterTrackPlotWidget', stretch=(1, 1)),
+                    'Confocal TempVsTime Plot': MainWidgetItem(temptime_exp_gui, 'TempTimePlotWidget', stretch=(1, 1)),
                 }
+                
             }
         )
 

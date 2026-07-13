@@ -87,7 +87,11 @@ class SpatialFeedback():
             self.initialize(mgr, initial_position, starting_point, counter_already_exists, n_points, probe_time)
             ## Prepare tracking variables
             center = self.init_position.copy()
+            dataXAfter=0
+            dataYAfter=0
+            dataZAfter=0
             print('starting point:', center['x'], center['y'], center['z'])
+            xyz_step = xyz_step
             
             counter = 0
             #import pdb; pdb.set_trace()
@@ -108,20 +112,133 @@ class SpatialFeedback():
                 ## in z, I add a hidden 20 nm to the step, becaue it has a different sensitivity
                 ## than x and y, thanks to the rayleigh length.
                 if do_z:
-                    self.track_1D(mgr, 'z', center, probe_time * n_points, xyz_step, X_pos, Y_pos, Z_pos, fluorescence, time_initial, params, ds, total_fb_time, counter_already_exists)
-                    print('\n z scanned:', center['x'], center['y'], center['z'])
+                    for e in [1, -1]:
+                        keepGoing = True
+                        dataZBefore = self.read(mgr)
+                        print('\n DataZBefore:', dataZBefore)
+                        while(keepGoing):
+                            mgr.DAQcontrol.move({'x': x_center, 'y': y_center, 'z': z_center + e * (xyz_step + .02)})
+                            dataZAfter = self.read(mgr)
+                            time_current=time.time()
+                            print('\n DataZAfter:', dataZAfter)
+                            if dataZAfter < dataZBefore:
+                                keepGoing = False
+                                mgr.DAQcontrol.move({'x': x_center, 'y': y_center, 'z': z_center})
+                            else:
+                                z_center = z_center + e * (xyz_step + .02)
+                                dataZBefore = dataZAfter
+                            X_pos.append(np.array([np.array([time_current-time_initial]),np.array([x_center])]))
+                            Y_pos.append(np.array([np.array([time_current-time_initial]),np.array([y_center])]))
+                            Z_pos.append(np.array([np.array([time_current-time_initial]),np.array([z_center])]))
+                            fluorescence.append(np.array([np.array([time_current-time_initial]),np.array([dataZAfter])]))
+
+                            X_pos.updated_item(-1)
+                            Y_pos.updated_item(-1)
+                            Z_pos.updated_item(-1)
+                            fluorescence.updated_item(-1)
+                            ds.push({
+                            'params': params,
+                            'title': 'Spatial Feedback Tracking',
+                            'xlabel': 'Time (s)',
+                            'datasets': {'x_pos' : X_pos,
+                                        'y_pos' : Y_pos,
+                                        'z_pos' : Z_pos,
+                                        'total_fluor': fluorescence,
+                                        }
+                            })
+                            if experiment_widget_process_queue(self.queue_to_exp) == 'stop' or (total_fb_time > 0 and time.time() - time_initial >= total_fb_time):
+                                # the GUI has asked us nicely to exit
+                                self.finalize(mgr, counter_already_exists)
+                                return
+                    print('\n z scanned:', x_center, y_center, z_center)
+                        
                 #######################################################################################
                 #####                                  x scan                                    ######
                 #######################################################################################
-                self.track_1D(mgr, 'x', center, probe_time * n_points, xyz_step, X_pos, Y_pos, Z_pos, fluorescence, time_initial, params, ds, total_fb_time, counter_already_exists)
-                print('\n x scanned:', center['x'], center['y'], center['z'])
+                for e in [1, -1]:
+                    keepGoing = True
+                    dataXBefore = self.read(mgr)
+                    print('\n DataXBefore:', dataXBefore)
+                    while(keepGoing):
+                        mgr.DAQcontrol.move({'x': x_center + e * xyz_step, 'y': y_center, 'z': z_center})
+                        dataXAfter = self.read(mgr)
+                        time_current=time.time()
+                        print('\n DataXAfter:', dataXAfter)
+                        if dataXAfter < dataXBefore:
+                            keepGoing = False
+                            mgr.DAQcontrol.move({'x': x_center, 'y': y_center, 'z': z_center})
+                        else:
+                            x_center = x_center + e * xyz_step
+                            dataXBefore = dataXAfter
+                        X_pos.append(np.array([np.array([time_current-time_initial]),np.array([x_center])]))
+                        Y_pos.append(np.array([np.array([time_current-time_initial]),np.array([y_center])]))
+                        Z_pos.append(np.array([np.array([time_current-time_initial]),np.array([z_center])]))
+                        fluorescence.append(np.array([np.array([time_current-time_initial]),np.array([dataXAfter])]))
+                        X_pos.updated_item(-1)
+                        Y_pos.updated_item(-1)
+                        Z_pos.updated_item(-1)
+                        fluorescence.updated_item(-1)
+                        ds.push({
+                            'params': params,
+                            'title': 'Spatial Feedback Tracking',
+                            'xlabel': 'Time (s)',
+                            'datasets': {'x_pos' : X_pos,
+                                        'y_pos' : Y_pos,
+                                        'z_pos' : Z_pos,
+                                        'total_fluor': fluorescence,
+                                        }
+                        })
+                        if experiment_widget_process_queue(self.queue_to_exp) == 'stop' or (total_fb_time > 0 and time.time() - time_initial >= total_fb_time):
+                            # the GUI has asked us nicely to exit
+                            self.finalize(mgr, counter_already_exists)
+                            return
+                print('\n x scanned:', x_center, y_center, z_center)
                 #######################################################################################
                 #####                                  y scan                                    ######
                 #######################################################################################
-                self.track_1D(mgr, 'y', center, probe_time * n_points, xyz_step, X_pos, Y_pos, Z_pos, fluorescence, time_initial, params, ds, total_fb_time, counter_already_exists)
-                print('\n y scanned:', center['x'], center['y'], center['z'])
+                for e in [1, -1]:
+                    keepGoing = True
+                    dataYBefore = self.read(mgr)
+                    print('\n DataYBefore:', dataYBefore)
+                    while(keepGoing):
+                        # Move via XYZcontrol
+                        mgr.DAQcontrol.move({'x': x_center, 'y': y_center + e * xyz_step, 'z': z_center})
+                        dataYAfter = self.read(mgr)
+                        time_current=time.time()
+                        print('\n DataYAfter:', dataYAfter)
+                        if dataYAfter < dataYBefore:
+                            keepGoing = False
+                            # Move back via XYZcontrol
+                            mgr.DAQcontrol.move({'x': x_center, 'y': y_center, 'z': z_center})
+                        else:
+                            y_center = y_center + e * xyz_step
+                            dataYBefore = dataYAfter
+                        X_pos.append(np.array([np.array([time_current-time_initial]),np.array([x_center])]))
+                        Y_pos.append(np.array([np.array([time_current-time_initial]),np.array([y_center])]))
+                        Z_pos.append(np.array([np.array([time_current-time_initial]),np.array([z_center])]))
+                        fluorescence.append(np.array([np.array([time_current-time_initial]),np.array([dataYAfter])]))
+                        X_pos.updated_item(-1)
+                        Y_pos.updated_item(-1)
+                        Z_pos.updated_item(-1)
+                        fluorescence.updated_item(-1)
+                        ds.push({
+                            'params': params,
+                            'title': 'Spatial Feedback Tracking',
+                            'xlabel': 'Time (s)',
+                            'datasets': {'x_pos' : X_pos,
+                                        'y_pos' : Y_pos,
+                                        'z_pos' : Z_pos,
+                                        'total_fluor': fluorescence,
+                                        }
+                        })
+                        if experiment_widget_process_queue(self.queue_to_exp) == 'stop' or (total_fb_time > 0 and time.time() - time_initial >= total_fb_time):
+                            # the GUI has asked us nicely to exit
+                            self.finalize(mgr, counter_already_exists)
+                            return
+                print('\n y scanned:', x_center, y_center, z_center)
                 counter += 1
-                if counter % shrink_every_x_iter == 0:
+                if counter >= shrink_every_x_iter:
+                    counter = 0
                     xyz_step = xyz_step / 2
                 if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
                     # the GUI has asked us nicely to exit
@@ -132,21 +249,21 @@ class SpatialFeedback():
             print("final position:", mgr.DAQcontrol.get_position())
             self.finalize(mgr, counter_already_exists)
 
-    def track_1D(self, mgr, var, center, integration_time, xyz_step, X_pos, Y_pos, Z_pos, fluorescence, time_initial, params, ds, total_fb_time, counter_already_exists):
+    def track_1D(self, mgr, var, center, xyz_step, X_pos, Y_pos, Z_pos, fluorescence, time_initial, params, ds, total_fb_time, counter_already_exists):
         '''
         in 1D along var {'x', 'y', 'z'}, move in positive and negative directions until the 
         signal decreases, then return to the maximum position.
         '''
         for e in [1, -1]:
-            dataBefore = self.read(mgr, self.pulse_sequence, integration_time)
+            dataBefore = self.read(mgr)
             print(f'\n Data {var} Before:', dataBefore)
             keepGoing = True
             while keepGoing:
                 next_x = center['x'] + e * xyz_step if var == 'x' else center['x']
                 next_y = center['y'] + e * xyz_step if var == 'y' else center['y']
-                next_z = center['z'] + e * (xyz_step + 0.02) if var == 'z' else center['z'] # add 20 nm to z step because of different sensitivity
+                next_z = center['z'] + e * xyz_step if var == 'z' else center['z']
                 mgr.DAQcontrol.move({'x': next_x, 'y': next_y, 'z': next_z})
-                dataAfter = self.read(mgr, self.pulse_sequence, integration_time)
+                dataAfter = self.read(mgr)
                 time_current = time.time() - time_initial
                 print(f'\n Data {var} After:', dataAfter)
                 if dataAfter < dataBefore:
@@ -180,12 +297,12 @@ class SpatialFeedback():
                          'total_fluor': fluorescence,
                         }})
 
-    def read(self, mgr, seq, integration_time = 1):
+    def read(self, mgr):
         mgr.DAQcontrol.start_counter()
         time.sleep(0.01)
-        mgr.Pulser.stream_sequence(seq, 1)
+        mgr.Pulser.stream_sequence(self.pulse_sequence, 1)
         # mgr.DAQcontrol.read()
-        data = mgr.DAQcontrol.read_to_data()/integration_time
+        data = mgr.DAQcontrol.read_to_data()
         return data
     
     ## Not sure why this exists - David
@@ -215,7 +332,7 @@ class SpatialFeedback():
         current_position = mgr.DAQcontrol.get_position()
         self.init_position = current_position
         ## init seq
-        self.pulse_sequence = mgr.Pulser.count_confocal(ns_probe_time, ns_clock_time, self.ns_laser_lag, n_points)
+        self.pulse_sequence = self.mgr.Pulser.count_confocal(ns_probe_time, ns_clock_time, self.ns_laser_lag, n_points)
         return
     ## FINALIZATION ##########################################################################
     def finalize(self, mgr, counter_already_exists):

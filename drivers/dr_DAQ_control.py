@@ -51,6 +51,7 @@ class DAQCounter:
                     'ctr3': 'PFI5',
         }
         self.sampling_rate = 0 # TEMPORARY
+        self.acq_rate  = acq_rate # Not sure why this exists separately. This is what happens when you cobble together code...
         self.clk_channel = '/' + dev + '/' + clk_pfi
         self.ctr_channel = '/' + dev + '/' + apd_ctr
         self.pfi_channel = '/' + dev + '/' + self.ctrs_pfis[apd_ctr] 
@@ -58,7 +59,6 @@ class DAQCounter:
             'x': NIDAQAxis(dev+'/' + x_ch, 0.73 / 11.42, limits=(-114.2 / 0.73, 114.2 / 0.73)),  # Calibration: V/um
             'y': NIDAQAxis(dev+'/' + y_ch, 1 / 11.42, limits=(-114.2, 114.2)),  # Calibration: V/um
             'z': NIDAQAxis(dev+'/' + z_ch, 1 / 25, limits=(0, 250)) }
-        self.acq_rate  = acq_rate
         self.ao_motion_task = None
         self.position  = {name: 0 for name in self.axes}
         self.initialize_motion()
@@ -141,6 +141,9 @@ class DAQCounter:
         
 
     def prepare_counting(self, sampling_rate=None, n_points=None, bounded_sample=True):
+        '''
+        
+        '''
         ## Set up the clock channel.
         if sampling_rate is not None:
             self.set_sampling_rate(sampling_rate)
@@ -221,7 +224,7 @@ class DAQCounter:
         if self.ctr_buffer is None:
             raise ValueError("Buffer is not initialized.")
         all_data = np.array(self.ctr_buffer[1:] - self.ctr_buffer[0:-1])
-        data = np.sum(all_data)*self.sampling_rate/ (2*(self.n_samples+1) )
+        data = np.sum(all_data) # *self.sampling_rate/ (2*(self.n_samples+1) ) <--- Why did we have this? Seems to be normalization, but that should be probe-time dep, not necessarily sampling rate.
         return data
 
     def read_to_data(self, timeout=10.0):

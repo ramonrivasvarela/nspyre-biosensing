@@ -69,7 +69,7 @@ class CameraWidget(QWidget):
             siPrefix=True,
             dec=True,
         )
-        self.exp_input.editingFinished.connect(lambda: self.change_settings(self.exp_input, self.camera.set_exposure_time, self.exp_input.secvalue))
+        self.exp_input.editingFinished.connect(lambda: self.change_settings(self.exp_input, self.camera.set_exposure_time, self.exp_input.value()))
 
         # Shutter
         self.shutter_label = QLabel("Shutter:")

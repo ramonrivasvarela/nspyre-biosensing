@@ -8,15 +8,14 @@ from pyqtgraph.Qt import QtWidgets
 from PyQt6.QtWidgets import QSpinBox, QLineEdit, QCheckBox, QComboBox
 from pyqtgraph import SpinBox
 
-import experiments.confocalODMR
 import sys
 
 import pyqtgraph as pg
 
-
 cmap = pg.colormap.get('viridis')  
 
 MAXIMUM=2147483647 # There has to be a better way...
+import experiments.confocalODMR
 class ConfocalODMRWidget(ExperimentWidget):
     def __init__(self):
         from PyQt6.QtWidgets import QLineEdit, QSpinBox, QCheckBox, QComboBox
@@ -239,8 +238,10 @@ class ConfocalODMRWidget(ExperimentWidget):
             'confocal_odmr',
             title='Confocal ODMR'
         )
+
+
 def process_ODMR_data(sink: DataSink):
-    """Subtract the signal from background trace and add it as a new 'diff' dataset."""
+    """Divides the signal from background trace and add it as a new 'div' dataset."""
     div_sweeps = []
     for s,_ in enumerate(sink.datasets['signal']):
         freqs = sink.datasets['signal'][s][0]
@@ -248,7 +249,6 @@ def process_ODMR_data(sink: DataSink):
         bg = sink.datasets['background'][s][1]
         div_sweeps.append(np.stack([freqs, sig / bg]))
     sink.datasets['div'] = div_sweeps
-    
 
 class ConfocalODMRPlotWidget(FlexLinePlotWidget):
     """Add some default settings to the FlexSinkLinePlotWidget."""

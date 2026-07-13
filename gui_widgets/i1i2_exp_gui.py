@@ -2,7 +2,6 @@ import numpy as np
 from PyQt6.QtWidgets import QLineEdit, QSpinBox, QCheckBox, QComboBox
 from pyqtgraph import SpinBox
 from PyQt6.QtWidgets import QLineEdit
-import experiments.i1i2
 from nspyre import ExperimentWidget
 from special_widgets.flex_line_plot_widget_fitting import FlexLinePlotWidget
 import pyqtgraph as pg
@@ -10,7 +9,7 @@ import pyqtgraph as pg
 
 
 
-
+import experiments.i1i2
 class I1I2Widget(ExperimentWidget):
     def __init__(self):
 

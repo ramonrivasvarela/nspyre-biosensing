@@ -7,7 +7,6 @@ from pyqtgraph import SpinBox
 from pyqtgraph.Qt import QtWidgets
 from PyQt6.QtWidgets import QSpinBox, QLineEdit, QCheckBox
 from special_widgets import unit_widgets
-import experiments.planescan
 
 
 import pyqtgraph as pg
@@ -17,7 +16,7 @@ from special_widgets.heat_map_plot_widget import HeatMapPlotWidget
 cmap = pg.colormap.get('viridis')  
 
 
-
+import experiments.planescan
 class PlaneScanWidget(ExperimentWidget):
     def __init__(self):
         # Create SpinBoxes and set minimums

@@ -192,146 +192,7 @@ class PulserClass():
         self.Pulser.reset()
         self.record_state([], 0, 0)
 
-    """ End of general functions """
-
-    def I1I2pulse(self,sideband_frequency, ns_read_time, ns_clock_time, runs):
-        # seq, self.new_pulse_time= mgr.Pulser.odmr_temp_calib_no_bg(sideband_frequency, ns_read_time, ns_clock_time)
-        IQleft = [0.355, 0.348]
-        IQright = [0.357, 0.350]
-        itty_bitty_time = 8
-        freq_ns = sideband_frequency/ 1e9
-        multiplier = math.lcm(round((1/freq_ns)),8)
-        new_pulse_time = multiplier * int(ns_read_time/multiplier)
-        print("New pulse time is " + str(new_pulse_time))
-        num_samples = new_pulse_time /  itty_bitty_time
-        print("num_samples is  " + str(num_samples))
-        endpoint = freq_ns * (num_samples - 1) * itty_bitty_time
-
-        pointsAO0 = np.linspace(0., float(endpoint), num = int(num_samples))
-        pointsAO1 = np.linspace(0., float(endpoint), num = int(num_samples))
-        seq_dict={'clock': [], 'laser': [], 'Q':[], 'I':[]}
-        # Note that we have different amplitudes of sine waves for left and right sideband modulations from calibration
-        for i in range(2):
-            if i == 0:
-                analog_ptsAO0, analog_ptsAO1 = np.cos(2*np.pi * pointsAO0), np.sin(2*np.pi * pointsAO1)
-                zip_seqAO0 = [(itty_bitty_time,) * (int(num_samples)), tuple((IQleft[0] * analog_ptsAO0))]
-                zip_seqAO1 = [(itty_bitty_time,) * (int(num_samples)), tuple((IQleft[1] * analog_ptsAO1))]
-
-            elif i == 1:
-                analog_ptsAO0, analog_ptsAO1 = np.sin(2*np.pi * pointsAO0), np.cos(2*np.pi * pointsAO1)
-                zip_seqAO0 = [(itty_bitty_time,) * (int(num_samples)), tuple((IQright[0] * analog_ptsAO0))]
-                zip_seqAO1 = [(itty_bitty_time,) * (int(num_samples)), tuple((IQright[1] * analog_ptsAO1))]
-
-            seq_dict['Q'] += list(zip(*zip_seqAO0))
-            seq_dict['I'] += list(zip(*zip_seqAO1))
-
-            seq_dict['clock'] += [(ns_clock_time, 1), (new_pulse_time - ns_clock_time, 0)]
-            seq_dict['laser'] += [(new_pulse_time, 1)]
-        seq= self.make_seq(**seq_dict)
-        return seq, new_pulse_time
-
-
-    
-    def flip_mirror(self, output=[], i=0, q=0):
-        pulse = [(1000000, [5], 0, 0)]
-        self.Pulser.stream(pulse, final=OutputState(output, i, q))
-        self.record_state(output, i, q)
-
-
-
-    def WFODMR(self, runs, ns_exp_time, ns_readout_time, trig = 10000000, buff = 5000000, mode = 'QAM', FT = True): 
-        '''
-        Fully generalized WFODMR code.
-
-        TIME inputs in ns
-
-        mode: QAM for vector modulation (IQ mixer)
-        mode: AM for analog modulation of amplitude
-        mode: SWITCH is AM mode but modulation is done entirely via a separate switch. There is no double modulation mode (AM+Switch), yet. 
-        '''        
-        if not FT:
-            trig = ns_exp_time
-        pulse_len = ns_exp_time+buff+ns_readout_time
-        cam_off = ns_exp_time + ns_readout_time + buff - trig
-
-        experiment = self.Pulser.createSequence()
-
-        #### INITIAL THROWAWAY PULSE
-        laser = [(pulse_len,0)]
-        cam = [(trig,1), (cam_off,0)] #Check if need a lag for the camera
-        if(mode == 'QAM'):
-            mwI = [(pulse_len, self.IQ0[0])]
-            mwQ = [(pulse_len, self.IQ0[1])]
-            mwOnOff_mwI = [(ns_exp_time, self.IQpx[0]), (pulse_len + ns_readout_time + buff, self.IQ0[0])]
-            mwOnOff_mwQ = [(ns_exp_time, self.IQpx[1]), (pulse_len + ns_readout_time + buff, self.IQ0[1])]
-        elif(mode == 'AM'):
-            ## NOTE IT SAYS mwI but it's actually Q that's plugged into A0
-            mwI = [(pulse_len, -1)]
-            mwOnOff_mwI = [(ns_exp_time, 0), (pulse_len + ns_readout_time + buff, -1)]
-        elif(mode == 'SWITCH'):
-            mwI = [(pulse_len, 0)]
-            mwOnOff_mwI = [(2*pulse_len, 0)]
-            switch = [(pulse_len, 1)]
-            switchOnOff = [(ns_exp_time,0),(pulse_len+buff+ns_readout_time,1)]
-
-        #### MAIN SEQUENCE
-
-        cam_seq = [(trig,1), (cam_off,0)]
-        laser_seq = [(ns_exp_time,1),(buff+ns_readout_time,0)]
-        for i in range(runs):        
-            #laser += mwOnOff_laser
-            mwI += mwOnOff_mwI
-            if mode == 'QAM':
-                mwQ += mwOnOff_mwQ
-            elif mode == 'SWITCH':
-                switch += switchOnOff
-            cam += cam_seq + cam_seq
-            laser += laser_seq + laser_seq
-
-
-        experiment.setDigital(self.channel_dict['488'], laser)
-        experiment.setDigital(self.channel_dict['camera'], cam)
-        experiment.setAnalog(0, mwI)
-        if (mode == 'QAM'):
-            experiment.setAnalog(1, mwQ)   
-        elif (mode =='SWITCH'):
-            experiment.setDigital(self.channel_dict['switch'], switch)
-
-
-        
-        print('Finished setting up pulse sequence')
-        print('self.sequence data:',  experiment.getData())
-        #self.plotSeq(self.sequence.getData(),'CWUriMRnew')
-        #self.plotSeq(dchans,achans,dpatterns,apatterns,'CWUriMRnew') #works
-        return experiment
-    
-    def pulse_setup(self, runs, mode,cam_trigger, ns_exp_time, ns_readout_time):#, mw_duty, mw_rep):
-        #print('\n using sequence without wait time')
-        seqs=[]
-        if cam_trigger == 'EXTERNAL_EXPOSURE':
-            seqs.append(self.WFODMR(runs, ns_exp_time, ns_readout_time,  mode = mode, FT = False))#, mw_duty = mw_duty, mw_rep = mw_rep))
-        else:
-            seqs.append(self.WFODMR(runs, ns_exp_time, ns_readout_time,10000000,5000000,mode))#, mw_duty = mw_duty, mw_rep = mw_rep))
-        return seqs
-    
-    def pulse_for_widefield(self, runs, mode, cam_trigger, ns_exp_time, ns_readout_time, AM_mode = True, switch_mode = True):
-        """
-        Pulse sequence for widefield imaging.
-        """
-        if cam_trigger == 'EXTERNAL_EXPOSURE':
-            pulse=self.WFODMR(runs, ns_exp_time, ns_readout_time,  mode = mode, FT = False)#, mw_duty = mw_duty, mw_rep = mw_rep))
-        else:
-            pulse=self.WFODMR(runs, ns_exp_time, ns_readout_time,10000000,5000000,mode)#, mw_duty = mw_duty, mw_rep = mw_rep))
-        digital_set = []
-        if switch_mode:
-            digital_set.append(self.channel_dict['switch'])
-        analog_set = 0
-        if AM_mode:
-            analog_set = -1
-        self.Pulser.stream(pulse,runs, final = OutputState(digital_set, analog_set,0))
-        self.record_state(digital_set, analog_set, 0)
-
-# This method is outdated. Make the full sequence in the dr_pulse.py file and return the reference.
+    # DEPRECATED: This method is outdated. Make the full sequence in the dr_pulse.py file and return the reference.
     def make_seq(self, clock = None, camera = None, laser_405 =  None, laser_488 = None, laser_647 = None, mirror = None, switch = None, laser = None, Q = None, I = None):
         seq = self.Pulser.createSequence()
         if clock is not None:
@@ -355,6 +216,24 @@ class PulserClass():
         if I is not None:
             seq.setAnalog(1, I)
         return seq
+
+
+    ######################### End of general functions #############################################
+    def flip_mirror(self, output=[], i=0, q=0):
+        pulse = [(1000000, [5], 0, 0)]
+        self.Pulser.stream(pulse, final=OutputState(output, i, q))
+        self.record_state(output, i, q)
+
+    def count_confocal(self, ns_probe_time, ns_clock_time, ns_laser_lag, n_points):
+        sequence = self.Pulser.createSequence()
+        ## Setup ticks
+        clock_tick = [(ns_clock_time, 1), (ns_probe_time - ns_clock_time, 0)]
+        laser = [(ns_laser_lag, 1)] + [(ns_probe_time * (n_points), 1)] + [(ns_clock_time, 1)]
+        clock = [(ns_laser_lag, 0)] + clock_tick * n_points + [(ns_clock_time, 1)]
+
+        sequence.setDigital(self.channel_dict['laser'], laser)
+        sequence.setDigital(self.channel_dict['clock'], clock)
+        return sequence
 
     def ODMRHeatDissipation_OLD(self, ns_read_time, ns_clock_duration, ns_laser_lag, runs ,  wait_time):  
         #Developed by Tian-Xing at 20230720, for trainsent ODMR on WSP, for avoiding the Singlet Fission
@@ -495,6 +374,15 @@ class PulserClass():
         #self.plotSeq(dchans,achans,dpatterns,apatterns,'CWUriMRnew') #works
         return self.sequence
     
+    def laser_blast(self, ns_laser_time):
+        '''
+        This function produces a laser blast of ns_laser_time duration. 
+        '''
+        experiment = self.create_sequence()
+        patternLaser = [(ns_laser_time, 1)]
+        experiment.setDigital(self.channel_dict['laser'], patternLaser)
+        return experiment
+
     def odmr_temp_calib_no_bg(self, freq, ns_read_time, ns_clock_time):
         '''
         Shivam: Same as above but with no background measurements for normalization.
@@ -647,7 +535,6 @@ class PulserClass():
 
         return sequence
         
-    ## still need to change this to new method
     def ODMRWithWait(self, ns_laser_lag, ns_probe_time, ns_clock_duration, ns_cooldown_time, ns_pulsewait_time ,runs, mode, switch):
         '''
         Sets up the pulse sequence for ODMR with wait time. Returns the relevant instrument sequences as a dictionary
@@ -793,8 +680,107 @@ class PulserClass():
         pattern = list(zip(*zip_seq))
         return pattern
     
-    ### WF ODMR Sequences
+    def I1I2pulse(self,sideband_frequency, ns_read_time, ns_clock_time, runs):
+        # seq, self.new_pulse_time= mgr.Pulser.odmr_temp_calib_no_bg(sideband_frequency, ns_read_time, ns_clock_time)
+        IQleft = [0.355, 0.348]
+        IQright = [0.357, 0.350]
+        itty_bitty_time = 8
+        freq_ns = sideband_frequency/ 1e9
+        multiplier = math.lcm(round((1/freq_ns)),8)
+        new_pulse_time = multiplier * int(ns_read_time/multiplier)
+        print("New pulse time is " + str(new_pulse_time))
+        num_samples = new_pulse_time /  itty_bitty_time
+        print("num_samples is  " + str(num_samples))
+        endpoint = freq_ns * (num_samples - 1) * itty_bitty_time
 
+        pointsAO0 = np.linspace(0., float(endpoint), num = int(num_samples))
+        pointsAO1 = np.linspace(0., float(endpoint), num = int(num_samples))
+        seq_dict={'clock': [], 'laser': [], 'Q':[], 'I':[]}
+        # Note that we have different amplitudes of sine waves for left and right sideband modulations from calibration
+        for i in range(2):
+            if i == 0:
+                analog_ptsAO0, analog_ptsAO1 = np.cos(2*np.pi * pointsAO0), np.sin(2*np.pi * pointsAO1)
+                zip_seqAO0 = [(itty_bitty_time,) * (int(num_samples)), tuple((IQleft[0] * analog_ptsAO0))]
+                zip_seqAO1 = [(itty_bitty_time,) * (int(num_samples)), tuple((IQleft[1] * analog_ptsAO1))]
+
+            elif i == 1:
+                analog_ptsAO0, analog_ptsAO1 = np.sin(2*np.pi * pointsAO0), np.cos(2*np.pi * pointsAO1)
+                zip_seqAO0 = [(itty_bitty_time,) * (int(num_samples)), tuple((IQright[0] * analog_ptsAO0))]
+                zip_seqAO1 = [(itty_bitty_time,) * (int(num_samples)), tuple((IQright[1] * analog_ptsAO1))]
+
+            seq_dict['Q'] += list(zip(*zip_seqAO0))
+            seq_dict['I'] += list(zip(*zip_seqAO1))
+
+            seq_dict['clock'] += [(ns_clock_time, 1), (new_pulse_time - ns_clock_time, 0)]
+            seq_dict['laser'] += [(new_pulse_time, 1)]
+        seq= self.make_seq(**seq_dict)
+        return seq, new_pulse_time
+    ### WF ODMR Sequences
+    def WFODMR(self, runs, ns_exp_time, ns_readout_time, trig = 10000000, buff = 5000000, mode = 'QAM', FT = True): 
+        '''
+        Fully generalized WFODMR code.
+
+        TIME inputs in ns
+
+        mode: QAM for vector modulation (IQ mixer)
+        mode: AM for analog modulation of amplitude
+        mode: SWITCH is AM mode but modulation is done entirely via a separate switch. There is no double modulation mode (AM+Switch), yet. 
+        '''        
+        if not FT:
+            trig = ns_exp_time
+        pulse_len = ns_exp_time+buff+ns_readout_time
+        cam_off = ns_exp_time + ns_readout_time + buff - trig
+
+        experiment = self.Pulser.createSequence()
+
+        #### INITIAL THROWAWAY PULSE
+        laser = [(pulse_len,0)]
+        cam = [(trig,1), (cam_off,0)] #Check if need a lag for the camera
+        if(mode == 'QAM'):
+            mwI = [(pulse_len, self.IQ0[0])]
+            mwQ = [(pulse_len, self.IQ0[1])]
+            mwOnOff_mwI = [(ns_exp_time, self.IQpx[0]), (pulse_len + ns_readout_time + buff, self.IQ0[0])]
+            mwOnOff_mwQ = [(ns_exp_time, self.IQpx[1]), (pulse_len + ns_readout_time + buff, self.IQ0[1])]
+        elif(mode == 'AM'):
+            ## NOTE IT SAYS mwI but it's actually Q that's plugged into A0
+            mwI = [(pulse_len, -1)]
+            mwOnOff_mwI = [(ns_exp_time, 0), (pulse_len + ns_readout_time + buff, -1)]
+        elif(mode == 'SWITCH'):
+            mwI = [(pulse_len, 0)]
+            mwOnOff_mwI = [(2*pulse_len, 0)]
+            switch = [(pulse_len, 1)]
+            switchOnOff = [(ns_exp_time,0),(pulse_len+buff+ns_readout_time,1)]
+
+        #### MAIN SEQUENCE
+
+        cam_seq = [(trig,1), (cam_off,0)]
+        laser_seq = [(ns_exp_time,1),(buff+ns_readout_time,0)]
+        for i in range(runs):        
+            #laser += mwOnOff_laser
+            mwI += mwOnOff_mwI
+            if mode == 'QAM':
+                mwQ += mwOnOff_mwQ
+            elif mode == 'SWITCH':
+                switch += switchOnOff
+            cam += cam_seq + cam_seq
+            laser += laser_seq + laser_seq
+
+
+        experiment.setDigital(self.channel_dict['488'], laser)
+        experiment.setDigital(self.channel_dict['camera'], cam)
+        experiment.setAnalog(0, mwI)
+        if (mode == 'QAM'):
+            experiment.setAnalog(1, mwQ)   
+        elif (mode =='SWITCH'):
+            experiment.setDigital(self.channel_dict['switch'], switch)
+
+
+        
+        print('Finished setting up pulse sequence')
+        print('self.sequence data:',  experiment.getData())
+        #self.plotSeq(self.sequence.getData(),'CWUriMRnew')
+        #self.plotSeq(dchans,achans,dpatterns,apatterns,'CWUriMRnew') #works
+        return experiment
     
     def WF_prep_I1I2(self, label, exp, read, trig = 10e6, buff = 5e6):
         '''
@@ -868,8 +854,6 @@ class PulserClass():
         experiment.setDigital(self.channel_dict['switch'], switch)
         print('sequence prepared')
         return experiment
-
-
 
     def WF_prep_ODMR(self, label, exp, read, trig = 10000000, buff = 5000000, 
                mode = 'QAM', uw_duty = 1, uw_rep = 50, dim_throwaway = True): 
@@ -982,7 +966,6 @@ class PulserClass():
 
         return experiment
 
-
     def WF_prep_gain_seq(self, n, exp, read, trig = 10000000, buff = 5000000): 
         '''
         Quick n-pulse seq for optimizing gain
@@ -1009,6 +992,31 @@ class PulserClass():
 
         return experiment
 
+    def pulse_setup(self, runs, mode,cam_trigger, ns_exp_time, ns_readout_time):#, mw_duty, mw_rep):
+        #print('\n using sequence without wait time')
+        seqs=[]
+        if cam_trigger == 'EXTERNAL_EXPOSURE':
+            seqs.append(self.WFODMR(runs, ns_exp_time, ns_readout_time,  mode = mode, FT = False))#, mw_duty = mw_duty, mw_rep = mw_rep))
+        else:
+            seqs.append(self.WFODMR(runs, ns_exp_time, ns_readout_time,10000000,5000000,mode))#, mw_duty = mw_duty, mw_rep = mw_rep))
+        return seqs
+    
+    def pulse_for_widefield(self, runs, mode, cam_trigger, ns_exp_time, ns_readout_time, AM_mode = True, switch_mode = True):
+        """
+        Pulse sequence for widefield imaging.
+        """
+        if cam_trigger == 'EXTERNAL_EXPOSURE':
+            pulse=self.WFODMR(runs, ns_exp_time, ns_readout_time,  mode = mode, FT = False)#, mw_duty = mw_duty, mw_rep = mw_rep))
+        else:
+            pulse=self.WFODMR(runs, ns_exp_time, ns_readout_time,10000000,5000000,mode)#, mw_duty = mw_duty, mw_rep = mw_rep))
+        digital_set = []
+        if switch_mode:
+            digital_set.append(self.channel_dict['switch'])
+        analog_set = 0
+        if AM_mode:
+            analog_set = -1
+        self.Pulser.stream(pulse,runs, final = OutputState(digital_set, analog_set,0))
+        self.record_state(digital_set, analog_set, 0)
 
 
 

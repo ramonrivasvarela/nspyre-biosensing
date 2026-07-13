@@ -1,5 +1,3 @@
-import experiments.wODMR
-
 from nspyre import ExperimentWidget
 from pyqtgraph import SpinBox
 from PyQt6.QtWidgets import QCheckBox, QComboBox, QLineEdit, QSpinBox
@@ -9,7 +7,7 @@ from special_widgets.flex_line_plot_widget_fitting import FlexLinePlotWidget
 
 MAXIMUM = 2147483647  # QSpinBox maximum
 
-
+import experiments.wODMR
 class wODMRWidget(ExperimentWidget):
     def __init__(self):
         # Pulse timings
