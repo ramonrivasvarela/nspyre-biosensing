@@ -234,111 +234,123 @@ class wODMRSpyrelet(WFSpyrelet):
             n_bg_pts = self.init_ND_list(mgr, representative_img) # self.ND_list | self.ND_iter | some print statements | runs trackpy if necessary to find NDs.
 
             #### Begin Experiment ################################################################################################################
-            self.init_main_loop(mgr, mode) # Any experiment-specific initialization before main loop, such as defining sequences, running initial sequences, etc.
-            data_dict={}
-            for ND in range(len(self.ND_list)): 
-                data_dict[f'signal_{ND}'] = StreamingList() # initialize empty streaming list for each ND to be added to acquisition dict
-                data_dict[f'background_{ND}'] = StreamingList()
-                data_dict[f'signal_all_{ND}'] = StreamingList()
-            data_dict['z_pos'] = StreamingList() # for tracking z position during experiment, to be added to acquisition dict
-            # if self.window:
-            #     WindowList=StreamingList()
-            n_freqs = len(self.sg_freqs)
-            time_initial= time.time()
-            for sweep in range(sweeps):
-                ## main loop ################################################################################################################
-                self.unsaved_imgs = {} # dict to hold unsaved images for this sweep, key is img name, value is img to save.
-                sig_counts=np.empty(n_freqs)
-                sig_counts[:]=np.nan
-                
-                bg_counts=np.empty(n_freqs)
-                bg_counts[:]=np.nan
-                sig_all_counts=np.empty(n_freqs)
-                sig_all_counts[:]=np.nan
-                for i in range(len(self.ND_list)):
-                    data_dict[f'signal_{i}'].append(np.stack([self.sg_freqs, sig_counts]))
-                    data_dict[f'background_{i}'].append(np.stack([self.sg_freqs, bg_counts]))
-                    data_dict[f'signal_all_{i}'].append(np.stack([self.sg_freqs, sig_all_counts]))
-                for i, f_hz in enumerate(self.sg_freqs):
-                    if verbose: print("frequency: ", f_hz)
-        
-                    mgr.sg.set_frequency(f_hz)
-                    if self.Misc.get('pdb', False): import pdb; pdb.set_trace()
-                    if alt_label:
-                        data_1D = self.GetPic_Alternating(mgr, self.main_seq, self.alt_seq, len(self.label), alt_sleep_time, saving=save_image) # Get data as list of 1D arrays, alternating between two labels
-                    else:
-                        data_1D = self.GetPic(mgr, self.main_seq, len(self.label), saving=save_image) 
-                        # Get data as list of 1D arrays, saving any images during wait if all images are to be saved
-                    # Go through the new data and format it. Add it to unsaved imgs.
-                    current_time = time.time()
-                    data = []
-
-                    for j, img_1D in enumerate(data_1D):
-                        if self.full_label[j] != 't' or self.debug:
-                            img = self.img_1D_to_2D(img_1D, 1024, 1024)
-                            data.append(img)
-                            if save_image in ['raw_images', 'raw_images_safe']:
-                                im_name = f'image_s{sweep+1}_f{i}_{j}'
-                                self.unsaved_imgs[im_name] = img
-                            if save_image == 'raw_images_safe':
-                                self.save_pics()
-                        elif self.debug:
-                            print('DEBUG, ADDING IN T PULSE IMAGES FOR ANALYSIS. CHECKING THAT THEY ARE NOT BEING MISTAKEN FOR REAL SIGNALS.')
-                            img = self.img_1D_to_2D(img_1D, 1024, 1024)
-                            data.append(img)
-
-                    ## Track NDs
-                    self.ND_list, _ = self.track_NDs(self.ND_list, data[-1], r_search=self.r_track, number_bg_pts=n_bg_pts)
-
-                    ## ANALYSIS
-                    output_dict = self.analyze_sig(data)
-                    for ND in range(len(self.ND_list)):
-                        data_dict[f'signal_{ND}'][-1][1][i] = output_dict['sig'][ND]
-                        data_dict[f'signal_{ND}'].updated_item(-1)
-                        data_dict[f'background_{ND}'][-1][1][i] = output_dict['bg'][ND]
-                        data_dict[f'background_{ND}'].updated_item(-1)
-                        # data_dict[f'signal_all_{ND}'][-1][1][i] = output_dict['sig_all'][ND]
-                        # data_dict[f'signal_all_{ND}'].updated_item(-1)
-                    data_dict[f'z_pos'].append(np.array([np.array([current_time-time_initial]),np.array([self.z_pos])]))
-                    data_dict[f'z_pos'].updated_item(-1)
-
+            try: # I hope there's a better way to do this. Asking Evan and Omri - 7/13/26
+                self.init_main_loop(mgr, mode) # Any experiment-specific initialization before main loop, such as defining sequences, running initial sequences, etc.
+                data_dict={}
+                for ND in range(len(self.ND_list)): 
+                    data_dict[f'signal_{ND}'] = StreamingList() # initialize empty streaming list for each ND to be added to acquisition dict
+                    data_dict[f'background_{ND}'] = StreamingList()
+                    data_dict[f'signal_all_{ND}'] = StreamingList()
+                data_dict['z_pos'] = StreamingList() # for tracking z position during experiment, to be added to acquisition dict
+                # if self.window:
+                #     WindowList=StreamingList()
+                n_freqs = len(self.sg_freqs)
+                time_initial= time.time()
+                for sweep in range(sweeps):
+                    ## main loop ################################################################################################################
+                    self.unsaved_imgs = {} # dict to hold unsaved images for this sweep, key is img name, value is img to save.
+                    sig_counts=np.empty(n_freqs)
+                    sig_counts[:]=np.nan
                     
-                    
+                    bg_counts=np.empty(n_freqs)
+                    bg_counts[:]=np.nan
+                    sig_all_counts=np.empty(n_freqs)
+                    sig_all_counts[:]=np.nan
+                    for i in range(len(self.ND_list)):
+                        data_dict[f'signal_{i}'].append(np.stack([self.sg_freqs, sig_counts]))
+                        data_dict[f'background_{i}'].append(np.stack([self.sg_freqs, bg_counts]))
+                        data_dict[f'signal_all_{i}'].append(np.stack([self.sg_freqs, sig_all_counts]))
+                    for i, f_hz in enumerate(self.sg_freqs):
+                        if verbose: print("frequency: ", f_hz)
+            
+                        mgr.sg.set_frequency(f_hz)
+                        if self.Misc.get('pdb', False): import pdb; pdb.set_trace()
+                        if alt_label:
+                            data_1D = self.GetPic_Alternating(mgr, self.main_seq, self.alt_seq, len(self.label), alt_sleep_time, saving=save_image) # Get data as list of 1D arrays, alternating between two labels
+                        else:
+                            data_1D = self.GetPic(mgr, self.main_seq, len(self.label), saving=save_image) 
+                            # Get data as list of 1D arrays, saving any images during wait if all images are to be saved
+                        # Go through the new data and format it. Add it to unsaved imgs.
+                        current_time = time.time()
+                        data = []
 
-                    ## Acquire.
-                    # dependent on process. Example of an acquisition dict.
+                        for j, img_1D in enumerate(data_1D):
+                            if self.full_label[j] != 't' or self.debug:
+                                img = self.img_1D_to_2D(img_1D, 1024, 1024)
+                                data.append(img)
+                                if save_image in ['raw_images', 'raw_images_safe']:
+                                    im_name = f'image_s{sweep+1}_f{i}_{j}'
+                                    self.unsaved_imgs[im_name] = img
+                                if save_image == 'raw_images_safe':
+                                    self.save_pics()
+                            elif self.debug:
+                                print('DEBUG, ADDING IN T PULSE IMAGES FOR ANALYSIS. CHECKING THAT THEY ARE NOT BEING MISTAKEN FOR REAL SIGNALS.')
+                                img = self.img_1D_to_2D(img_1D, 1024, 1024)
+                                data.append(img)
+
+                        ## Track NDs
+                        self.ND_list, _ = self.track_NDs(self.ND_list, data[-1], r_search=self.r_track, number_bg_pts=n_bg_pts)
+
+                        ## ANALYSIS
+                        output_dict = self.analyze_sig(data)
+                        for ND in range(len(self.ND_list)):
+                            data_dict[f'signal_{ND}'][-1][1][i] = output_dict['sig'][ND]
+                            data_dict[f'signal_{ND}'].updated_item(-1)
+                            data_dict[f'background_{ND}'][-1][1][i] = output_dict['bg'][ND]
+                            data_dict[f'background_{ND}'].updated_item(-1)
+                            # data_dict[f'signal_all_{ND}'][-1][1][i] = output_dict['sig_all'][ND]
+                            # data_dict[f'signal_all_{ND}'].updated_item(-1)
+                        data_dict[f'z_pos'].append(np.array([np.array([current_time-time_initial]),np.array([self.z_pos])]))
+                        data_dict[f'z_pos'].updated_item(-1)
+
+                        
+                        
+
+                        ## Acquire.
+                        # dependent on process. Example of an acquisition dict.
 
 
-                    if self.window:
-                        # WindowList.append(np.array([np.array([time.time()-self.t0]),np.array([ls_mx])]))
-                        data_dict['window'] = self.format_windows(mgr, data[-1], focus_bool=focus_bool)
+                        if self.window:
+                            # WindowList.append(np.array([np.array([time.time()-self.t0]),np.array([ls_mx])]))
+                            data_dict['window'] = self.format_windows(mgr, data[-1], focus_bool=focus_bool)[0]
+                            px_x = self.ND_list[0][0]
+                            px_y = self.ND_list[0][1]
+                            xs = np.asarray(range(px_x-self.r_display, px_x+self.r_display))
+                            ys = np.asarray(range(px_y-self.r_display, px_y+self.r_display))
+                        else:
+                            xs = np.asarray(range(0, 1))
+                            ys = np.asarray(range(0, 1))
 
-                    acq_dict = {
-                        'params': params,
-                        'xlabel': 'frequency (Hz)',
-                        'ylabel': 'counts (/s)',
-                        'datasets': data_dict,
-                        'output': {'number_ND':len(self.ND_iter), 
-                        'frequencies': self.sg_freqs, 
-                        'current_sweep': sweep
+                        acq_dict = {
+                            'params': params,
+                            'xlabel': 'frequency (Hz)',
+                            'ylabel': 'counts (/s)',
+                            'datasets': data_dict,
+                            'output': { 'number_ND':len(self.ND_iter), 
+                                        'frequencies': self.sg_freqs, 
+                                        'current_sweep': sweep,
+                            },
+                            'xs': xs,
+                            'ys': ys
                         }
                         
                         
-                    }
+                        data_source.push(acq_dict) # push acquisition dict to data source, which will handle saving and plotting. Note that the data source is separate from the experiment, and can be used across different experiments for consistent saving and plotting.
+                        if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
+                            # the GUI has asked us nicely to exit
+                            self.finalize(mgr,exp_time, readout_time, sweeps, frequencies, gain, rf_amplitude, ROI_xy, alt_label, data_download, shutdown)
+                            return
+                    ###########################################################################
+                    representative_img = img
+                    self.save_after_sweep(img, save_image, sweep)
+                    print(f'Finished sweep {sweep+1}/{sweeps}, time elapsed: {time.time() - self.t0} seconds.')
                     
-                    
-                    data_source.push(acq_dict) # push acquisition dict to data source, which will handle saving and plotting. Note that the data source is separate from the experiment, and can be used across different experiments for consistent saving and plotting.
-                    if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
-                        # the GUI has asked us nicely to exit
-                        self.finalize(mgr,exp_time, readout_time, sweeps, frequencies, gain, rf_amplitude, ROI_xy, alt_label, data_download, shutdown)
-                        return
-                ###########################################################################
-                representative_img = img
-                self.save_after_sweep(img, save_image, sweep)
-                print(f'Finished sweep {sweep+1}/{sweeps}, time elapsed: {time.time() - self.t0} seconds.')
-                
-            self.finalize(mgr,exp_time, readout_time, sweeps, frequencies, gain, rf_amplitude, ROI_xy, alt_label, data_download, shutdown)
-            return
+                self.finalize(mgr,exp_time, readout_time, sweeps, frequencies, gain, rf_amplitude, ROI_xy, alt_label, data_download, shutdown)
+                return
+            except:
+                self.finalize(mgr,exp_time, readout_time, sweeps, frequencies, gain, rf_amplitude, ROI_xy, alt_label, data_download, shutdown)
+                raise
+        
 
     #### FINALIZE HELPER FUNCTIONS ###############################################################################################
     def save_config(self, data_download, sweeps, alt_label, rf_amplitude, frequencies, gain, exp_time, readout_time, ROI_xy):

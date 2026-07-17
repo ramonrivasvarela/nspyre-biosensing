@@ -31,8 +31,8 @@ class MultiBlastWidget(ExperimentWidget):
             'shrink_every_x_iter': {'widget': QSpinBox(), 'display_text': 'Shrink Every X Iterations', 'default': 1, 'min': 1, 'max': 100},
             'probe_time': {'widget': SpinBox(value=0.4, suffix='s', siPrefix=True, dec=True), 'display_text': 'Probe Time (s)'},
             'n_points': {'widget': QSpinBox(), 'display_text': '# of Points for Feedback', 'default': 1, 'min': 1, 'max': 100},
-            'total_fb_time': {'widget': SpinBox(value = 0.0, suffix='s', siPrefix=True, dec=True), 'display_text': 'Total Feedback Time (s)'}
-
+            'total_fb_time': {'widget': SpinBox(value = 0.0, suffix='s', siPrefix=True, dec=True), 'display_text': 'Total Feedback Time (s)'},
+            'dataset': {'widget': QLineEdit(), 'display_text': 'Dataset', 'default': 'MultiBlast'},
         }
 
         super().__init__(

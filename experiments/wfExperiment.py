@@ -559,7 +559,6 @@ class WFSpyrelet():
                 loc = self.ND_list[ND]
                 px_x = loc[0]
                 px_y = loc[1]
-
                 ROI = img[px_y-self.r_display:px_y+self.r_display,px_x-self.r_display:px_x+self.r_display]
                 if ND==0 and focus_bool:
                     self.z_pos = self.autofocus(mgr, ROI, self.r_display)
@@ -685,7 +684,11 @@ class WFSpyrelet():
                 ls_mx.append(np.max(ROI_search))
                 temp_y = int(px_max/(r_search*2)) + px_y - r_search
                 temp_x = px_max%(r_search*2) + px_x - r_search
-                ls_ROI.append((temp_x, temp_y))
+                if temp_x < r_search + 1 or temp_x > 1024 - r_search - 1:
+                    temp_x = px_x # Keep from running out of bounds
+                if temp_y < r_search + 1 or temp_y > 1024 - r_search - 1:
+                    temp_y = px_y # Keep from running out of bounds
+                ls_ROI.append((int(temp_x), int(temp_y)))
             for i in range(number_bg_pts):
                 ls_ROI.append(ND_List[-(i+1)])
             return ls_ROI, ls_mx

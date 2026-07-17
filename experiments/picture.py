@@ -72,6 +72,10 @@ class Pictures(WFSpyrelet):
             trigger_mode=mgr.Camera.trigger_mode
             mgr.Camera.set_shutter("Open") # Open shutter for picture taking
             n_pics = mgr.Camera.number_kinetics
+            if n_pics > 2 and routine == 'Full Picture':
+                print('WARNING: Due to NSpyre DataSink limitations, can only have at most 2 images of full size')
+                n_pics = 2
+                mgr.Camera.set_number_kinetics(n_pics)
             self.z_pos = mgr.DAQcontrol.position['z']
             # if zoom:
             #     if type(zoom_coordinates) == str:
@@ -157,7 +161,7 @@ class Pictures(WFSpyrelet):
             ## Prepare Acquisition Mode
             acquisition_mode=mgr.Camera.acquisition_mode
             if acquisition_mode == 'Kinetics' or acquisition_mode == 'Fast Kinetics':
-                n_pics = int(mgr.Camera.number_kinetics)
+                pass # already set the right amount of n_pics
             elif acquisition_mode == 'Single Scan':
                 n_pics = 1
             elif acquisition_mode == 'Run Till Abort':
