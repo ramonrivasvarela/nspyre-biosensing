@@ -119,7 +119,7 @@ class Pictures(WFSpyrelet):
                         img_data = windows[0] # Need to implement multiple ROIs
                     self.data_dict[f'image_{self.last_pic_n}'] = img_data
                     self.last_pic_n += 1
-                self.data_dict['latest_image'] = img_data    
+                self.data_dict['window'] = img_data    
                 picture_data.push({
                                     'title': 'Picture',
                                     'xlabel': 'Pixels',

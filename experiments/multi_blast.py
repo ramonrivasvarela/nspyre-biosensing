@@ -59,7 +59,7 @@ class MultiBlast(SpatialFeedback):
     ## MAIN EXPERIMENT METHOD ##########################################################
 
     def multi_blast(self, locations, blast_power, duration, feedback, do_z, xyz_step, 
-                    shrink_every_x_iter, probe_time, n_points,  total_fb_time, dataset):
+                    shrink_every_x_iter, probe_time, n_points,  total_fb_time, verbose, dataset):
         """
         Move to several locations and blast using a controlled power (%) for a specified duration (s).
         The locations are specified in a list of tuples, where each tuple contains the x, and y
@@ -78,7 +78,7 @@ class MultiBlast(SpatialFeedback):
             starting_point: The starting point for feedback ('default' or 'current').
             probe_time: The time (s) to probe at each location before blasting.
             initial_position: The initial position (x,y,z) to move to before starting the experiment.
-            n_points: The number of points to blast at each location.
+            n_points: The number of points for feedback at a different location
             total_fb_time: The total time (s) to perform feedback before blasting (default 0.0).
         """
         params={'locations': locations,
@@ -90,8 +90,10 @@ class MultiBlast(SpatialFeedback):
                     'shrink_every_x_iter': shrink_every_x_iter,
                     'probe_time':probe_time,
                     'n_points': n_points,
-                    'total_fb_time': total_fb_time
+                    'total_fb_time': total_fb_time,
+                    'verbose': verbose
                     }
+        self.verbose = verbose
         
         X_pos=StreamingList()
         Y_pos=StreamingList()
@@ -102,112 +104,50 @@ class MultiBlast(SpatialFeedback):
         with InstrumentManager() as mgr, DataSource(dataset) as ds:
             base_power = mgr.DLnsec.get_power()
             _logger.info(f"Base power: {base_power}%")
-            print(locations, type(locations))
             locations = eval(locations)
             cur_loc = mgr.DAQcontrol.get_position()
             if locations is None or len(locations) == 0:
                 locations = [(cur_loc['x'], cur_loc['y'])]
-            loc_0 = {'x': locations[0][0], 'y': locations[0][1], 'z': cur_loc['z']}
-            self.initialize(mgr, initial_position=loc_0, starting_point=loc_0, n_points=n_points, probe_time=probe_time, duration=duration)
+            self.initialize(mgr, n_points=n_points, probe_time=probe_time, duration=duration)
+            super().data_update(X_pos, Y_pos, Z_pos, fluorescence, 0, mgr.DAQcontrol.get_position(), 0, params, ds) # Add (0,0) to create a break 
             for i,loc in enumerate(locations):
                 x, y = loc
+                print(f"\nMoving to location {i+1}/{len(locations)}: ({x}, {y})") # DEBUG
                 mgr.DAQcontrol.move({'x': x, 'y': y, 'z': mgr.DAQcontrol.get_position()['z']})
+                print(f"Current position: {mgr.DAQcontrol.get_position()}") # DEBUG
                 if feedback:
                     _logger.info(f"Performing feedback at location ({x}, {y})...")
-                    self.spatial_feedback(mgr, params, ds, X_pos, Y_pos, Z_pos, fluorescence, do_z=do_z, xyz_step=xyz_step, shrink_every_x_iter=shrink_every_x_iter, probe_time=probe_time, n_points=n_points, total_fb_time=total_fb_time)
-                    self.data_update(X_pos, Y_pos, Z_pos, fluorescence, 0, mgr.DAQcontrol.get_position(), 0, params, ds) # Add (0,0) to create a break for processing
+                    quit_exp = super().spatial_feedback_integrated(X_pos, Y_pos, Z_pos, fluorescence, mgr, ds, do_z=do_z, xyz_step=xyz_step, shrink_every_x_iter=shrink_every_x_iter, probe_time=probe_time, n_points=n_points, total_fb_time=total_fb_time)
+                    if quit_exp: return
+                    super().data_update(X_pos, Y_pos, Z_pos, fluorescence, 0, mgr.DAQcontrol.get_position(), 0, params, ds) # Add (0,0) to create a break for processing
                 else:
                     _logger.info(f"Skipping feedback at location ({x}, {y})... Running quick probe instead.")
                     fluorData = self.read(mgr, self.pulse_sequence, probe_time * n_points)
-                    self.data_update(X_pos, Y_pos, Z_pos, fluorescence, 0, mgr.DAQcontrol.get_position(), fluorData, params, ds) # Add (0,0) to create a break for processing
+                    super().data_update(X_pos, Y_pos, Z_pos, fluorescence, 0, mgr.DAQcontrol.get_position(), fluorData, params, ds) # Add (0,fluorData) 
                 _logger.info(f"Blasting at location ({x}, {y}) with power {blast_power}% for {duration}s...")
                 mgr.DLnsec.set_power(blast_power)
-                mgr.Pulser.stream(self.blast_seq)
-                mgr.DLnsec.set_power(base_power) 
-            self.finalize(mgr)
-
-    def spatial_feedback(self,mgr, params, ds, X_pos, Y_pos, Z_pos, fluorescence, do_z=True, xyz_step=0.05, shrink_every_x_iter=1, starting_point='default', probe_time=0.4, initial_position="(0,0,50)", n_points=1, counter_already_exists=False, total_fb_time=0):
-        '''
-        spatial_feedback, changed to skip initialization, and to allow for datasets to combine
-        '''
-        center = self.init_position.copy()
-        # print('starting point:', center['x'], center['y'], center['z'])
-        
-        counter = 0
-        #import pdb; pdb.set_trace()
-        time_initial=time.time()
-
-        while xyz_step >= 0.01 or total_fb_time != 0.0:
-            ## Z
-            if do_z:
-                self.track_1D(mgr, 'z', center, probe_time * n_points, xyz_step,
-                               X_pos, Y_pos, Z_pos, fluorescence, time_initial,
-                                 params, ds, total_fb_time, counter_already_exists)
-            ## X
-            self.track_1D(mgr, 'x', center, probe_time * n_points, xyz_step,
-                           X_pos, Y_pos, Z_pos, fluorescence, time_initial,
-                             params, ds, total_fb_time, counter_already_exists)
-            ## Y
-            self.track_1D(mgr, 'y', center, probe_time * n_points, xyz_step,
-                           X_pos, Y_pos, Z_pos, fluorescence, time_initial,
-                             params, ds, total_fb_time, counter_already_exists)
-            # print('\n y scanned:', center['x'], center['y'], center['z'])
-            counter += 1
-            if counter % shrink_every_x_iter == 0:
-                xyz_step = xyz_step / 2
-            if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
-                # the GUI has asked us nicely to exit
-                self.finalize(mgr)
-                return
-
-    
-    def track_1D(self, mgr, var, center, integration_time, xyz_step, X_pos, Y_pos, Z_pos, fluorescence, time_initial, params, ds, total_fb_time, counter_already_exists):
-        '''
-        in 1D along var {'x', 'y', 'z'}, move in positive and negative directions until the 
-        signal decreases, then return to the maximum position.
-
-        Changed to redefine exit sequence.
-        '''
-        full_break = False
-        if not (total_fb_time > 0 and time.time() - time_initial >= total_fb_time):
-            for e in [1, -1]:
-                dataBefore = self.read(mgr, self.pulse_sequence, integration_time)
-                print(f'\n Data {var} Before:', dataBefore)
-                keepGoing = True
-                while keepGoing:
-                    next_x = center['x'] + e * xyz_step if var == 'x' else center['x']
-                    next_y = center['y'] + e * xyz_step if var == 'y' else center['y']
-                    next_z = center['z'] + e * (xyz_step + 0.02) if var == 'z' else center['z'] # add 20 nm to z step because of different sensitivity
-                    mgr.DAQcontrol.move({'x': next_x, 'y': next_y, 'z': next_z})
-                    dataAfter = self.read(mgr, self.pulse_sequence, integration_time)
-                    time_current = time.time() - time_initial
-                    print(f'\n Data {var} After:', dataAfter)
-                    if dataAfter < dataBefore:
-                        keepGoing = False
-                        mgr.DAQcontrol.move({'x': center['x'], 'y': center['y'], 'z': center['z']})
-                    else:
-                        center[var] = next_x if var == 'x' else next_y if var == 'y' else next_z
-                        dataBefore = dataAfter
-                    self.data_update(X_pos, Y_pos, Z_pos, fluorescence, time_current, center, dataAfter, params, ds)
+                mgr.Pulser.stream_sequence(self.blast_seq)
+                t_start_wait = time.time()
+                while time.time() - t_start_wait < duration:
+                    time.sleep(1)
                     if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
-                                # the GUI has asked us nicely to exit
-                                self.finalize(mgr, counter_already_exists)
-                                return
-                    elif (total_fb_time > 0 and time.time() - time_initial >= total_fb_time):
-                        full_break = True
-                        break
-                if full_break:
-                    break
+                        # the GUI has asked us nicely to exit
+                        mgr.DLnsec.set_power(base_power) 
+                        self.finalize(mgr)
+                        return
+                mgr.DLnsec.set_power(base_power) 
+                print(f"final position {i+1}/{len(locations)}: ", mgr.DAQcontrol.get_position())
+            self.finalize(mgr)
+            return
 
 
     ## INITIALIZATION AND FINALIZATION
-    def initialize(self,  mgr, initial_position, starting_point, n_points, probe_time, duration):
+    def initialize(self, mgr, n_points, probe_time, duration):
         #Define self.init_position, self.pulse_sequence
-        initial_position_for_spatial_feedback = str((initial_position['x'], initial_position['y'], initial_position['z']))
-        super().initialize(mgr, initial_position_for_spatial_feedback, starting_point, False, n_points, probe_time)
+        super().initialize(mgr, "", "current", False, n_points, probe_time)
         self.blast_seq = mgr.Pulser.laser_blast(duration*1e9)  # Convert duration from seconds to nanoseconds
 
-    def finalize(self, mgr):
+    def finalize(self, mgr): 
         super().finalize(mgr, False)
 
     

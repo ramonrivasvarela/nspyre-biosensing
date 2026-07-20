@@ -60,6 +60,11 @@ class I1I2Widget(ExperimentWidget):
 
         continuous_tracking_cb = QCheckBox()
         continuous_tracking_cb.setChecked(True)
+
+        mode_cb = QComboBox()
+        mode_cb.addItems(['QAM', 'FM'])
+        mode_cb.setCurrentText('QAM')
+
         params_config = {
             'sampling_rate': {
                 'display_text': 'Sampling Rate',
@@ -213,9 +218,9 @@ class I1I2Widget(ExperimentWidget):
                     bounds=(0.1, 10000),
                 )
             },
-            'data_download': {
-                'display_text': 'Data Download',
-                'widget': QCheckBox()
+            'mode': {
+                'display_text': 'Mode',
+                'widget': mode_cb
             },
             'dataset': {
                 'display_text': 'Data Set',

@@ -15,16 +15,16 @@ class Camera():
         self.exposure_time=0.075
         self.accumulation_time=None
         self.kinetic_time=None
-        self.trigger_mode="Internal"
+        self.trigger_mode="External"
         
         self.temperature=20
         self.emccdgain=2
-        self.shutter="Auto"
+        self.shutter="Closed"
         self.cooler_on=False
         self.temperature_goal=18
 
         self.read_mode="Image"
-        self.frame_transfer_mode="OFF"
+        self.frame_transfer_mode="ON"
         self.acquisition_mode="Kinetics"
         self.number_accumulations=1
         self.number_kinetics=1
@@ -287,7 +287,7 @@ class Camera():
             return 20000  # Not initialized
         if type(mode) is str:
             mode = self.convert_string(mode)
-        if mode == "auto" or mode=="automatic" or mode == 0:
+        if mode == "auto" or mode=="automatic" or mode == 0: # Note - Automatic can slow down the camera, causing acquisitions. Use Open, and close when done.
             ret = self.sdk.SetShutter(0, 0, 27, 27)
             mode = "Automatic"
         elif mode == "open" or mode == 1:

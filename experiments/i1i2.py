@@ -75,7 +75,7 @@ class I1I2(ContinuousTracking):
                    continuous_tracking=False, searchXYZ="(0.5, 0.5, 0.5)", max_search="(1, 1, 1)", min_search="(0.1, 0.1, 0.1)", 
                    scan_distance="(0.03, 0.03, 0.05)", changing_search=False, search_PID="(0.5,0.01,0)", 
                    search_integral_history=5, spot_size=400e-9, advanced_tracking=False, 
-                   diffusion_constant=200, data_download=False, dataset='I1I2'):
+                   diffusion_constant=200, mode = "QAM", dataset='I1I2'):
         params={'sampling_rate': sampling_rate,
                 'time_per_sgpoint': time_per_sgpoint,
                 'mwPulseTime': mwPulseTime,
@@ -100,7 +100,7 @@ class I1I2(ContinuousTracking):
                 'spot_size': spot_size,
                 'advanced_tracking': advanced_tracking,
                 'diffusion_constant': diffusion_constant,
-                'data_download': data_download,
+                'mode': mode,
                 'data_source': dataset,}
         with InstrumentManager() as mgr, DataSource(dataset) as data_source:
             self.initialize(mgr, sampling_rate,
@@ -109,7 +109,7 @@ class I1I2(ContinuousTracking):
                    continuous_tracking, searchXYZ, max_search, min_search, 
                    scan_distance,  search_PID, 
                    spot_size, advanced_tracking, 
-                   diffusion_constant)
+                   diffusion_constant, mode)
             freqs, _ = self.process_frequencies(frequencies, sideband_frequency)
             
             I1_sweeps=StreamingList()
@@ -185,10 +185,10 @@ class I1I2(ContinuousTracking):
 
                         if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
                                 # the GUI has asked us nicely to exit
-                                return self.finalize(mgr, data_download, I1_sweeps, I2_sweeps)
+                                return self.finalize(mgr, I1_sweeps, I2_sweeps)
                                 
 
-                return self.finalize(mgr, data_download, I1_sweeps, I2_sweeps)
+                return self.finalize(mgr, I1_sweeps, I2_sweeps)
 
             else:
                 X_search=StreamingList()
@@ -313,11 +313,11 @@ class I1I2(ContinuousTracking):
 
                         if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
                                 # the GUI has asked us nicely to exit
-                                return self.finalize(mgr, data_download, I1_sweeps, I2_sweeps)
+                                return self.finalize(mgr, I1_sweeps, I2_sweeps)
                                 
             
                 # Finalize the experiment after all sweeps are complete  
-                return self.finalize(mgr, data_download, I1_sweeps, I2_sweeps)
+                return self.finalize(mgr, I1_sweeps, I2_sweeps)
 
 
     def initialize(self, mgr, sampling_rate,
@@ -326,7 +326,7 @@ class I1I2(ContinuousTracking):
                    continuous_tracking, searchXYZ, max_search, min_search, 
                    scan_distance,  search_PID, 
                    spot_size, advanced_tracking, 
-                   diffusion_constant):
+                   diffusion_constant, mode):
         
         ### NEW METHOD FOR INITIALIZING USING XYZcontrol- inspired on planescan
         self.ns_time_per_sgpoint = int(round(time_per_sgpoint*1e9))
@@ -343,7 +343,7 @@ class I1I2(ContinuousTracking):
 
         # SHIVAM: CHECK IF I SHOULD ONLY HAVE THIS IF STATIONARY TRACKING
         self.sequence, self.stream_count, self.new_pulse_time = self.ready_pulse_sequence(mgr, mwPulseTime, clockPulseTime,
-                                                                     sb_freq, rf_amplitude)
+                                                                     sb_freq, rf_amplitude, mode)
         if self.VERBOSE:
             print("sequence:", self.sequence)
 
@@ -513,18 +513,24 @@ class I1I2(ContinuousTracking):
         #     return
 
 
-    def ready_pulse_sequence(self, mgr,  mwPulseTime, clockPulse, sideband_frequency, rf_amplitude):
+    def ready_pulse_sequence(self, mgr,  mwPulseTime, clockPulse, sideband_frequency, rf_amplitude, mode):
         ns_read_time = int(round(mwPulseTime*1e9))
         ns_clock_time = int(round(clockPulse*1e9))
 
-    
-        seq, self.new_pulse_time = mgr.Pulser.odmr_temp_calib_no_bg(sideband_frequency, ns_read_time, ns_clock_time)
-        
+        if mode == 'QAM':
+            seq, self.new_pulse_time = mgr.Pulser.odmr_temp_calib_no_bg(sideband_frequency, ns_read_time, ns_clock_time, mode = 'QAM')
+            mgr.sg.set_mod_type('QAM')
+            mgr.sg.set_mod_function('QAM', 'external')
+        elif mode == 'FM':
+            seq, self.new_pulse_time = mgr.Pulser.odmr_temp_calib_no_bg(sideband_frequency, ns_read_time, ns_clock_time, mode = 'FM')
+            mgr.sg.set_mod_type('FM')
+            mgr.sg.set_mod_function('FM', 'external')
+            mgr.sg.set_FM_mod_dev(sideband_frequency)
+
+
         mgr.sg.set_rf_amplitude(rf_amplitude)
-        mgr.sg.set_mod_type('QAM')
-        mgr.sg.set_rf_toggle(1)
         mgr.sg.set_mod_toggle(True)
-        mgr.sg.set_mod_function('QAM', 'external')
+        mgr.sg.set_rf_toggle(1)
         # Shivam: streamer.total_time is from the odmr_temp_calib function from dr_pulsesequences_Sideband
         # And it is the total time for one pulse sequence
         ns_total_time=2*ns_read_time
@@ -553,15 +559,12 @@ class I1I2(ContinuousTracking):
 
         
 
-    def finalize(self, mgr, data_download, I1_sweeps, I2_sweeps):
+    def finalize(self, mgr, I1_sweeps, I2_sweeps):
         mgr.DAQcontrol.finalize_counter()
         self.handle_pulsestreamer(mgr)
 
         # Process I1 and I2 data to extract frequencies and mean values per frequency
         unique_frequencies, sigs_left_mean, sigs_right_mean = self.process_i1_i2_data(I1_sweeps, I2_sweeps)
-
-        if data_download:
-            self.download_excel()
 
         # Shivam: FUTURE IMPROVEMENTS - Currently the proper slope and zero extraction is only implemented for quasilinear_calibration slope
         # The quasilinear_calibration slope normalizes using only on values and no background values and that is what we have chosen to use for now

@@ -312,7 +312,7 @@ class wODMRSpyrelet(WFSpyrelet):
 
                         if self.window:
                             # WindowList.append(np.array([np.array([time.time()-self.t0]),np.array([ls_mx])]))
-                            data_dict['window'] = self.format_windows(mgr, data[-1], focus_bool=focus_bool)[0]
+                            data_dict['latest_image'] = self.format_windows(mgr, data[-1], focus_bool=focus_bool)[0]
                             px_x = self.ND_list[0][0]
                             px_y = self.ND_list[0][1]
                             xs = np.asarray(range(px_x-self.r_display, px_x+self.r_display))

@@ -76,7 +76,6 @@ class ConfocalODMR():
         probe_time: float = 50e-6,
         clock_duration: float = 10e-9,
         timeout: int = 300,
-        use_switch: bool = False,
         # data_download: bool = False,
         feedback: bool = False,
         dozfb: bool = True,
@@ -91,7 +90,7 @@ class ConfocalODMR():
         
         ## Set up key data structures
         INIT_PARAMS = [ runs, mode, frequencies, rf_amplitude, laser_lag, cooldown_time,
-                        probe_time, clock_duration, use_switch, timeout, verbose]
+                        probe_time, clock_duration, timeout, verbose]
         signal=StreamingList()
         background=StreamingList()
 
@@ -106,7 +105,6 @@ class ConfocalODMR():
             'probe_time': probe_time,
             'clock_duration': clock_duration,
             'timeout': timeout,
-            'use_switch': use_switch,
             'feedback': feedback,
             'dozfb': dozfb,
             'sweeps_til_fb': sweeps_til_fb,
@@ -125,7 +123,6 @@ class ConfocalODMR():
             if self.VERBOSE: print('Finished experiment initialization.')
             n_freq = len(self.frequencies)
             self.AM = mode == 'AM'
-            self.SWITCH = use_switch
 
             ###########################
             #### EXPERIMENTAL LOOP ####
@@ -197,7 +194,7 @@ class ConfocalODMR():
     #### INITIALIZATION METHODS
 
     def initialize(self, mgr, runs, mode, frequencies, rf_amplitude, laser_lag, cooldown_time,
-                   probe_time, clock_duration, use_switch, timeout, verbose):
+                   probe_time, clock_duration, timeout, verbose):
         
         ## Prepare spyrelet parameters
         self.VERBOSE = verbose # Add as param, make default False once done debugging
@@ -219,11 +216,11 @@ class ConfocalODMR():
         if self.ns_cooldown_time == 0 and self.ns_pulsewait_time == 0:
             self.ODMR_label = [1, 0] # sig, bg
             if self.VERBOSE: print('ODMR, no wait time')
-            self.seq = mgr.Pulser.ODMRNoWait(self.ns_laser_lag, self.ns_probe_time, self.ns_clock_duration, runs, mode, use_switch)
+            self.seq = mgr.Pulser.ODMRNoWait(self.ns_laser_lag, self.ns_probe_time, self.ns_clock_duration, runs, mode)
         else:
             self.ODMR_label = [1, 'x', 0, 'x'] # sig, discard, bg, discard
             if self.VERBOSE: print('ODMR, with wait time')
-            self.seq = mgr.Pulser.ODMRWithWait(self.ns_laser_lag, self.ns_probe_time, self.ns_clock_duration, self.ns_cooldown_time, runs, mode, use_switch)
+            self.seq = mgr.Pulser.ODMRWithWait(self.ns_laser_lag, self.ns_probe_time, self.ns_clock_duration, self.ns_cooldown_time, runs, mode)
         if self.VERBOSE:
             import pickle, os
             print(f'saving sequence to seq.pkl in {os.getcwd()}')
@@ -310,7 +307,7 @@ class ConfocalODMR():
         if self.VERBOSE: print('Starting acquisition...')
         mgr.DAQcontrol.start_counter()             
         if self.VERBOSE: print('Started counter.')
-        mgr.Pulser.stream_sequence(seq, 1, AM = self.AM, SWITCH = self.SWITCH) # number of runs accounted for in construction of the sequence.
+        mgr.Pulser.stream_sequence(seq, 1, AM = self.AM) # number of runs accounted for in construction of the sequence.
         if self.VERBOSE: print('Started pulse sequence streaming.')
         data = np.array(obtain(mgr.DAQcontrol.read_to_data_array(timeout = self.timeout))) # Collect ODMR point
         if self.VERBOSE: print('Read data from DAQ. data:', data)

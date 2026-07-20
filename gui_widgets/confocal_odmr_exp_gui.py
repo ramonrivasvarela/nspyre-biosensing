@@ -76,9 +76,6 @@ class ConfocalODMRWidget(ExperimentWidget):
         dozfb_cb=QCheckBox()
         dozfb_cb.setChecked(True)
 
-        switch_cb=QCheckBox()
-        switch_cb.setChecked(False)
-
         verbose_cb=QCheckBox()
         verbose_cb.setChecked(False)
 
@@ -174,10 +171,6 @@ class ConfocalODMRWidget(ExperimentWidget):
                     siPrefix=True,
                     dec=True,
                 )
-            },
-            'use_switch': {
-                'display_text': 'Switch',
-                'widget': switch_cb
             },
             # 'sequence': {
             #     'display_text': 'Sequence',
