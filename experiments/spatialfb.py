@@ -84,6 +84,7 @@ class SpatialFeedback():
         self.verbose = True # add as param
         
         with InstrumentManager() as mgr, DataSource(dataset) as ds:
+            params.update({'laser_power': mgr.DLnsec.get_power()})
             ## INITIALIZE | self.
             self.initialize(mgr, initial_position, starting_point, counter_already_exists, n_points, probe_time)
             ## Prepare tracking variables

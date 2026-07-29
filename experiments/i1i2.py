@@ -103,6 +103,7 @@ class I1I2(ContinuousTracking):
                 'mode': mode,
                 'data_source': dataset,}
         with InstrumentManager() as mgr, DataSource(dataset) as data_source:
+            params.update({'laser_power': mgr.DLnsec.get_power()})
             self.initialize(mgr, sampling_rate,
                    time_per_sgpoint, mwPulseTime, clockPulseTime, rf_amplitude,
                     frequencies, slope_range, sideband_frequency,

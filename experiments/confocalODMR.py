@@ -113,11 +113,12 @@ class ConfocalODMR():
             'starting_point': starting_point,
             'verbose': verbose,
             'dataset': dataset
-
-        }
-
+            }
         ## Connect tof the instrument server, data server.
         with InstrumentManager() as mgr, DataSource(dataset) as datasource:
+            params.update({'laser_power': mgr.DLnsec.get_power()})
+
+
             # Initialize the experiment parameters
             self.initialize(mgr, *INIT_PARAMS) # prepares self.seq, among other things
             if self.VERBOSE: print('Finished experiment initialization.')

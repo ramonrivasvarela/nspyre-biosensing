@@ -181,17 +181,23 @@ class wI1I2Spyrelet(WFSpyrelet):
             lbl = self.full_label
         else:
             lbl = self.full_label_filtered
+        bg_free = lbl.count(0) == 0
         # begin processing images:
         for i in range(len(data)):
             extracted_sig = self.img_to_sig(self.ND_list, data[i], r_ROI = self.r_targ) #array of [ND] signals from a given image.
             for ND in self.ND_iter: sig_all[ND].append(int(extracted_sig[ND]))
             if lbl[i] == 1:
                 for ND in self.ND_iter: I1[ND].append(int(extracted_sig[ND]))
+                if bg_free:
+                    for ND in self.ND_iter: bg[ND].append(int(extracted_sig[ND]))
             elif lbl[i] == 2:
                 for ND in self.ND_iter: I2[ND].append(int(extracted_sig[ND]))
+                if bg_free:
+                    for ND in self.ND_iter: bg[ND].append(int(extracted_sig[ND]))
             elif lbl[i] == 0:
                 for ND in self.ND_iter: bg[ND].append(int(extracted_sig[ND]))
             else:
+
                 print('throwaway pulse, ignoring...')
         ls_I1 = [int(np.mean(I1[ND])) for ND in range(len(self.ND_list))]
         ls_I2 = [int(np.mean(I2[ND])) for ND in range(len(self.ND_list))]
@@ -199,44 +205,45 @@ class wI1I2Spyrelet(WFSpyrelet):
         output = {'I1': ls_I1, 'I2': ls_I2, 'bg': ls_bg, 'sig_all': sig_all}
         return output
     
-    def analyze_sig_match_background(self, data): # TEMPLATE
-        '''
-        Analyzes acquired data by matching each I1 (1) and I2 (2) with the nearest background (0)
-        and averaging pooled contrast as two values-per-ND,
-        as well as a list of output-per-ND. Note redundancy of information - can technically move this
-        analysis to the plotting software. Probably worth it for the new NSpyre. 
+    # def analyze_sig_match_background(self, data): # TEMPLATE
+    #     '''
+    #     Analyzes acquired data by matching each I1 (1) and I2 (2) with the nearest background (0)
+    #     and averaging pooled contrast as two values-per-ND,
+    #     as well as a list of output-per-ND. Note redundancy of information - can technically move this
+    #     analysis to the plotting software. Probably worth it for the new NSpyre. 
 
-        UNIMPLIMENTED...
-        '''
-        # dependent on process. Roughly this will consist of:
-        # Define for each sig a list, by ND, and allowing for multiple entries due to multiple runs.
-        I1 = [[] for _ in self.ND_iter]
-        I2 = [[] for _ in self.ND_iter]
-        bg = [[] for _ in self.ND_iter]
-        # Define sig all of the signals for this run, for all NDs, to be added to the acquisition dict regardless of protocol, for maximum flexibility in post-processing.
-        sig_all = [[] for _ in self.ND_iter] # For collecting all signals.
-        if self.debug:
-            print('DEBUG IN PROGRESS... CHECKING ANALYSIS WITH T PULSES')
-            lbl = self.full_label
-        else:
-            lbl = self.full_label_filtered
-        # begin processing images:
-        for i in range(len(data)):
-            extracted_sig = self.img_to_sig(self.ND_list, data[i], r_ROI = self.r_targ) #array of [ND] signals from a given image.
-            for ND in self.ND_iter: sig_all[ND].append(int(extracted_sig[ND]))
-            if lbl[i] == 1:
-                for ND in self.ND_iter: I1[ND].append(int(extracted_sig[ND]))
-            elif lbl[i] == 2:
-                for ND in self.ND_iter: I2[ND].append(int(extracted_sig[ND]))
-            elif lbl[i] == 0:
-                for ND in self.ND_iter: bg[ND].append(int(extracted_sig[ND]))
-            else:
-                print('throwaway pulse, ignoring...')
-        ls_I1 = [int(np.mean(I1[ND])) for ND in range(len(self.ND_list))]
-        ls_I2 = [int(np.mean(I2[ND])) for ND in range(len(self.ND_list))]
-        ls_bg = [int(np.mean(bg[ND])) for ND in range(len(self.ND_list))]
-        output = {'I1': ls_I1, 'I2': ls_I2, 'bg': ls_bg, 'sig_all': sig_all}
-        return output
+    #     UNIMPLIMENTED...
+    #     '''
+    #     # dependent on process. Roughly this will consist of:
+    #     # Define for each sig a list, by ND, and allowing for multiple entries due to multiple runs.
+    #     I1 = [[] for _ in self.ND_iter]
+    #     I2 = [[] for _ in self.ND_iter]
+    #     bg = [[] for _ in self.ND_iter]
+    #     # Define sig all of the signals for this run, for all NDs, to be added to the acquisition dict regardless of protocol, for maximum flexibility in post-processing.
+    #     sig_all = [[] for _ in self.ND_iter] # For collecting all signals.
+    #     if self.debug:
+    #         print('DEBUG IN PROGRESS... CHECKING ANALYSIS WITH T PULSES')
+    #         lbl = self.full_label
+    #     else:
+    #         lbl = self.full_label_filtered
+    #     # begin processing images:
+    #     for i in range(len(data)):
+    #         extracted_sig = self.img_to_sig(self.ND_list, data[i], r_ROI = self.r_targ) #array of [ND] signals from a given image.
+    #         for ND in self.ND_iter: sig_all[ND].append(int(extracted_sig[ND]))
+    #         if lbl[i] == 1:
+    #             for ND in self.ND_iter: I1[ND].append(int(extracted_sig[ND]))
+    #         elif lbl[i] == 2:
+    #             for ND in self.ND_iter: I2[ND].append(int(extracted_sig[ND]))
+    #         elif lbl[i] == 0:
+    #             for ND in self.ND_iter: bg[ND].append(int(extracted_sig[ND]))
+    #         else:
+    #             print('throwaway pulse, ignoring...')
+    #     ls_I1 = [int(np.mean(I1[ND])) for ND in range(len(self.ND_list))]
+    #     ls_I2 = [int(np.mean(I2[ND])) for ND in range(len(self.ND_list))]
+    #     ls_bg = [int(np.mean(bg[ND])) for ND in range(len(self.ND_list))]
+    #     output = {'I1': ls_I1, 'I2': ls_I2, 'bg': ls_bg, 'sig_all': sig_all}
+    #     return output
+    
     ###########################################################################################################################
     def main(self, exp_time, readout_time, sweeps, label, frequencies, gain, gain_setting, cooler, 
                    cam_trigger, rf_amplitude, sideband, ROI_xy, alt_label, alt_sleep_time, trackpy_params, 
@@ -359,19 +366,18 @@ class wI1I2Spyrelet(WFSpyrelet):
                         if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
                             # the GUI has asked us nicely to exit
                             self.finalize(mgr, exp_time, readout_time, sweeps, frequencies, gain, 
-                    rf_amplitude, sideband, ROI_xy, alt_label, 
-                    data_download, shutdown)
+                                rf_amplitude, sideband, ROI_xy, alt_label, 
+                                data_download, shutdown)
                             return
                     ########################################################################### 
                     representative_img = img
                     self.save_after_sweep(img, save_image, sweep)
                     print(f'Finished sweep {sweep+1}/{sweeps}, time elapsed: {time.time() - self.t0} seconds.')
-                if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
-                            # the GUI has asked us nicely to exit
-                    self.finalize(mgr, exp_time, readout_time, sweeps, frequencies, gain, 
+            
+                self.finalize(mgr, exp_time, readout_time, sweeps, frequencies, gain, 
                     rf_amplitude, sideband, ROI_xy, alt_label, 
                     data_download, shutdown)
-                    return
+                return
             except:
                 self.finalize(mgr, exp_time, readout_time, sweeps, frequencies, gain, 
                     rf_amplitude, sideband, ROI_xy, alt_label, 
@@ -381,6 +387,7 @@ class wI1I2Spyrelet(WFSpyrelet):
     #### FINALIZE HELPER FUNCTIONS ###############################################################################################
     def save_config(self, data_download, sweeps, alt_label, rf_amplitude, frequencies, gain, exp_time, readout_time, ROI_xy, sideband):
         total_time = time.time() - self.t0
+        print(data_download)
         if data_download:
             config = {'VERSION': 2, 'label': self.label, 'gain': self.gain, 'sweeps': sweeps, 'alt_label': alt_label, 'rf': rf_amplitude,'NDs_input': eval(ROI_xy), 'tparams': self.trackpy_params,
                       'NDs': self.ND_list, 'n_ND': len(self.ND_list), 'freqs': frequencies, 'sideband': sideband, 'exp_time': exp_time, 'readout_time': readout_time, 'total_time': total_time} 

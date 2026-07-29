@@ -180,7 +180,7 @@ class wI1I2Widget(ExperimentWidget):
             },
             'trackpy_params': {
                 'display_text': 'Trackpy Params',
-                'widget': QLineEdit("{'trackpy': True, 'sigma': 1.2, 'r_ND': 7, 'min_dist': 8, 'bg_pts': []}"),
+                'widget': QLineEdit("{'trackpy': True, 'sigma': 1.8, 'r_ND': 7, 'min_dist': 10, 'bg_pts': []}"),
             },
             'focus_bool': {
                 'display_text': 'Focus Bool',

@@ -46,12 +46,13 @@ class _FlexLinePlotSeriesSettings:
     """Contain the settings for a single plot."""
 
     def __init__(
-        self, series: str, scan_i: str, scan_j: str, processing: str, hidden: bool
+        self, series: str, scan_i: str, scan_j: str, processing: str, iteration: str, hidden: bool
     ):
         self.series: str = series
         self.scan_i: str = scan_i
         self.scan_j: str = scan_j
         self.processing: str = processing
+        self.iteration: str = iteration
         self.hidden = hidden
 
 
@@ -81,14 +82,18 @@ class _FlexLinePlotSettings(QThreadSafeObject):
         scan_i: str,
         scan_j: str,
         processing: str,
+        iteration: str,
         hidden: bool,
         callback: Optional[Callable] = None,
     ):
         with QtCore.QMutexLocker(self.mutex):
             if name in self.series_settings:
+                # _logger.info(
+                #     f'A plot with the name [{name}] already exists. Ignoring add_plot '
+                #     'request.'
+                # )
                 _logger.info(
-                    f'A plot with the name [{name}] already exists. Ignoring add_plot '
-                    'request.'
+                    f'A plot with the name [{name}] already exists. Reconfiguring name.'
                 )
                 return
             self.series_settings[name] = _FlexLinePlotSeriesSettings(
@@ -96,6 +101,7 @@ class _FlexLinePlotSettings(QThreadSafeObject):
                 scan_i=scan_i,
                 scan_j=scan_j,
                 processing=processing,
+                iteration=iteration,
                 hidden=hidden,
             )
             self.force_update = True
@@ -150,7 +156,7 @@ class _FlexLinePlotSettings(QThreadSafeObject):
             if callback is not None:
                 self.run_main(callback, name, blocking=True)
 
-    def update_settings(self, name, series, scan_i, scan_j, processing):
+    def update_settings(self, name, series, scan_i, scan_j, processing, iteration):
         with QtCore.QMutexLocker(self.mutex):
             if name not in self.series_settings:
                 _logger.info(
@@ -162,6 +168,8 @@ class _FlexLinePlotSettings(QThreadSafeObject):
             self.series_settings[name].scan_i = scan_i
             self.series_settings[name].scan_j = scan_j
             self.series_settings[name].processing = processing
+            self.series_settings[name].iteration = iteration
+
             self.force_update = True
 
 class FittingManager(QtWidgets.QWidget):
@@ -372,6 +380,11 @@ np.array([[4, 5, 6], [3.4, 3.6, 3.5]])])
         # default to average
         self.plot_processing_dropdown.setCurrentIndex(0)
 
+        # iteration lineedit
+        self.add_plot_iteration_textbox = QtWidgets.QLineEdit()
+        self.add_plot_iteration_textbox.setText('0')
+
+
         # show button
         show_button = QtWidgets.QPushButton('Show')
         show_button.clicked.connect(self._show_plot_clicked)
@@ -450,6 +463,11 @@ np.array([[4, 5, 6], [3.4, 3.6, 3.5]])])
                             'type': QtWidgets.QHBoxLayout,
                             'label': plot_processing_label,
                             'dropdown': self.plot_processing_dropdown,
+                        },
+                        'iteration': {
+                            'type': QtWidgets.QHBoxLayout,
+                            'label': QtWidgets.QLabel('Iteration'),
+                            'edit': self.add_plot_iteration_textbox,
                         },
                         'spacer': expanding_spacer,
                     },
@@ -533,6 +551,7 @@ np.array([[4, 5, 6], [3.4, 3.6, 3.5]])])
         self.add_plot_scan_i_textbox.setText(settings.scan_i)
         self.add_plot_scan_j_textbox.setText(settings.scan_j)
         self.plot_processing_dropdown.setCurrentText(settings.processing)
+        self.add_plot_iteration_textbox.setText(settings.iteration)
 
     def _get_plot_settings(self):
         """Retrieve the user-entered plot settings from the GUI and check them for
@@ -556,12 +575,13 @@ np.array([[4, 5, 6], [3.4, 3.6, 3.5]])])
         name = self.plot_name_lineedit.text()
         series = self.plot_series_lineedit.text()
         processing = self.plot_processing_dropdown.currentText()
+        iteration = self.add_plot_iteration_textbox.text()
 
-        return name, series, scan_i, scan_j, processing
+        return name, series, scan_i, scan_j, processing, iteration
 
     def _update_plot_clicked(self):
         """Called when the user clicks the update button."""
-        name, series, scan_i, scan_j, processing = self._get_plot_settings()
+        name, series, scan_i, scan_j, processing, iteration = self._get_plot_settings()
         # set the plot settings
         self.line_plot.plot_settings.run_safe(
             self.line_plot.plot_settings.update_settings,
@@ -570,15 +590,16 @@ np.array([[4, 5, 6], [3.4, 3.6, 3.5]])])
             scan_i,
             scan_j,
             processing,
+            iteration,
         )
 
     def _add_plot_clicked(self):
         """Called when the user clicks the add button."""
-        name, series, scan_i, scan_j, processing = self._get_plot_settings()
-        self.add_plot(name, series, scan_i, scan_j, processing)
+        name, series, scan_i, scan_j, processing, iteration = self._get_plot_settings()
+        self.add_plot(name, series, scan_i, scan_j, processing, iteration)
 
     def add_plot(
-        self, name: str, series: str, scan_i: str, scan_j: str, processing: str, hidden: bool = False
+        self, name: str, series: str, scan_i: str, scan_j: str, processing: str, iteration: str ,hidden: bool = False
     ):
         """Add a new subplot. Thread safe.
 
@@ -587,7 +608,7 @@ np.array([[4, 5, 6], [3.4, 3.6, 3.5]])])
             series: The data series name pushed by the \
                 :py:class:`~nspyre.data.source.DataSource`, e.g. \
                 :code:`channel_1` for the example given in \
-                :py:class:`~nspyre.gui.widgets.flex_line_plot.FlexLinePlotWidget`
+                :py:class:`~nspyre.gui.widgets.flex`_line_plot.FlexLinePlotWidget`
             scan_i: String value of the scan to start plotting from.
             scan_j: String value of the scan to stop plotting at. \
                 Use Python list indexing notation, e.g.:
@@ -598,6 +619,7 @@ np.array([[4, 5, 6], [3.4, 3.6, 3.5]])])
 
             processing: 'Average' to average the x and y values of scans i
                 through j, 'Append' to concatenate them.
+            iteration: The iteration number for the plot.
         """
         self.line_plot.plot_settings.run_safe(
             self.line_plot.plot_settings.add_plot,
@@ -606,6 +628,7 @@ np.array([[4, 5, 6], [3.4, 3.6, 3.5]])])
             scan_i,
             scan_j,
             processing,
+            iteration,
             hidden,
             callback=self._add_plot_callback,
         )
@@ -753,6 +776,7 @@ np.array([[4, 5, 6], [3.4, 3.6, 3.5]])])
             scan_i='',
             scan_j='',
             processing='Append',
+            iteration='0',
         )
 
     # Fitting functions
@@ -936,6 +960,7 @@ class _FlexLinePlotWidget(LinePlotWidget):
                     scan_i = settings.scan_i
                     scan_j = settings.scan_j
                     processing = settings.processing
+                    iteration = settings.iteration
 
                     # pick out the particular data series
                     try:
@@ -1026,6 +1051,7 @@ class _FlexLinePlotWidget(LinePlotWidget):
             scan_i = settings.scan_i
             scan_j = settings.scan_j
             processing = settings.processing
+            iteration = settings.iteration
 
             # pick out the particular data series
             try:

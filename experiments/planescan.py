@@ -218,7 +218,8 @@ class PlaneScan:
                                 'pts_per_step': pts_per_step,
                                 'xyz_pos': xyz_pos,
                                 'snake_scan': snake_scan,
-                                'sleep_factor': sleep_factor
+                                'sleep_factor': sleep_factor,
+                                'laser_power': mgr.DLnsec.get_power()
                             },
                             'params_for_fb':
                             {'adjust_line': adjust_line,

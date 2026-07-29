@@ -72,9 +72,9 @@ class Pictures(WFSpyrelet):
             trigger_mode=mgr.Camera.trigger_mode
             mgr.Camera.set_shutter("Open") # Open shutter for picture taking
             n_pics = mgr.Camera.number_kinetics
-            if n_pics > 2 and routine == 'Full Picture':
-                print('WARNING: Due to NSpyre DataSink limitations, can only have at most 2 images of full size')
-                n_pics = 2
+            if n_pics > 1 and routine == 'Full Picture':
+                print('WARNING: Due to NSpyre DataSink limitations, can only have at most 1 images of full size')
+                n_pics = 1
                 mgr.Camera.set_number_kinetics(n_pics)
             self.z_pos = mgr.DAQcontrol.position['z']
             # if zoom:
@@ -115,6 +115,7 @@ class Pictures(WFSpyrelet):
                 for i,img in enumerate(data_1D):
                     img_data = self.img_1D_to_2D(img, x_len, y_len)
                     if routine == 'ROI Pictures' or routine == 'Autofocus':
+                        self.ND_list, _ = self.track_NDs(self.ND_list, img_data) #update ND locations
                         windows = self.format_windows(mgr, img_data, focus_bool = (routine == 'Autofocus' and i == len(data_1D)-1)) #only autofocus using last image
                         img_data = windows[0] # Need to implement multiple ROIs
                     self.data_dict[f'image_{self.last_pic_n}'] = img_data
