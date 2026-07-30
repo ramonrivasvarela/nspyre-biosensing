@@ -87,7 +87,10 @@ class SG396:
         return float(self.device.query('AMPR?'))
 
     def set_rf_amplitude(self, value):
-       self.device.write(f"AMPR{(value)}")    
+        """
+        set RF amplitude (Type N output)
+        """
+        self.device.write(f"AMPR{(value)}")    
 
 
     def get_lf_toggle(self):
