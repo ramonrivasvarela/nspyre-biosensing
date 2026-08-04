@@ -77,6 +77,9 @@ class DLnsec:
 
     def get_power(self):
         answer = self.read(b'PWR?')
+        if answer == '':
+            print('No response received from the device.')
+            return 0
         return int(answer)
 
         

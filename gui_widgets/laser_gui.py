@@ -115,7 +115,7 @@ class InstWidget(QWidget):
         self.DLnsec_pwr_label.editingFinished.connect(lambda: self.DLnsec_pwr_text_changed())
         self.DLnsec_pwr_label.setStyleSheet("""
             QLineEdit:hover {
-                background-color: powderblue; /* Background color when hovered */
+                background-color: lime; /* Background color when hovered */
             }
         """)
         
@@ -127,6 +127,23 @@ class InstWidget(QWidget):
             self.DLnsec_mode("EXT")
         except:
             print('could not set DLnsec mode to EXT')
+
+    def init_cobolt488_widgets(self):
+
+        self.Cobolt488_label = QLabel("Cobolt 488")
+        self.Cobolt488_label.setFixedHeight(20)
+        self.Cobolt488_label.setStyleSheet("font-weight: bold")
+
+        self.Cobolt488_b1 = QRadioButton("MODULATION")
+        self.Cobolt488_b1.setChecked(True)
+        ...
+
+        self.Cobolt488_b2 = QRadioButton("CONTINUOUS")
+        ...
+
+
+
+
     
     def init_pulse_control(self):
 
@@ -302,12 +319,13 @@ class InstWidget(QWidget):
         self.DLnsec_layout.addWidget(self.DLnsec_label,1,1,1,1)
         self.DLnsec_layout.addWidget(self.DLnsec_b1,2,1,1,1)
         self.DLnsec_layout.addWidget(self.DLnsec_b2,2,2,1,1)
-        self.DLnsec_layout.addWidget(self.LAS_button,4,1,1,1)
-        self.DLnsec_layout.addWidget(self.EXT_button,5,1,1,1)
-        self.DLnsec_layout.addWidget(self.DLnsec_pwr_slider,3,2,1,2)
         self.DLnsec_layout.addWidget(self.DLnsec_pwr_label,3,1,1,1)
-        self.DLnsec_layout.addWidget(self.DLnsec_status_label,6,1,1,1)
-        self.DLnsec_layout.addWidget(self.RBT_button,7,1,1,1)
+        self.DLnsec_layout.addWidget(self.DLnsec_pwr_slider,3,2,1,2)
+        ## David - These don't quite work anyway. Making space for 488 control from NSpyre.
+        # self.DLnsec_layout.addWidget(self.LAS_button,4,1,1,1)
+        # self.DLnsec_layout.addWidget(self.EXT_button,5,1,1,1)
+        # self.DLnsec_layout.addWidget(self.DLnsec_status_label,6,1,1,1)
+        # self.DLnsec_layout.addWidget(self.RBT_button,7,1,1,1)
 
         
         
