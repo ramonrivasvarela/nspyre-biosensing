@@ -2,7 +2,8 @@ import numpy as np
 from scipy import optimize
 
 from special_widgets.flex_line_plot_widget_fitting import FlexLinePlotWidget
-from nspyre import ExperimentWidget
+# from nspyre import ExperimentWidget
+from special_widgets.custom_experiment import ExperimentWidget
 from nspyre import DataSink
 from pyqtgraph.Qt import QtWidgets
 from PyQt6.QtWidgets import QSpinBox, QLineEdit, QCheckBox, QComboBox
@@ -229,7 +230,8 @@ class ConfocalODMRWidget(ExperimentWidget):
             experiments.confocalODMR,  # Ensure that experiments.ConfocalODMR exists in your experiments folder
             'ConfocalODMR',
             'confocal_odmr',
-            title='Confocal ODMR'
+            title='Confocal ODMR',
+            queue = True,
         )
 
 
@@ -248,16 +250,16 @@ class ConfocalODMRPlotWidget(FlexLinePlotWidget):
     def __init__(self):
         super().__init__(data_processing_func=process_ODMR_data)
         # create some default signal plots
-        self.add_plot('sig_avg',        series='signal',   scan_i='',     scan_j='',  processing='Average',  hidden=True)
-        self.add_plot('sig_latest',     series='signal',   scan_i='-2',   scan_j='',  processing='Average',  hidden=True)
+        self.add_plot('sig_avg',        series='signal',   scan_i='',     scan_j='',  processing='Average',  iteration=0,  hidden=True)
+        self.add_plot('sig_latest',     series='signal',   scan_i='-2',   scan_j='',  processing='Average',  iteration=0,  hidden=True)
 
         # create some default background plots
-        self.add_plot('bg_avg',         series='background',   scan_i='',     scan_j='',  processing='Average',  hidden=True)
-        self.add_plot('bg_latest',      series='background',   scan_i='-2',   scan_j='',  processing='Average',  hidden=True)
+        self.add_plot('bg_avg',         series='background',   scan_i='',     scan_j='',  processing='Average',  iteration=0,  hidden=True)
+        self.add_plot('bg_latest',      series='background',   scan_i='-2',   scan_j='',  processing='Average',  iteration=0,  hidden=True)
 
         # create some default diff plots
-        self.add_plot('div_avg',       series='div',  scan_i='',      scan_j='',  processing='Average',  hidden=False)
-        self.add_plot('div_latest',    series='div',  scan_i='-2',    scan_j='',  processing='Average',  hidden=False)
+        self.add_plot('div_avg',       series='div',  scan_i='',      scan_j='',  processing='Average',  iteration=0,  hidden=False)
+        self.add_plot('div_latest',    series='div',  scan_i='-2',    scan_j='',  processing='Average',  iteration=0,  hidden=False)
         
         # add fit plot
         # self.add_plot('div_fit',       series='div_fit',  scan_i='',      scan_j='',  processing='Average')

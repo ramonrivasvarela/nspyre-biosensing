@@ -250,9 +250,9 @@ class wODMRPlotWidget(FlexLinePlotWidget):
         return
     def __init__(self):
         super().__init__(data_processing_func=self.data_processing_func)
-        self.add_plot('signal_0', series='signal_0', scan_i='', scan_j='', processing='Average', hidden=True)
-        self.add_plot('background_0', series='background_0', scan_i='', scan_j='', processing='Average', hidden=True)
-        self.add_plot('signal_div_0', series='signal_div_0', scan_i='', scan_j='', processing='Average')
+        self.add_plot('signal_0', series='signal_0', scan_i='', scan_j='', processing='Average',  iteration=0,  hidden=True)
+        self.add_plot('background_0', series='background_0', scan_i='', scan_j='', processing='Average',  iteration=0,  hidden=True)
+        self.add_plot('signal_div_0', series='signal_div_0', scan_i='', scan_j='', processing='Average',  iteration=0,  hidden=False)
 
         # retrieve legend object
         legend = self.line_plot.plot_widget.addLegend()

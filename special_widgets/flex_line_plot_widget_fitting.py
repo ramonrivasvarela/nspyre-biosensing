@@ -599,7 +599,7 @@ np.array([[4, 5, 6], [3.4, 3.6, 3.5]])])
         self.add_plot(name, series, scan_i, scan_j, processing, iteration)
 
     def add_plot(
-        self, name: str, series: str, scan_i: str, scan_j: str, processing: str, iteration: str ,hidden: bool = False
+        self, name: str, series: str, scan_i: str, scan_j: str, processing: str, iteration: str = 0 ,hidden: bool = False
     ):
         """Add a new subplot. Thread safe.
 

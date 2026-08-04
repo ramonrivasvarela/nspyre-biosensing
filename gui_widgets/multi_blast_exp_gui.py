@@ -73,10 +73,10 @@ class MultiBlastPlotWidget(FlexLinePlotWidget):
     def __init__(self):
         super().__init__(data_processing_func=process_fb_data)
         
-        self.add_plot('latest_x', series='latest_x', scan_i='', scan_j='', processing='Append', hidden=True)
-        self.add_plot('latest_y', series='latest_y', scan_i='', scan_j='', processing='Append', hidden=True)
-        self.add_plot('latest_z', series='latest_z', scan_i='', scan_j='', processing='Append', hidden=True)
-        self.add_plot('latest_fluor', series='latest_fluor', scan_i='', scan_j='', processing='Append', hidden=False)
+        self.add_plot('latest_x', series='latest_x', scan_i='', scan_j='', processing='Append', iteration=0, hidden=True)
+        self.add_plot('latest_y', series='latest_y', scan_i='', scan_j='', processing='Append', iteration=0, hidden=True)
+        self.add_plot('latest_z', series='latest_z', scan_i='', scan_j='', processing='Append', iteration=0, hidden=True)
+        self.add_plot('latest_fluor', series='latest_fluor', scan_i='', scan_j='', processing='Append', iteration=0, hidden=False)
 
         # retrieve legend object
         legend = self.line_plot.plot_widget.addLegend()

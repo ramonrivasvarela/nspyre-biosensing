@@ -279,12 +279,12 @@ class wI1I2PlotWidget(FlexLinePlotWidget):
         return
     def __init__(self):
         super().__init__(data_processing_func=self.data_processing_func)
-        self.add_plot('signal_0', series='signal_0', scan_i='', scan_j='', processing='Average', hidden=True)
-        self.add_plot('background_0', series='background_0', scan_i='', scan_j='', processing='Average', hidden=True)
-        self.add_plot('I1I2_0', series='I1I2_0', scan_i='', scan_j='', processing='Average')
-        self.add_plot('I1I2_bg_free_0', series='I1I2_bg_free_0', scan_i='', scan_j='', processing='Average', hidden=True)
-        self.add_plot('I1_norm_0', series='I1_norm_0', scan_i='', scan_j='', processing='Average', hidden=True)
-        self.add_plot('I2_norm_0', series='I2_norm_0', scan_i='', scan_j='', processing='Average', hidden=True)
+        self.add_plot('signal_0', series='signal_0', scan_i='', scan_j='', processing='Average',  iteration=0,  hidden=True)
+        self.add_plot('background_0', series='background_0', scan_i='', scan_j='', processing='Average',  iteration=0,  hidden=True)
+        self.add_plot('I1I2_0', series='I1I2_0', scan_i='', scan_j='', processing='Average',  iteration=0,  hidden=False)
+        self.add_plot('I1I2_bg_free_0', series='I1I2_bg_free_0', scan_i='', scan_j='', processing='Average',  iteration=0,  hidden=True)
+        self.add_plot('I1_norm_0', series='I1_norm_0', scan_i='', scan_j='', processing='Average',  iteration=0,  hidden=True)
+        self.add_plot('I2_norm_0', series='I2_norm_0', scan_i='', scan_j='', processing='Average',  iteration=0,  hidden=True)
 
         # retrieve legend object
         legend = self.line_plot.plot_widget.addLegend()

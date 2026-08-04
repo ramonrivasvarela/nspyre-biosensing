@@ -69,7 +69,7 @@ class CountsPlotWidget(FlexLinePlotWidget):
     def __init__(self):
         super().__init__()
         # create some default signal plots
-        self.add_plot('counts',        series='counts',   scan_i='',     scan_j='',  processing='Append')
+        self.add_plot('counts',        series='counts',   scan_i='',     scan_j='',  iteration=0,  processing='Append')
 
 
         # retrieve legend object

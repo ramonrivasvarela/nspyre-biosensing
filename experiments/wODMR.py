@@ -201,9 +201,10 @@ class wODMRSpyrelet(WFSpyrelet):
     ###########################################################################################################################
     def main(self, exp_time, readout_time, sweeps, label, frequencies, gain, gain_setting, cooler, cam_trigger, rf_amplitude, uw_duty, uw_rep, mode, ROI_xy, alt_label, alt_sleep_time, trackpy_params, focus_bool,
                    data_path, save_image, data_download, shutdown, window_params, verbose, dataset, Misc):
+        
         params={"exp_time": exp_time, "readout_time": readout_time, "sweeps": sweeps, "label": label, "frequencies": frequencies, "gain": gain, "gain_setting": gain_setting, "cooler": cooler, "cam_trigger": cam_trigger, "rf_amplitude": rf_amplitude, "uw_duty": uw_duty, "uw_rep": uw_rep, "mode": mode, "ROI_xy": ROI_xy, "alt_label": alt_label, "alt_sleep_time": alt_sleep_time, "trackpy_params": trackpy_params, "focus_bool": focus_bool, "data_path": data_path, "save_image": save_image, "data_download": data_download, "shutdown": shutdown, "verbose": verbose, "window_params": window_params,  "Misc": Misc}
         with InstrumentManager() as mgr, DataSource(dataset) as data_source:
-            self.initialize(mgr, exp_time, readout_time, sweeps, label, frequencies, gain, gain_setting, cooler, cam_trigger, rf_amplitude, uw_duty, uw_rep, mode, ROI_xy,
+            self.initialize(mgr, exp_time, readout_time, sweeps, label, frequencies, gain, gain_setting, cooler, cam_trigger, rf_amplitude, uw_duty, int(uw_rep), mode, ROI_xy,
                            alt_label,
                            alt_sleep_time,
                            trackpy_params,
@@ -348,6 +349,7 @@ class wODMRSpyrelet(WFSpyrelet):
                 self.finalize(mgr,exp_time, readout_time, sweeps, frequencies, gain, rf_amplitude, ROI_xy, alt_label, data_download, shutdown)
                 return
             except:
+                time.sleep(1)
                 self.finalize(mgr,exp_time, readout_time, sweeps, frequencies, gain, rf_amplitude, ROI_xy, alt_label, data_download, shutdown)
                 raise
         
