@@ -71,7 +71,6 @@ class PicturesWidget(ExperimentWidget):
 class PicturesHeatMapWidget(HeatMapPlotWidget):
     """Add some default settings to the FlexSinkLinePlotWidget."""
     def __init__(self):
-        
 
         super().__init__()
                 # open in read-only mode; adjust dataset name if needed
