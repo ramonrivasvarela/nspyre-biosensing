@@ -152,6 +152,39 @@ class CrosshairManager(QtWidgets.QWidget):
         self.scroll_area.setWidget(self.scroll_widget)
         
         self.layout.addWidget(self.scroll_area)
+
+        # Customizable Functionality Button / Print Crosshairs - David 7/31/26
+        self.func_dropdown = QtWidgets.QComboBox()
+        self.func_dropdown.addItems(["Print", "Print (int)"])
+
+        self.func_dropdown.setStyleSheet("""
+        QComboBox {
+            background-color: black;
+            color: white;
+            border: 1px solid #555;
+            border-radius: 0px;
+            padding: 2px 20px 2px 4px;
+            text-align: center;
+        }
+
+        QComboBox QAbstractItemView {
+            background-color: black;
+            color: white;
+            selection-background-color: #444;
+            selection-color: white;
+        }
+        """)
+
+        self.func_button = QtWidgets.QPushButton("Execute")
+        self.func_button.clicked.connect(self._execute_func)
+
+        button_layout = QtWidgets.QHBoxLayout()
+        button_layout.addWidget(self.func_button, 1)
+        button_layout.addWidget(self.func_dropdown, 2)
+
+        self.layout.addLayout(button_layout)
+
+        #Set layout
         self.setLayout(self.layout)
         
         # Store crosshair item widgets and their line edits
@@ -207,6 +240,23 @@ class CrosshairManager(QtWidgets.QWidget):
         self.scroll_layout.insertWidget(self.scroll_layout.count() - 1, item_widget)
         self.crosshair_items[crosshair_id] = item_widget
         self.crosshair_edits[crosshair_id] = (x_edit, y_edit)
+
+    def _execute_func(self):
+        func = self.func_dropdown.currentText()
+        if func == 'Print' or 'Print (int)':
+            #get each crosshair and print it as [(x1, y1), (x2, y2), ...]
+            crosshairs = []
+            for x_edit, y_edit in self.crosshair_edits.values():
+                try:
+                    x = float(x_edit.text())
+                    y = float(y_edit.text())
+                    crosshairs.append((x, y))
+                except ValueError:
+                    _logger.warning(f"Invalid coordinates for crosshair {crosshair_id}. Skipping.")
+        if func == 'Print':
+            print(crosshairs)
+        elif func == 'Print (int)':
+            print([(int(x), int(y)) for x, y in crosshairs])
     
     def _on_coordinate_changed(self, crosshair_id: int, x_edit: QtWidgets.QLineEdit, y_edit: QtWidgets.QLineEdit):
         """Handle coordinate changes from line edits."""
