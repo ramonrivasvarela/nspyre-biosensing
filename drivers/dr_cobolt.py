@@ -4,7 +4,7 @@ Created on 8/3/2026 by David Ovetsky
 
 from pycobolt import Cobolt06MLD as Laser
 
-class Cobolt488():
+class Cobolt488:
 
     COM = 'COM3'
     MODES = {
@@ -27,21 +27,21 @@ class Cobolt488():
 
     def __init__(self, *args, **kwargs):
         print('Connecting to Cobolt 488 laser')
-        self.laser = Laser.connect(port = self.COM)
+        self.laser = Laser(port = self.COM)
 
         self.connected = self.laser.is_connected()
-        self.mode = self.laser.get_mode()
-        self.continuous_power = self.laser.get_power()
-        self.modulation_power = self.laser.get_modulation_power()
+        # self.mode = self.laser.get_mode()
+        # self.continuous_power = self.laser.get_power_setpoint()
+        # self.modulation_power = self.laser.get_modulation_power()
 
 
 
-    def ping(self):
+    def is_connected(self):
         return self.laser.is_connected()
 
     def connect(self):
         if not self.connected:
-            self.laser = Laser.connect(port = self.COM)
+            self.laser.connect()
             self.connected = self.laser.is_connected()
         return self.connected
 
@@ -121,26 +121,28 @@ class Cobolt488():
 
     def get_power(self):
         '''
-        returns the current power in mW
+        returns the power in mW
         '''
         return self.laser.get_power()
 
     def get_power_setpoint(self):
         '''
-        returns the current power setpoint in mW
+        returns the power setpoint in mW
         '''
         return self.laser.get_power_setpoint()
     ##########################################################
 
     ## MODULATION MODE COMMANDS ##########################
 
-    def modulation_mode(self):
+    def modulation_mode(self, power):
         '''
         enters modulation mode
 
+        power mW, sets the power in modulation mode
+
         returns 'OK' if successful.
         '''
-        return self.laser.modulation_mode()
+        return self.laser.modulation_mode(power)
 
     def set_modulation_power(self, power):
         '''
@@ -152,7 +154,7 @@ class Cobolt488():
 
     def get_modulation_power(self):
         '''
-        returns the current modulation power in mW
+        returns the modulation power setpoint in mW
         '''
         return self.laser.get_modulation_power()
 

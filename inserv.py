@@ -59,6 +59,12 @@ with InstrumentServer() as inserv:
                   class_name= 'DLnsec',
                   args= ['COM6'])
 
+   # REQUIRED IMPORT: pycobolt
+   inserv.add(name = 'Cobolt488', 
+               class_path= _HERE / 'drivers' / 'dr_cobolt.py', 
+               class_name= 'Cobolt488',
+               args= [])
+
    #REQUIRED IMPORT: pulsestreamer
 
    if pulser_activation_boolean:

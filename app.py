@@ -63,6 +63,8 @@ def main():
                 mgr.sg.set_rf_toggle(0)
             if camera_activation_boolean:
                 mgr.Camera.shutdown()
+            if mgr.Cobolt488.is_connected():
+                mgr.Cobolt488.disconnect()
 
             
 

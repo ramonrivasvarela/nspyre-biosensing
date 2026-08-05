@@ -60,6 +60,7 @@ class InstWidget(QWidget):
         # self.q = Queue()
 
         self.init_DLnsec_widgets()
+        self.init_cobolt488_widgets()
         self.init_pulse_control()
         
         
@@ -116,6 +117,7 @@ class InstWidget(QWidget):
         self.DLnsec_pwr_label.setStyleSheet("""
             QLineEdit:hover {
                 background-color: lime; /* Background color when hovered */
+                color: black; /* Text color when hovered */
             }
         """)
         
@@ -130,18 +132,95 @@ class InstWidget(QWidget):
 
     def init_cobolt488_widgets(self):
 
+        # VALUE of laser power (in units of mW)
+        with InstrumentManager() as mgr:
+            self.Cobolt488_connected = mgr.Cobolt488.is_connected()  # Initialize with the current connection status
+            if self.Cobolt488_connected:
+                print('Cobolt connected. Getting current power values...')
+                self.Cobolt488_modulation_power = mgr.Cobolt488.get_modulation_power()  # Initialize with the current modulation power value
+                self.Cobolt488_continuous_power = mgr.Cobolt488.get_power_setpoint()  # Initialize with the current continuous power value
+            else:
+                print('Cobolt not connected. Setting placeholder power values...')
+                self.Cobolt488_modulation_power = int(112)
+                self.Cobolt488_continuous_power = int(112)
+
         self.Cobolt488_label = QLabel("Cobolt 488")
         self.Cobolt488_label.setFixedHeight(20)
         self.Cobolt488_label.setStyleSheet("font-weight: bold")
 
-        self.Cobolt488_b1 = QRadioButton("MODULATION")
+        self.Cobolt488_b1 = QRadioButton("Modulation")
         self.Cobolt488_b1.setChecked(True)
-        ...
+        self.Cobolt488_b1.toggled.connect(lambda:self.Cobolt488_mode(self.Cobolt488_b1))
 
-        self.Cobolt488_b2 = QRadioButton("CONTINUOUS")
-        ...
+        self.Cobolt488_b2 = QRadioButton("Continuous")
+        self.Cobolt488_b2.toggled.connect(lambda:self.Cobolt488_mode(self.Cobolt488_b2))
 
 
+        def create_Cobolt488_power_widget(slider_func, text_func, start_power, name):
+            pwr_slider = QSlider()
+            pwr_slider.setOrientation(Qt.Orientation.Horizontal)
+            pwr_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+            pwr_slider.setTickInterval(1)
+            pwr_slider.setMinimum(0)
+            pwr_slider.setMaximum(112)
+            pwr_slider.sliderReleased.connect(slider_func)
+            pwr_slider.setValue(int(start_power))
+            pwr_slider.setFixedWidth(200)
+
+            pwr_label = QLineEdit(f"{start_power}mW")
+            pwr_label.setFont(QFont("Sanserif", 15))
+            pwr_label.setFixedWidth(120)
+            pwr_label.editingFinished.connect(text_func)
+            pwr_label.setStyleSheet("""
+                QLineEdit:hover {
+                    background-color: cyan; /* Background color when hovered */
+                    color: black; /* Text color when hovered */
+                }
+            """)
+
+            pwr_name_label = QLabel(f"{name} (mW):")
+            pwr_name_label.setFont(QFont("Sanserif", 15))
+            pwr_name_label.setFixedWidth(200)
+
+            return pwr_slider, pwr_label, pwr_name_label
+
+
+        self.Cobolt488_pwr_slider_modulation, self.Cobolt488_pwr_label_modulation, self.Cobolt488_pwr_name_label_modulation = create_Cobolt488_power_widget(
+            self.Cobolt488_modulation_power_changed,
+            self.Cobolt488_modulation_power_text_changed,
+            self.Cobolt488_modulation_power,
+            "Mod"
+        )
+
+        self.Cobolt488_pwr_slider_continuous, self.Cobolt488_pwr_label_continuous, self.Cobolt488_pwr_name_label_continuous = create_Cobolt488_power_widget(
+            self.Cobolt488_continuous_power_changed,
+            self.Cobolt488_continuous_power_text_changed,
+            self.Cobolt488_continuous_power,
+            "Cont"
+        )
+        self.Cobolt488_main_widgets = [
+            self.Cobolt488_label,
+            self.Cobolt488_b1,
+            self.Cobolt488_b2,
+            self.Cobolt488_pwr_slider_modulation,
+            self.Cobolt488_pwr_label_modulation,
+            self.Cobolt488_pwr_name_label_modulation,
+            self.Cobolt488_pwr_slider_continuous,
+            self.Cobolt488_pwr_label_continuous,
+            self.Cobolt488_pwr_name_label_continuous
+        ]
+
+        for widget in self.Cobolt488_main_widgets:
+            widget.setEnabled(self.Cobolt488_connected)
+            opacity_effect = QGraphicsOpacityEffect()
+            opacity_effect.setOpacity(1.0 if self.Cobolt488_connected else 0.3)
+            widget.setGraphicsEffect(opacity_effect)
+
+        self.Cobolt488_checkbox = QCheckBox("Connect")
+        self.Cobolt488_checkbox.setStyleSheet("QCheckBox::indicator:hover" "{""background-color : powderblue;""}"
+                                            "QCheckBox::indicator:pressed" "{""background-color : lightgreen;""}")
+        self.Cobolt488_checkbox.stateChanged.connect(lambda:self.Cobolt488_checked(self.Cobolt488_checkbox))
+        self.Cobolt488_checkbox.setChecked(self.Cobolt488_connected)
 
 
     
@@ -152,10 +231,8 @@ class InstWidget(QWidget):
         self.green_laser_label.setStyleSheet("font-weight: bold")
 
         self.green_laser_on_button = QRadioButton("ON")
-        #self.green_laser_on_button.toggled.connect(lambda:self.green_laser_toggle(self.green_laser_on_button))
             
         self.green_laser_off_button = QRadioButton("OFF")
-        #self.green_laser_off_button.toggled.connect(lambda:self.blue_laser_toggle(self.green_laser_off_button))
 
         self.blue_laser_label = QLabel("488nm Laser:")
         self.blue_laser_label.setFixedHeight(20)
@@ -226,7 +303,8 @@ class InstWidget(QWidget):
                 #self.label.editingFinished.connect(lambda: self.value_text_changed())
                 self.label.setStyleSheet("""
                     QLineEdit:hover {
-                        background-color: powderblue; /* Background color when hovered */
+                        background-color: lime; /* Background color when hovered */
+                        color: black; /* Text color when hovered */
                     }
                 """)
 
@@ -327,6 +405,25 @@ class InstWidget(QWidget):
         # self.DLnsec_layout.addWidget(self.DLnsec_status_label,6,1,1,1)
         # self.DLnsec_layout.addWidget(self.RBT_button,7,1,1,1)
 
+        self.Cobolt488_frame = QFrame(self)
+        self.Cobolt488_frame.setStyleSheet("background-color: #454545")
+        self.Cobolt488_layout = QGridLayout(self.Cobolt488_frame)
+        self.Cobolt488_layout.setSpacing(10)
+        self.Cobolt488_layout.addWidget(self.Cobolt488_checkbox,1,2,1,1)
+        self.Cobolt488_layout.addWidget(self.Cobolt488_label,1,1,1,1)
+        self.Cobolt488_layout.addWidget(self.Cobolt488_b1,2,1,1,1)
+        self.Cobolt488_layout.addWidget(self.Cobolt488_b2,2,2,1,1)
+        self.Cobolt488_layout.addWidget(self.Cobolt488_pwr_name_label_continuous,3,1,1,1)
+        self.Cobolt488_layout.addWidget(self.Cobolt488_pwr_label_continuous,3,2,1,1)
+        self.Cobolt488_layout.addWidget(self.Cobolt488_pwr_slider_continuous,3,3,1,2)
+        self.Cobolt488_layout.addWidget(self.Cobolt488_pwr_name_label_modulation,4,1,1,1)
+        self.Cobolt488_layout.addWidget(self.Cobolt488_pwr_label_modulation,4,2,1,1)
+        self.Cobolt488_layout.addWidget(self.Cobolt488_pwr_slider_modulation,4,3,1,2)
+
+
+        # Maybe add a refresh button... especially now that some experiments can change laser power.
+        # self.DLnsec_layout.addWidget(self.DLnsec_refresh_button,7,1,1,1)
+
         
         
 
@@ -363,10 +460,10 @@ class InstWidget(QWidget):
         self.pulse_layout.addWidget(self.camera_trigger_button,11,3,1,1)
         
 
-        self.sig_gens_layout = QGridLayout()
-        self.sig_gens_layout.setSpacing(0)
+        self.pulser_layout = QGridLayout()
+        self.pulser_layout.setSpacing(0)
 
-        self.sig_gens_layout.addWidget(self.pulse_frame,1,1,1,1)
+        self.pulser_layout.addWidget(self.pulse_frame,1,1,1,1)
 
         
 
@@ -376,12 +473,10 @@ class InstWidget(QWidget):
         self.other_widgets_layout = QHBoxLayout()
         self.other_widgets_layout.addWidget(self.DLnsec_frame)
         self.gui_layout.addLayout(self.other_widgets_layout)
+        self.gui_layout.addWidget(self.Cobolt488_frame)
+        self.gui_layout.addLayout(self.pulser_layout)
 
-        # self.gui_layout.addLayout(self.DLnsec_layout)
-
-        self.setLayout(self.gui_layout)
-        self.gui_layout.addLayout(self.sig_gens_layout)
-    
+        self.setLayout(self.gui_layout)    
 
     '''
     INTERACTIVE WIDGET FUNCTIONS
@@ -477,8 +572,139 @@ class InstWidget(QWidget):
         return str(combobox.value())
     
 
+    ## Cobolt488 funcs:
+    # TODO
 
-    
+    def Cobolt488_mode(self, b):
+        try:
+            with InstrumentManager() as mgr:
+                match b.text():
+                    case 'Modulation':
+                        if b.isChecked() == True:
+                            mgr.Cobolt488.modulation_mode(self.Cobolt488_modulation_power)
+                        elif b.isChecked() == False:
+                            mgr.Cobolt488.constant_power(self.Cobolt488_continuous_power)
+                    case 'Continuous':
+                        if b.isChecked() == True:
+                            mgr.Cobolt488.constant_power(self.Cobolt488_continuous_power)
+                        elif b.isChecked() == False:
+                            mgr.Cobolt488.modulation_mode(self.Cobolt488_modulation_power)
+        except Exception as e:
+            match b.text():
+                case 'Modulation':
+                    b.setChecked(True)
+                case 'Continuous':
+                    b.setChecked(False)
+            print("Could not set Cobolt 488 mode:", e)
+            return
+
+    def Cobolt488_modulation_power_changed(self):
+        try:
+            with InstrumentManager() as mgr:
+                self.Cobolt488_modulation_power = self.Cobolt488_pwr_slider_modulation.value()
+                mgr.Cobolt488.set_modulation_power(self.Cobolt488_modulation_power)
+        except Exception as e:
+            self.Cobolt488_modulation_power = 0
+            self.Cobolt488_pwr_slider_modulation.setValue(self.Cobolt488_modulation_power)
+            print("Could not change Cobolt 488 modulation power:", e)
+        self.Cobolt488_pwr_label_modulation.setText(str(self.Cobolt488_modulation_power) + "mW")
+
+    def Cobolt488_modulation_power_text_changed(self): # Makes sure text is valid, then sends off the value to the slider
+        text = self.Cobolt488_pwr_label_modulation.text()
+        if text[-2:] == 'mW':
+            text = text[:-2] #text is purely the numeric value now
+        try: 
+            val = float(text)
+        except ValueError:
+            self.Cobolt488_pwr_label_modulation.setText(f"{self.Cobolt488_modulation_power}mW")
+            print("Invalid input, please enter a number")
+            return
+        if val >= 0 and val <= 112:
+            try:
+                with InstrumentManager() as mgr:
+                    mgr.Cobolt488.set_modulation_power(val)
+                self.Cobolt488_modulation_power = val
+            
+            except Exception as e:
+                self.Cobolt488_modulation_power = 0
+                print("Could not change Cobolt 488 modulation power:", e)
+
+            self.Cobolt488_pwr_slider_modulation.setValue(int(self.Cobolt488_modulation_power))    
+            self.Cobolt488_pwr_label_modulation.setText(f"{self.Cobolt488_modulation_power}mW")
+        else:
+            self.Cobolt488_pwr_label_modulation.setText(f"{self.Cobolt488_modulation_power}mW")
+            print("Invalid input, please enter a number between 0 and 112")
+
+
+    def Cobolt488_continuous_power_changed(self):
+        try:
+            with InstrumentManager() as mgr:
+                self.Cobolt488_continuous_power = self.Cobolt488_pwr_slider_continuous.value()
+                mgr.Cobolt488.set_power(self.Cobolt488_continuous_power)
+        except Exception as e:
+            self.Cobolt488_continuous_power = 0
+            self.Cobolt488_pwr_slider_continuous.setValue(self.Cobolt488_continuous_power)
+            print("Could not change Cobolt 488 continuous power:", e)
+        self.Cobolt488_pwr_label_continuous.setText(str(self.Cobolt488_continuous_power) + "mW")
+
+    def Cobolt488_continuous_power_text_changed(self): # Makes sure text is valid, then sends off the value to the slider
+        text = self.Cobolt488_pwr_label_continuous.text()
+        if text[-2:] == 'mW':
+            text = text[:-2] #text is purely the numeric value now
+        try:
+            val = float(text)
+        except ValueError:
+            self.Cobolt488_pwr_label_continuous.setText(f"{self.Cobolt488_continuous_power}mW")
+            print("Invalid input, please enter a number")
+        if val >= 0 and val <= 112:
+            try:
+                with InstrumentManager() as mgr:
+                    mgr.Cobolt488.set_power(val)
+                self.Cobolt488_continuous_power = val
+            
+            except Exception as e:
+                self.Cobolt488_continuous_power = 0
+                print("Could not change Cobolt 488 continuous power:", e)
+
+            self.Cobolt488_pwr_slider_continuous.setValue(int(self.Cobolt488_continuous_power))    
+            self.Cobolt488_pwr_label_continuous.setText(f"{self.Cobolt488_continuous_power}mW")
+        else:
+            self.Cobolt488_pwr_label_continuous.setText(f"{self.Cobolt488_continuous_power}mW")
+            print("Invalid input, please enter a number between 0 and 112")
+
+    def Cobolt488_checked(self, checkbox):
+        try:
+            with InstrumentManager() as mgr:
+                if checkbox.isChecked():
+                    if not mgr.Cobolt488.is_connected(): mgr.Cobolt488.connect()
+                    self.Cobolt488_connected = True
+                    self.Cobolt488_modulation_power = mgr.Cobolt488.get_modulation_power()
+                    self.Cobolt488_pwr_label_modulation.setText(f"{self.Cobolt488_modulation_power}mW")
+                    self.Cobolt488_pwr_slider_modulation.setValue(int(self.Cobolt488_modulation_power))
+                    self.Cobolt488_continuous_power = mgr.Cobolt488.get_power_setpoint()
+                    self.Cobolt488_pwr_label_continuous.setText(f"{self.Cobolt488_continuous_power}mW")
+                    self.Cobolt488_pwr_slider_continuous.setValue(int(self.Cobolt488_continuous_power))
+
+                    for widget in self.Cobolt488_main_widgets:
+                        widget.setEnabled(True)
+                        opacity_effect = QGraphicsOpacityEffect()
+                        opacity_effect.setOpacity(1.0)
+                        widget.setGraphicsEffect(opacity_effect)
+                    print('check')
+                else:
+                    if mgr.Cobolt488.is_connected(): mgr.Cobolt488.disconnect()
+                    self.Cobolt488_connected = False
+                    for widget in self.Cobolt488_main_widgets:
+                        widget.setEnabled(False)
+                        opacity_effect = QGraphicsOpacityEffect()
+                        opacity_effect.setOpacity(0.3)
+                        widget.setGraphicsEffect(opacity_effect)
+                    print('uncheck')
+        except Exception as e:
+            print("Could not toggle Cobolt 488, defaulting to disconnect:", e)
+            checkbox.setChecked(False)
+            return
+
 
     def change_experiment_state(self): 
         try:
