@@ -103,7 +103,6 @@ class ConfocalODMR():
             'probe_time': probe_time,
             'clock_duration': clock_duration,
             'timeout': timeout,
-            'feedback': feedback,
             'dozfb': dozfb,
             'sweeps_til_fb': sweeps_til_fb,
             'xyz_step': xyz_step,
