@@ -68,7 +68,7 @@ class ConfocalODMR():
         self,
         runs: int = 1000,
         sweeps: int = 10,
-        mode: str = "QAM",
+        mode: str = "AM",
         frequencies: str ="(2.82e9, 2.92e9, 30)",
         rf_amplitude: float = -20, 
         laser_lag: float = 80e-9,
@@ -76,8 +76,6 @@ class ConfocalODMR():
         probe_time: float = 50e-6,
         clock_duration: float = 10e-9,
         timeout: int = 300,
-        # data_download: bool = False,
-        feedback: bool = False,
         dozfb: bool = True,
         sweeps_til_fb: int = 10,
         # initial_position: dict = {'x': 0.0, 'y': 0.0, 'z': 0.0},
@@ -221,7 +219,7 @@ class ConfocalODMR():
         else:
             self.ODMR_label = [1, 'x', 0, 'x'] # sig, discard, bg, discard
             if self.VERBOSE: print('ODMR, with wait time')
-            self.seq = mgr.Pulser.ODMRWithWait(self.ns_laser_lag, self.ns_probe_time, self.ns_clock_duration, self.ns_cooldown_time, runs, mode)
+            self.seq = mgr.Pulser.ODMRWithWait(self.ns_laser_lag, self.ns_probe_time, self.ns_clock_duration, self.ns_cooldown_time, 0,  runs, mode) #0 is ns_pulsewait_time, which is not yet implemented as a parameter.
         if self.VERBOSE:
             import pickle, os
             print(f'saving sequence to seq.pkl in {os.getcwd()}')

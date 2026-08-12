@@ -548,7 +548,7 @@ class PulserClass():
 
         return sequence
         
-    def ODMRWithWait(self, ns_laser_lag, ns_probe_time, ns_clock_duration, ns_cooldown_time, ns_pulsewait_time ,runs, mode, switch):
+    def ODMRWithWait(self, ns_laser_lag, ns_probe_time, ns_clock_duration, ns_cooldown_time, ns_pulsewait_time ,runs, mode):
         '''
         Sets up the pulse sequence for ODMR with wait time. Returns the relevant instrument sequences as a dictionary
         '''
