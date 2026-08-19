@@ -35,6 +35,7 @@ class ExperimentWidget(QtWidgets.QWidget):
         title: Optional[str] = None,
         kill: bool = False,
         layout: QtWidgets.QLayout = None,
+        add_export_import_buttons: bool = False,
     ):
         """
         Args:
@@ -95,7 +96,7 @@ class ExperimentWidget(QtWidgets.QWidget):
             unit_widgets.SecLineEdit:  lambda w: w.secvalue,
             unit_widgets.NSLineEdit:  lambda w: w.nsvalue,
         }
-        self.params_widget = ParamsWidget(params_config, get_param_value_funs=get_param_value_funs)
+        self.params_widget = ParamsWidget(params_config, get_param_value_funs=get_param_value_funs, add_export_import_buttons=add_export_import_buttons)
 
         # run button
         run_button = QtWidgets.QPushButton('Run')

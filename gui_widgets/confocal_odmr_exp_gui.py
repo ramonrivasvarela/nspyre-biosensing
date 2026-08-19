@@ -2,8 +2,8 @@ import numpy as np
 from scipy import optimize
 
 from special_widgets.flex_line_plot_widget_fitting import FlexLinePlotWidget
-# from nspyre import ExperimentWidget
-from special_widgets.custom_experiment import ExperimentWidget
+from nspyre import ExperimentWidget
+# from special_widgets.custom_experiment import ExperimentWidget
 from nspyre import DataSink
 from pyqtgraph.Qt import QtWidgets
 from PyQt6.QtWidgets import QSpinBox, QLineEdit, QCheckBox, QComboBox
@@ -62,7 +62,7 @@ class ConfocalODMRWidget(ExperimentWidget):
         
         mode_cb = QComboBox()
         mode_cb.addItems(['QAM', 'AM', 'NoMod'])
-        mode_cb.setCurrentText('QAM')
+        mode_cb.setCurrentText('AM')
 
         # sampling_rate_sb=unit_widgets.HzLineEdit(50000)
 
@@ -231,7 +231,8 @@ class ConfocalODMRWidget(ExperimentWidget):
             'ConfocalODMR',
             'confocal_odmr',
             title='Confocal ODMR',
-            queue = True,
+            # queue = True,
+            add_export_import_buttons=True
         )
 
 

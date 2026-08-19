@@ -91,6 +91,12 @@ class SpatialFeedbackWidget(ExperimentWidget):
                 ),
             },
 
+            'verbose': {
+                'display_text': 'Verbose',
+                'widget': QCheckBox(),
+                'default': True,
+            },
+
             'dataset':
             {
                 'display_text': 'Dataset Name',
@@ -103,5 +109,6 @@ class SpatialFeedbackWidget(ExperimentWidget):
             experiments.spatialfb,
             'SpatialFeedback',
             'spatial_feedback',
-            title='Spatial Feedback'
+            title='Spatial Feedback',
+            add_export_import_buttons=True
         )

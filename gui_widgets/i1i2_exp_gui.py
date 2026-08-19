@@ -63,7 +63,7 @@ class I1I2Widget(ExperimentWidget):
 
         mode_cb = QComboBox()
         mode_cb.addItems(['QAM', 'FM'])
-        mode_cb.setCurrentText('QAM')
+        mode_cb.setCurrentText('FM')
 
         params_config = {
             'sampling_rate': {
@@ -233,7 +233,8 @@ class I1I2Widget(ExperimentWidget):
             experiments.i1i2,
             'I1I2',
             'i1i2',
-            title='I1I2 Experiment'
+            title='I1I2 Experiment',
+            add_export_import_buttons=True
         )
 
 class I1I2PlotWidget(FlexLinePlotWidget):
