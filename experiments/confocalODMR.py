@@ -85,108 +85,119 @@ class ConfocalODMR():
         verbose: bool = False,
         dataset: str = "odmr"
     ):
-        
-        ## Set up key data structures
-        INIT_PARAMS = [ runs, mode, frequencies, rf_amplitude, laser_lag, cooldown_time,
-                        probe_time, clock_duration, timeout, verbose]
-        signal=StreamingList()
-        background=StreamingList()
+        try:
+            ## Set up key data structures
+            INIT_PARAMS = [ runs, mode, frequencies, rf_amplitude, laser_lag, cooldown_time,
+                            probe_time, clock_duration, timeout, verbose]
+            signal=StreamingList()
+            background=StreamingList()
 
-        params={
-            'runs': runs,
-            'sweeps': sweeps,
-            'mode': mode,
-            'frequencies': frequencies,
-            'rf_amplitude': rf_amplitude,
-            'laser_lag': laser_lag,
-            'cooldown_time': cooldown_time,
-            'probe_time': probe_time,
-            'clock_duration': clock_duration,
-            'timeout': timeout,
-            'dozfb': dozfb,
-            'sweeps_til_fb': sweeps_til_fb,
-            'xyz_step': xyz_step,
-            'count_step_shrink': count_step_shrink,
-            'starting_point': starting_point,
-            'verbose': verbose,
-            'dataset': dataset
-            }
-        ## Connect tof the instrument server, data server.
-        with InstrumentManager() as mgr, DataSource(dataset) as datasource:
-            params.update({'laser_power': mgr.DLnsec.get_power()})
+            params={
+                'runs': runs,
+                'sweeps': sweeps,
+                'mode': mode,
+                'frequencies': frequencies,
+                'rf_amplitude': rf_amplitude,
+                'laser_lag': laser_lag,
+                'cooldown_time': cooldown_time,
+                'probe_time': probe_time,
+                'clock_duration': clock_duration,
+                'timeout': timeout,
+                'dozfb': dozfb,
+                'sweeps_til_fb': sweeps_til_fb,
+                'xyz_step': xyz_step,
+                'count_step_shrink': count_step_shrink,
+                'starting_point': starting_point,
+                'verbose': verbose,
+                'dataset': dataset
+                }
+            ## Connect tof the instrument server, data server.
+            with InstrumentManager() as mgr, DataSource(dataset) as datasource:
+                params.update({'laser_power': mgr.DLnsec.get_power()})
 
 
-            # Initialize the experiment parameters
-            self.initialize(mgr, *INIT_PARAMS) # prepares self.seq, among other things
-            if self.VERBOSE: print('Finished experiment initialization.')
-            n_freq = len(self.frequencies)
-            self.AM = mode == 'AM'
+                # Initialize the experiment parameters
+                self.initialize(mgr, *INIT_PARAMS) # prepares self.seq, among other things
+                if self.VERBOSE: print('Finished experiment initialization.')
+                n_freq = len(self.frequencies)
+                self.AM = mode == 'AM'
 
-            ###########################
-            #### EXPERIMENTAL LOOP ####
-            ###########################
-            for sweep in range(sweeps):
-                if self.VERBOSE: print(f'Starting sweep {sweep+1}/{sweeps}...')
-                #### Prepare Sweep Data Structure
-                # photon counts corresponding to each frequency
-                # initialize to NaN
-                sig_counts = np.empty(n_freq)
-                sig_counts[:] = np.nan
-                signal.append(np.stack([self.frequencies, sig_counts]))
-                bg_counts = np.empty(n_freq)
-                bg_counts[:] = np.nan
-                background.append(np.stack([self.frequencies, bg_counts]))
+                ###########################
+                #### EXPERIMENTAL LOOP ####
+                ###########################
+                for sweep in range(sweeps):
+                    if self.VERBOSE: print(f'Starting sweep {sweep+1}/{sweeps}...')
+                    #### Prepare Sweep Data Structure
+                    # photon counts corresponding to each frequency
+                    # initialize to NaN
+                    sig_counts = np.empty(n_freq)
+                    sig_counts[:] = np.nan
+                    signal.append(np.stack([self.frequencies, sig_counts]))
+                    bg_counts = np.empty(n_freq)
+                    bg_counts[:] = np.nan
+                    background.append(np.stack([self.frequencies, bg_counts]))
 
-                for i in range(n_freq):
-                    if self.VERBOSE: print(f'  Starting frequency {i+1}/{n_freq} ({self.frequencies[i]*1e-9:.3f} GHz)...')
-                    #### Acquire
-                    mgr.sg.set_frequency(self.frequencies[i])
-                    if self.VERBOSE: print(f'Set frequency to {self.frequencies[i]*1e-9:.3f} GHz')
-                    data=self.acquire(mgr, self.seq)
-                    if self.VERBOSE:
-                        print(
-                            f'  Acquired data for frequency {self.frequencies[i]*1e-9:.3f} GHz '
-                            f'(n={data.size}, first={data[0] if data.size else "NA"}, '
-                            f'last={data[-1] if data.size else "NA"})'
-                        )
-                    #mgr.DAQcontrol.start_counter()      
-                    #mgr.Pulser.stream_sequence(self.seq, 1) # number of runs accounted for in construction of the sequence.
-                    #data = np.array(mgr.DAQcontrol.read_to_data_array( timeout = self.timeout)) # Collect ODMR point
-                    #mgr.Pulser.set_state_off()
-                    #### Format
-                    sig_point, bg_point = self.format_data(data, self.ODMR_label)
-                    sig_point/= (probe_time * runs) # cts/s
-                    bg_point/= (probe_time * runs) # cts/s
-                    signal[-1][1][i] = sig_point
-                    signal.updated_item(-1) # notify the streaminglist that this entry has updated so it will be pushed to the data server
-                    background[-1][1][i] = bg_point
-                    background.updated_item(-1)
-                    #### Send
-                    if self.VERBOSE: print(signal[-1][1], background[-1][1])
-                    datasource.push({
-                        'params': params,
-                        'xlabel': 'Frequency (Hz)',
-                        'ylabel': 'Fluorescence',
-                        'datasets': {
-                            'signal': signal,       
-                            'background': background,
-                        }
-                    })
-                    if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
-                        # the GUI has asked us nicely to exit
-                        return self.finalize(mgr, params, signal, background, datasource)
+                    for i in range(n_freq):
+                        if self.VERBOSE: print(f'  Starting frequency {i+1}/{n_freq} ({self.frequencies[i]*1e-9:.3f} GHz)...')
+                        #### Acquire
+                        mgr.sg.set_frequency(self.frequencies[i])
+                        if self.VERBOSE: print(f'Set frequency to {self.frequencies[i]*1e-9:.3f} GHz')
+                        data=self.acquire(mgr, self.seq)
+                        if self.VERBOSE:
+                            print(
+                                f'  Acquired data for frequency {self.frequencies[i]*1e-9:.3f} GHz '
+                                f'(n={data.size}, first={data[0] if data.size else "NA"}, '
+                                f'last={data[-1] if data.size else "NA"})'
+                            )
+                        #mgr.DAQcontrol.start_counter()      
+                        #mgr.Pulser.stream_sequence(self.seq, 1) # number of runs accounted for in construction of the sequence.
+                        #data = np.array(mgr.DAQcontrol.read_to_data_array( timeout = self.timeout)) # Collect ODMR point
+                        #mgr.Pulser.set_state_off()
+                        #### Format
+                        sig_point, bg_point = self.format_data(data, self.ODMR_label)
+                        sig_point/= (probe_time * runs) # cts/s
+                        bg_point/= (probe_time * runs) # cts/s
+                        signal[-1][1][i] = sig_point
+                        signal.updated_item(-1) # notify the streaminglist that this entry has updated so it will be pushed to the data server
+                        background[-1][1][i] = bg_point
+                        background.updated_item(-1)
+                        #### Send
+                        if self.VERBOSE: print(signal[-1][1], background[-1][1])
+                        datasource.push({
+                            'params': params,
+                            'xlabel': 'Frequency (Hz)',
+                            'ylabel': 'Fluorescence',
+                            'datasets': {
+                                'signal': signal,       
+                                'background': background,
+                            }
+                        })
+                        if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
+                            # the GUI has asked us nicely to exit
+                            raise SystemExit("stop")
 
-                #### Feedback
-                if (sweeps_til_fb!=0) and (sweep % sweeps_til_fb == 0) and (sweep > 0):
-                    
-                    self.run_feedback(mgr, starting_point, dozfb, xyz_step, count_step_shrink) 
-                    '''Make sure the counter is reinitialized after each spatial feedback. Ways to make this process more straightforwars?'''
-                    mgr.DAQcontrol.prepare_counting(self.sample_rate, runs * len(self.ODMR_label)) 
-            
-            # Calculate fit before finalization
-            
-            
-            return self.finalize(mgr, params, signal, background, datasource)
+                    #### Feedback
+                    if (sweeps_til_fb!=0) and (sweep % sweeps_til_fb == 0) and (sweep > 0):
+                        
+                        self.run_feedback(mgr, starting_point, dozfb, xyz_step, count_step_shrink) 
+                        '''Make sure the counter is reinitialized after each spatial feedback. Ways to make this process more straightforwars?'''
+                        mgr.DAQcontrol.prepare_counting(self.sample_rate, runs * len(self.ODMR_label)) 
+                        
+                self.finalize(mgr)
+                return 'end'
+                
+        except SystemExit as e:
+            with InstrumentManager() as mgr:
+                self.finalize(mgr)
+            return str(e)
+        except Exception as e:
+            with InstrumentManager() as mgr:
+                self.finalize(mgr)
+            raise e
+        else:
+            with InstrumentManager() as mgr:
+                self.finalize(mgr)
+            return 'end'
             
 
     #### INITIALIZATION METHODS
@@ -480,7 +491,7 @@ class ConfocalODMR():
                 print(f"Error processing data: {e}")
                 return None
 
-    def finalize(self, mgr, params, signal, background, datasource):
+    def finalize(self, mgr):
 
         ## stop and close all tasks
         mgr.Pulser.set_state_off()
@@ -490,25 +501,14 @@ class ConfocalODMR():
         mgr.sg.set_rf_toggle(False)
         mgr.sg.set_mod_toggle(False)
 
-        fit_results = self.double_lorentzian_fit(signal, background)
-        if fit_results is not None:
-            # Add fit dataset to the final data push
-            fit_data = StreamingList()
-            fit_data.append(np.stack([self.frequencies, fit_results['fitted_curve']]))
-            
-            datasource.push({
-                'params': params,
-                'x_label': 'Frequency (Hz)',
-                'y_label': 'Fluorescence',
-                'datasets': {
-                    'signal': signal,       
-                    'background': background,
-                    'fit': fit_data,
-                }
-            })
+        # fit_results = self.double_lorentzian_fit(signal, background)
+        # if fit_results is not None:
+        #     # Add fit dataset to the final data push
+        #     fit_data = StreamingList()
+        #     fit_data.append(np.stack([self.frequencies, fit_results['fitted_curve']]))
+        
         print("FINALIZE")
 
-        return fit_results
 
 
         

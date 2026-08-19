@@ -69,70 +69,83 @@ class SpatialFeedback():
     ## MAIN EXPERIMENT METHOD ##########################################################
     def spatial_feedback(self, do_z=True, xyz_step=0.05, shrink_every_x_iter=1, 
                          starting_point='default', probe_time=0.40, initial_position="(0,0,50)", 
-                         n_points=1, counter_already_exists=False, total_fb_time=0.0, dataset='feedback'):
-        ## PREPARE PARAMS DICT
-        params={'do_z':do_z,
-                    'xyz_step':xyz_step,
-                    'shrink_every_x_iter': shrink_every_x_iter,
-                    'starting_point': starting_point,
-                    'probe_time':probe_time,
-                    'initial_position': initial_position,
-                    'n_points': n_points,
-                    'counter_already_exists' : counter_already_exists,
-                    'total_fb_time': total_fb_time
-                    }
-        self.verbose = True # add as param
-        
-        with InstrumentManager() as mgr, DataSource(dataset) as ds:
-            params.update({'laser_power': mgr.DLnsec.get_power()})
-            ## INITIALIZE | self.
-            self.initialize(mgr, initial_position, starting_point, counter_already_exists, n_points, probe_time)
-            ## Prepare tracking variables
-            center = mgr.DAQcontrol.get_position()
-            print('starting point:', center['x'], center['y'], center['z'])
+                         n_points=1, counter_already_exists=False, total_fb_time=0.0, verbose = True, dataset='feedback'):
+        try:
+            ## PREPARE PARAMS DICT
+            params={'do_z':do_z,
+                        'xyz_step':xyz_step,
+                        'shrink_every_x_iter': shrink_every_x_iter,
+                        'starting_point': starting_point,
+                        'probe_time':probe_time,
+                        'initial_position': initial_position,
+                        'n_points': n_points,
+                        'counter_already_exists' : counter_already_exists,
+                        'total_fb_time': total_fb_time
+                        }
+            self.verbose = verbose
             
-            counter = 0
-            #import pdb; pdb.set_trace()
-            time_initial=time.time()
-            X_pos=StreamingList()
-            Y_pos=StreamingList()
-            Z_pos=StreamingList()
-            fluorescence=StreamingList()
+            with InstrumentManager() as mgr, DataSource(dataset) as ds:
+                params.update({'laser_power': mgr.DLnsec.get_power()})
+                ## INITIALIZE | self.
+                self.initialize(mgr, initial_position, starting_point, counter_already_exists, n_points, probe_time)
+                ## Prepare tracking variables
+                center = mgr.DAQcontrol.get_position()
+                print('starting point:', center['x'], center['y'], center['z'])
+                
+                counter = 0
+                #import pdb; pdb.set_trace()
+                time_initial=time.time()
+                X_pos=StreamingList()
+                Y_pos=StreamingList()
+                Z_pos=StreamingList()
+                fluorescence=StreamingList()
 
-            while xyz_step >= 0.01 or total_fb_time != 0.0:
-                if self.verbose: print('\n scanning z, x, y, with step size:', xyz_step)
-                #print('search_x:', search_x, 'search_y:', search_y, 'search_z:', search_z)
+                while xyz_step >= 0.01 or total_fb_time != 0.0:
+                    if self.verbose: print('\n scanning z, x, y, with step size:', xyz_step)
+                    #print('search_x:', search_x, 'search_y:', search_y, 'search_z:', search_z)
+                    
+                    ######################################################################################
+                    #####  new version: iterate across z with current x and y. z travels furthest.  ######
+                    #####                               z scan                                      ######
+                    ######################################################################################
+                    ## in z, I add a hidden 20 nm to the step, becaue it has a different sensitivity
+                    ## than x and y, thanks to the rayleigh length.
+                    if do_z:
+                        self.track_1D(mgr, 'z', center, probe_time * n_points, xyz_step, X_pos, Y_pos, Z_pos, fluorescence, time_initial, params, ds, total_fb_time, counter_already_exists)
+                        if self.verbose: print('\n z scanned:', center['x'], center['y'], center['z'])
+                    #######################################################################################
+                    #####                                  x scan                                    ######
+                    #######################################################################################
+                    
+                    self.track_1D(mgr, 'x', center, probe_time * n_points, xyz_step, X_pos, Y_pos, Z_pos, fluorescence, time_initial, params, ds, total_fb_time, counter_already_exists)
+                    if self.verbose: print('\n x scanned:', center['x'], center['y'], center['z'])
+                    #######################################################################################
+                    #####                                  y scan                                    ######
+                    #######################################################################################
+                    self.track_1D(mgr, 'y', center, probe_time * n_points, xyz_step, X_pos, Y_pos, Z_pos, fluorescence, time_initial, params, ds, total_fb_time, counter_already_exists)
+                    if self.verbose: print('\n y scanned:', center['x'], center['y'], center['z'])
+                    counter += 1
+                    if counter % shrink_every_x_iter == 0:
+                        xyz_step = xyz_step / 2
+                    if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
+                        # the GUI has asked us nicely to exit
+                        raise SystemExit("stop")
+                    
                 
-                ######################################################################################
-                #####  new version: iterate across z with current x and y. z travels furthest.  ######
-                #####                               z scan                                      ######
-                ######################################################################################
-                ## in z, I add a hidden 20 nm to the step, becaue it has a different sensitivity
-                ## than x and y, thanks to the rayleigh length.
-                if do_z:
-                    self.track_1D(mgr, 'z', center, probe_time * n_points, xyz_step, X_pos, Y_pos, Z_pos, fluorescence, time_initial, params, ds, total_fb_time, counter_already_exists)
-                    if self.verbose: print('\n z scanned:', center['x'], center['y'], center['z'])
-                #######################################################################################
-                #####                                  x scan                                    ######
-                #######################################################################################
-                self.track_1D(mgr, 'x', center, probe_time * n_points, xyz_step, X_pos, Y_pos, Z_pos, fluorescence, time_initial, params, ds, total_fb_time, counter_already_exists)
-                if self.verbose: print('\n x scanned:', center['x'], center['y'], center['z'])
-                #######################################################################################
-                #####                                  y scan                                    ######
-                #######################################################################################
-                self.track_1D(mgr, 'y', center, probe_time * n_points, xyz_step, X_pos, Y_pos, Z_pos, fluorescence, time_initial, params, ds, total_fb_time, counter_already_exists)
-                if self.verbose: print('\n y scanned:', center['x'], center['y'], center['z'])
-                counter += 1
-                if counter % shrink_every_x_iter == 0:
-                    xyz_step = xyz_step / 2
-                if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
-                    # the GUI has asked us nicely to exit
-                    self.finalize(mgr, counter_already_exists)
-                    return
-                
-            
-            print("final position:", mgr.DAQcontrol.get_position())
-            self.finalize(mgr, counter_already_exists)
+                print("final position:", mgr.DAQcontrol.get_position())
+        except SystemExit as e: # stop or internal/external skip
+            with InstrumentManager() as mgr:
+                self.finalize(mgr, counter_already_exists)
+            return str(e)
+        except Exception as e:
+            with InstrumentManager() as mgr:
+                self.finalize(mgr, counter_already_exists)
+            raise e
+        else:
+            with InstrumentManager() as mgr:
+                self.finalize(mgr, counter_already_exists)
+            return 'end'
+  
 
     def track_1D(self, mgr, var, center, integration_time, xyz_step, X_pos, Y_pos, Z_pos, fluorescence, time_initial, params, ds, total_fb_time, counter_already_exists, integrated = False):
         '''
@@ -162,10 +175,12 @@ class SpatialFeedback():
                 self.data_update(X_pos, Y_pos, Z_pos, fluorescence, time_current, center, dataAfter, params, ds)
                 if experiment_widget_process_queue(self.queue_to_exp) == 'stop':
                     # the GUI has asked us nicely to exit
-                    if not integrated: self.finalize(mgr, counter_already_exists)
+                    if not integrated: 
+                        raise SystemExit("stop")
                     return True, True # used in integrated mode 
                 elif (total_fb_time > 0 and time.time() - time_initial >= total_fb_time):
-                    if not integrated: self.finalize(mgr, counter_already_exists) # a note on inheritance: if this is called from within another spyrelet, this will use the spyrelet's finalize method. 
+                    if not integrated: 
+                        raise SystemExit("skip")
                     return True, False # used in integrated mode 
         return False, False # used in integrated mode 
                 
@@ -220,7 +235,6 @@ class SpatialFeedback():
             mgr.DAQcontrol.finalize_counter()
         mgr.Pulser.set_state_off()
     
-        return
     
     # def create_sequence(self, mgr):
     #     seq = mgr.Pulser.create_sequence()

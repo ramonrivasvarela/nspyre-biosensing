@@ -148,6 +148,7 @@ class ContinuousTracking():
         # Remove XYZ_center parameter
         search, search_error_array = self.data_analysis(mgr, tracking_data, track_steps, index, search, do_not_run_feedback, spot_size, num_bins, advanced_tracking,
             changing_search, search_error_array, search_integral_history)
+
         
         # This move is now redundant - already done in data_analysis
         # mgr.DAQcontrol.move({'x': self.XYZ_center[0], 'y': self.XYZ_center[1], 'z': self.XYZ_center[2]})
