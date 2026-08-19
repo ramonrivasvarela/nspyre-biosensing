@@ -576,6 +576,13 @@ np.array([[4, 5, 6], [3.4, 3.6, 3.5]])])
         series = self.plot_series_lineedit.text()
         processing = self.plot_processing_dropdown.currentText()
         iteration = self.add_plot_iteration_textbox.text()
+        try:
+            if iteration != '':
+                int(iteration)
+        except ValueError as err:
+            raise ValueError(
+                f'Iteration [{iteration}] must be either an integer or empty.'
+            ) from err
 
         return name, series, scan_i, scan_j, processing, iteration
 
