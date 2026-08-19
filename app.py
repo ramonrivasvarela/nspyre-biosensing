@@ -18,7 +18,7 @@ from nspyre import nspyreApp
 # function does not recursively reload modules
 
 
-from gui_widgets import laser_gui
+from gui_widgets import blast_experiment_gui, laser_gui
 from gui_widgets import instrument_gui
 from gui_widgets import camera_gui
 from gui_widgets import counts_exp_gui, picture_exp_gui, planescan_exp_gui, confocal_odmr_exp_gui, spatial_feedback_exp_gui, i1i2_exp_gui, temptime_exp_gui, triple_exp_gui, odmrcenter_exp_gui, testing_axis_exp_gui, tracking_gui, wodmr_exp_gui, wI1I2_exp_gui, wf_autofocus_gui, line_scan_fb_exp_gui
@@ -89,7 +89,6 @@ def main():
                     'Confocal I1I2': MainWidgetItem(i1i2_exp_gui, 'I1I2Widget', stretch=(1, 1)),
                     'WFODMR': MainWidgetItem(wodmr_exp_gui, 'wODMRWidget', stretch=(1, 1)),
                     'wI1I2': MainWidgetItem(wI1I2_exp_gui, 'wI1I2Widget', stretch=(1, 1)),
-                    'Multi Blast': MainWidgetItem(multi_blast_exp_gui, 'MultiBlastWidget', stretch=(1, 1)),
                     },
 
                 'Main Plotting' : {
@@ -100,7 +99,6 @@ def main():
                     'Pictures Heat Map': MainWidgetItem(picture_exp_gui, 'PicturesHeatMapWidget', stretch=(1, 1)),                    
                     'WFODMR Plot': MainWidgetItem(wodmr_exp_gui, 'wODMRPlotWidget', stretch=(1, 1)),
                     'wI1I2 Plot': MainWidgetItem(wI1I2_exp_gui, 'wI1I2PlotWidget', stretch=(1, 1)),
-                    'Multi Blast Plot': MainWidgetItem(multi_blast_exp_gui, 'MultiBlastPlotWidget', stretch=(1, 1)),
                 },
 
                 'Other Experiments': {
@@ -111,6 +109,8 @@ def main():
                     'Confocal TempVsTime': MainWidgetItem(temptime_exp_gui, 'TempTimeWidget', stretch=(1, 1)),
                     'Triple Experiment': MainWidgetItem(triple_exp_gui, 'TripleExperimentWidget', stretch=(1, 1)),
                     'ODMR Center': MainWidgetItem(odmrcenter_exp_gui, 'ODMRCenterWidget', stretch=(1, 1)),
+                    'Multi Blast': MainWidgetItem(multi_blast_exp_gui, 'MultiBlastWidget', stretch=(1, 1)),
+                    'Blast Experiment': MainWidgetItem(blast_experiment_gui, 'BlastExperimentWidget', stretch=(1, 1)),
                 },
 
                 'Other Plotting': {
@@ -119,6 +119,7 @@ def main():
                     'ODMR Center Plot': MainWidgetItem(odmrcenter_exp_gui, 'ODMRCenterPlotWidget', stretch=(1, 1)),
                     'ODMR Center Track Plot': MainWidgetItem(odmrcenter_exp_gui, 'ODMRCenterTrackPlotWidget', stretch=(1, 1)),
                     'Confocal TempVsTime Plot': MainWidgetItem(temptime_exp_gui, 'TempTimePlotWidget', stretch=(1, 1)),
+                    'Multi Blast Plot': MainWidgetItem(multi_blast_exp_gui, 'MultiBlastPlotWidget', stretch=(1, 1)),
                 }
                 
             }
