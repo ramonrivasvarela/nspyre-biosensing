@@ -37,7 +37,7 @@ def main():
     # Log to the console as well as a file inside the logs folder.
     nspyre_init_logger(
         log_level=logging.INFO,
-        log_path=_HERE / '../logs',
+        log_path=_HERE / 'app_logs',
         log_path_level=None,
         prefix=Path(__file__).stem,
         file_size=10_000_000,
@@ -102,14 +102,14 @@ def main():
                 },
 
                 'Other Experiments': {
-                    'WFAutofocus': MainWidgetItem(wf_autofocus_gui, 'WFAutofocusWidget', stretch=(1, 1)),
-                    'Line Scan Feedback': MainWidgetItem(line_scan_fb_exp_gui, 'LineScanFBWidget', stretch=(1, 1)),
+                    'WFAutofocus': MainWidgetItem(wf_autofocus_gui, 'WFAutofocusWidget', stretch=(1, 1)), # ?
+                    'Line Scan Feedback': MainWidgetItem(line_scan_fb_exp_gui, 'LineScanFBWidget', stretch=(1, 1)), # ?
                     # 'Testing Axis': MainWidgetItem(testing_axis_exp_gui, 'TestingAxisWidget', stretch=(1, 1)),
                     'Counts vs Time' : MainWidgetItem(counts_exp_gui, 'CountsWidget', stretch=(1, 1)),
                     'Confocal TempVsTime': MainWidgetItem(temptime_exp_gui, 'TempTimeWidget', stretch=(1, 1)),
                     'Triple Experiment': MainWidgetItem(triple_exp_gui, 'TripleExperimentWidget', stretch=(1, 1)),
                     'ODMR Center': MainWidgetItem(odmrcenter_exp_gui, 'ODMRCenterWidget', stretch=(1, 1)),
-                    'Multi Blast': MainWidgetItem(multi_blast_exp_gui, 'MultiBlastWidget', stretch=(1, 1)),
+                    # 'Multi Blast': MainWidgetItem(multi_blast_exp_gui, 'MultiBlastWidget', stretch=(1, 1)),
                     'Blast Experiment': MainWidgetItem(blast_experiment_gui, 'BlastExperimentWidget', stretch=(1, 1)),
                 },
 
@@ -119,7 +119,8 @@ def main():
                     'ODMR Center Plot': MainWidgetItem(odmrcenter_exp_gui, 'ODMRCenterPlotWidget', stretch=(1, 1)),
                     'ODMR Center Track Plot': MainWidgetItem(odmrcenter_exp_gui, 'ODMRCenterTrackPlotWidget', stretch=(1, 1)),
                     'Confocal TempVsTime Plot': MainWidgetItem(temptime_exp_gui, 'TempTimePlotWidget', stretch=(1, 1)),
-                    'Multi Blast Plot': MainWidgetItem(multi_blast_exp_gui, 'MultiBlastPlotWidget', stretch=(1, 1)),
+                    # 'Multi Blast Plot': MainWidgetItem(multi_blast_exp_gui, 'MultiBlastPlotWidget', stretch=(1, 1)),
+                    'I1I2 PID Plot': MainWidgetItem(i1i2_exp_gui, 'I1I2PIDPlotWidget', stretch=(1, 1)),
                 }
                 
             }

@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 from collections import OrderedDict
 
 from pyvisa import ResourceManager
+import time, os # DEBUG
 
 logger = logging.getLogger(__name__)
 
@@ -262,19 +263,33 @@ class SG396:
         signal frequency
         """
         return self.device.query('FREQ?')
+
     
     def set_frequency(self, value):
         """Change the frequency (Hz)"""
+        value = float(value)
+        t0 = time.perf_counter()
         if value < 950e3 or value > 4.05e9:  
             raise ValueError("Frequency must be in range [950 kHz, 4.05 GHz].")
-        
-        try: # Because it sometimes failes
+        logger.info("Setting SG frequency to %r", value)
+        try: # Because it sometimes fails
             self.device.write(f"FREQ{value}")
+            logger.info(f"Set frequency to {value} Hz")
         except:
-            logger.info('Error: SG396 set_frequency failed. Retrying...')
-            self.device.write(f"FREQ {value}")
-        
-        logger.info(f"Set frequency to {value} Hz")
+            dt = time.perf_counter() - t0
+            logger.exception(
+                "SG write FAILED after %.3f s at %.3f Hz",
+                dt,
+                value,
+            )
+            raise
+        dt = time.perf_counter() - t0
+        logger.info(
+            "SG write DONE after %.6f s at %.3f Hz",
+            dt,
+            value,
+        )
+
 
     def amplitude(self):
         return self._amplitude

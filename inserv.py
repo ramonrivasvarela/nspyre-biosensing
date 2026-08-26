@@ -17,17 +17,16 @@ from nspyre import nspyre_init_logger
 from instrument_activation import xyz_activation_boolean, pulser_activation_boolean, sg_activation_boolean, dlnsec_activation_boolean, camera_activation_boolean
 
 
-_HERE = Path(__file__).parent
-
-
+_HERE = Path(__file__).parent 
 
 nspyre_init_logger(
     logging.INFO,
-    log_path=_HERE / '../logs',
+    log_path=_HERE / 'inserv_logs', #EDIT 8/20/26: removed '..\' and changed name to 'inserv_logs' from path to ensure that logs are routed into a proper folder. This should prevent multiple processes from using the same generic log. 
     log_path_level=logging.DEBUG,
     prefix='local_inserv',
     file_size=10_000_000,
 )
+
 
 from nspyre import serve_instrument_server_cli
 from nspyre import InstrumentServer

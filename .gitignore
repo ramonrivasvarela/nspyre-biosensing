@@ -21,3 +21,5 @@ drivers/dr_DAQ_counter
 
 instrument_activation.py
 
+/app_logs
+/inserv_logs
