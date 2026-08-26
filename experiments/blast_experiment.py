@@ -80,7 +80,7 @@ class BlastExperiment():
             laser_base_power: int = 2,
             laser_blast_power: int = 100,
             duration: float = 2.0, # The duration (s) to blast at each location.
-            
+            final_duration: float = 2.0, # The duration (s) to blast for the final blast at each location. Set to duration by default, but can be set to a different value for the final blast.
     ):
         '''
         An experiment for performing in sequence a spatial feedback, an I1I2 measurement, and a confocal ODMR measurement. Will save data according to set structure, and print key values along the way.
@@ -129,6 +129,7 @@ class BlastExperiment():
                     'laser_base_power': laser_base_power,
                     'laser_blast_power': laser_blast_power,
                     'duration': duration,
+                    'final_duration': final_duration #overrides the duration for the final blast.
                     }
 
             for j,autosave_label in enumerate(self.autosave_labels):
@@ -141,7 +142,14 @@ class BlastExperiment():
                     autosave_path = os.path.join(autosave_folder, autosave_label)
                     if iters > 1:
                         autosave_path = os.path.join(autosave_folder, f'{autosave_label}_{i+1}')
-                    # Check if folder exists, if not create it
+                    # Check if folder exists, if it does, append a number to the end of the folder name to avoid overwriting previous data
+                    if os.path.exists(autosave_path):
+                        count = 1
+                        new_autosave_path = autosave_path + f'_{count}'
+                        while os.path.exists(new_autosave_path):
+                            count += 1
+                            new_autosave_path = autosave_path + f'_{count}'
+                        autosave_path = new_autosave_path
                     os.makedirs(autosave_path, exist_ok=True)
                     if i == 0:
                         if first_fb == 'run':
@@ -191,8 +199,18 @@ class BlastExperiment():
                         self.fluorescence_estimate, self.z_estimate = self.analyze_fluor(data)
                         self.print_log(f"\n Current estimates: Fluorescence = {self.fluorescence_estimate}, Z = {self.z_estimate} \n")
                         self.run_I1I2(I1I2_params, autosave_path=autosave_path, verbose=do_verbose_override)
-                self.print_log(f'\n Finished all iterations for label: {autosave_label}. Blasting {duration} s @ {laser_blast_power} mW... \n')
-                self.run_blast(laser_base_power, laser_blast_power, duration, verbose=do_verbose_override)
+                self.print_log(f'\n Finished all iterations for label: {autosave_label}. Pre-blast localization... \n')
+                autosave_path = os.path.join(autosave_folder, f'{autosave_label}_preblast')
+                os.makedirs(autosave_path, exist_ok=True)
+                self.run_feedback(feedback_params, autosave_path=autosave_path, verbose=do_verbose_override)
+                if j < len(self.autosave_labels) - 2: # not last blast:
+                    self.print_log(f'\n Finished all iterations for label: {autosave_label}. Blasting {duration} s @ {laser_blast_power} mW... ({time.time() - self.time_start:.2f}s)\n')
+                    self.run_blast(laser_base_power, laser_blast_power, duration, verbose=do_verbose_override)
+                elif (j == len(self.autosave_labels) - 2): # last blast
+                    self.print_log(f'\n Finished all iterations for label: {autosave_label}. Beginning final blast: Blasting {final_duration} s @ {laser_blast_power} mW... ({time.time() - self.time_start:.2f}s)\n')
+                    self.run_blast(laser_base_power, laser_blast_power, final_duration, verbose=do_verbose_override)
+                self.print_log(f'Finished blast ({time.time() - self.time_start:.2f}s)')
+
             self.print_log('\n Blast Experiment Complete \n')   
         except SystemExit as e:
             self.finalize()
@@ -205,15 +223,20 @@ class BlastExperiment():
             return 'end'
         
         
-    def run_feedback(self, feedback_params: dict, autosave_path: str = None, verbose: bool = False, save: bool = True):
+    def run_feedback(self, feedback_params: dict, autosave_path: str = None, verbose: bool = False, save: bool = True, label_override: str = None):
         """
         Run the spatial feedback experiment and save the data.
 
         Args:
             feedback_params: A dictionary containing the parameters for the spatial feedback experiment.
             autosave_path: The path where the data will be saved.
+            verbose: Whether to print verbose output.
+            save: Whether to save the data.
+            label_override: The label to use for the saved data.
         """
-        print(f'\n Running Spatial Feedback... ({time.time() - self.time_start:.2f}s) \n')
+        if label_override is None:
+            label_override = self.FEEDBACK_SAVE_NAME
+        self.print_log(f'\n Running Spatial Feedback... ({time.time() - self.time_start:.2f}s) \n')
         if verbose:
             print(f"Feedback params: {feedback_params}")  # DEBUG
         res = SpatialFeedback(queue_to_exp=self.queue_to_exp, queue_from_exp=self.queue_from_exp).spatial_feedback(**feedback_params)
@@ -221,7 +244,7 @@ class BlastExperiment():
         if save:
             print('\n Saving Spatial Feedback... \n')
         dataset = feedback_params['dataset']
-        filename = os.path.join(autosave_path, f'{self.FEEDBACK_SAVE_NAME}.json')
+        filename = os.path.join(autosave_path, f'{label_override}.json')
         with DataSink(dataset) as sink:
             # get the data from the dataserver
             sink.pop(timeout=10)
@@ -233,7 +256,7 @@ class BlastExperiment():
             raise SystemExit("stop")
         return data  # Return the data for further processing if needed
 
-    def run_I1I2(self, I1I2_params: dict, autosave_path: str = None, verbose: bool = False):
+    def run_I1I2(self, I1I2_params: dict, autosave_path: str = None, verbose: bool = False, label_override: str = None):
         """
         Run the I1I2 experiment and save the data.
 
@@ -241,14 +264,16 @@ class BlastExperiment():
             I1I2_params: A dictionary containing the parameters for the I1I2 experiment.
             autosave_path: The path where the data will be saved.
         """
-        print(f'\n Running I1I2... ({time.time() - self.time_start:.2f}s) \n')
+        if label_override is None:
+            label_override = self.I1I2_SAVE_NAME
+        self.print_log(f'\n Running I1I2... ({time.time() - self.time_start:.2f}s) \n')
         if verbose:
             print(f"I1I2 params: {I1I2_params}")  # DEBUG
         res = I1I2(queue_to_exp=self.queue_to_exp, queue_from_exp=self.queue_from_exp).i1i2(**I1I2_params)
         ## Autosave I1I2:
         print('\n Saving I1I2... \n')
         dataset = I1I2_params['dataset']
-        filename = os.path.join(autosave_path, f'{self.I1I2_SAVE_NAME}.json')
+        filename = os.path.join(autosave_path, f'{label_override}.json')
         with DataSink(dataset) as sink:
             # get the data from the dataserver
             sink.pop(timeout=10)
@@ -257,7 +282,7 @@ class BlastExperiment():
             # the GUI has asked us nicely to exit
             raise SystemExit("stop")
 
-    def run_ODMR(self, ODMR_params: dict, autosave_path: str = None, verbose: bool = False):
+    def run_ODMR(self, ODMR_params: dict, autosave_path: str = None, verbose: bool = False, label_override: str = None):
         """
         Run the confocal ODMR experiment and save the data.
 
@@ -265,14 +290,16 @@ class BlastExperiment():
             ODMR_params: A dictionary containing the parameters for the confocal ODMR experiment.
             autosave_path: The path where the data will be saved.
         """
-        print(f'\n Running Confocal ODMR... ({time.time() - self.time_start:.2f}s) \n')
+        if label_override is None:
+            label_override = self.ODMR_SAVE_NAME
+        self.print_log(f'\n Running Confocal ODMR... ({time.time() - self.time_start:.2f}s) \n')
         if verbose:
             print(f"ODMR params: {ODMR_params}")  # DEBUG
         res = ConfocalODMR(queue_to_exp=self.queue_to_exp, queue_from_exp=self.queue_from_exp).confocal_odmr(**ODMR_params)
         ## Autosave ODMR:
         print('\n Saving Confocal ODMR... \n')
         dataset = ODMR_params['dataset']
-        filename = os.path.join(autosave_path, f'{self.ODMR_SAVE_NAME}.json')
+        filename = os.path.join(autosave_path, f'{label_override}.json')
         with DataSink(dataset) as sink:
             # get the data from the dataserver
             sink.pop(timeout=10)

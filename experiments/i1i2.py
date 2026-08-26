@@ -160,8 +160,6 @@ class I1I2(ContinuousTracking):
                                 print("ODMR Maths result:")
                                 print(data_I1, data_I2)
                             # Shivam: equivalent of return statement, since acquired into mongo database
-                            if self.VERBOSE:
-                                print('are we doing this????')
                             
                             current_position = mgr.DAQcontrol.position
                             x_tracking.append(np.array([np.array([time_current-start_t]), np.array([current_position['x']])]))
@@ -170,7 +168,7 @@ class I1I2(ContinuousTracking):
                             y_tracking.updated_item(-1)
                             z_tracking.append(np.array([np.array([time_current-start_t]), np.array([current_position['z']])]))
                             z_tracking.updated_item(-1)
-                            total_fluor_tracking.append(np.array([np.array([time_current-start_t]), np.array([data_I1 + data_I2])]))
+                            total_fluor_tracking.append(np.array([np.array([time_current-start_t]), np.array([data_I1 + data_I2])/time_per_sgpoint]))
                             total_fluor_tracking.updated_item(-1)
                             data_source.push({
                                 'params':params,
@@ -271,7 +269,7 @@ class I1I2(ContinuousTracking):
                             y_tracking.updated_item(-1)
                             z_tracking.append(np.array([np.array([current_time-start_t]), np.array([self.XYZ_center[2]])]))
                             z_tracking.updated_item(-1)
-                            total_fluor_tracking.append(np.array([np.array([current_time-start_t]), np.array([total_fluor])]))
+                            total_fluor_tracking.append(np.array([np.array([current_time-start_t]), np.array([total_fluor])/ time_per_sgpoint]))
                             total_fluor_tracking.updated_item(-1)
                             X_search.append(np.array([np.array([current_time-start_t]), np.array([self.search[0]])]))
                             Y_search.append(np.array([np.array([current_time-start_t]), np.array([self.search[1]])]))

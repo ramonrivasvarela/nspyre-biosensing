@@ -28,15 +28,15 @@ class BlastExperimentWidget(ExperimentWidget):
         params_config = {
             'feedback_params_path':{
                 'display_text': 'Feedback Params Path',
-                'widget': QLineEdit(r'C:\Users\Lab\biosensing\instrumentation\nspyre\experiment_params\feedback_params.pkl')
+                'widget': QLineEdit(r'C:\Users\Lab\biosensing\instrumentation\nspyre\experiment_params\feedback_params.pickle')
             },
             'I1I2_params_path':{
                 'display_text': 'I1I2 Params Path',
-                'widget': QLineEdit(r'C:\Users\Lab\biosensing\instrumentation\nspyre\experiment_params\I1I2_params.pkl')
+                'widget': QLineEdit(r'C:\Users\Lab\biosensing\instrumentation\nspyre\experiment_params\I1I2_params.pickle')
             },
             'ODMR_params_path':{
                 'display_text': 'ODMR Params Path',
-                'widget': QLineEdit(r'C:\Users\Lab\biosensing\instrumentation\nspyre\experiment_params\ODMR_params.pkl')
+                'widget': QLineEdit(r'C:\Users\Lab\biosensing\instrumentation\nspyre\experiment_params\ODMR_params.pickle')
             },
             'autosave_folder':{
                 'display_text': 'Autosave Folder',
@@ -82,6 +82,16 @@ class BlastExperimentWidget(ExperimentWidget):
                                     bounds=(0.01, 100.0),
                                 )
             },
+            'final_duration':{
+                'display_Text': 'Final Duration (s)',
+                'widget': SpinBox(
+                                    value=2.0,
+                                    suffix='s',
+                                    siPrefix=False,
+                                    dec=True,
+                                    bounds=(0.01, 100.0),
+                                )
+            }
             
         }
         super().__init__(

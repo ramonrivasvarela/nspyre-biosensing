@@ -21,4 +21,4 @@ class TrackingPlotWidget(FlexLinePlotWidget):
         # set the legend location
         legend.setOffset((-10, -50))
 
-        self.datasource_lineedit.setText('')
+        self.datasource_lineedit.setText('feedback')

@@ -1167,3 +1167,250 @@ class _FlexLinePlotWidget(LinePlotWidget):
         self.fit_data[fit_series_name] = [fit_arr]
 
         return {k: float(v) for k, v in zip(param_names, popt)}
+
+class CustomLinePlotWidget(FlexLinePlotWidget): # David Ovetsky 8/24, w/ help of AI
+    """FlexLinePlotWidget with user-editable processing parameters.
+
+    ``processing_params`` describes the layout of extra line edits used by the
+    data-processing function. Each item is either a string (one parameter on a
+    row) or a tuple/list of strings (multiple parameters on the same row).
+
+    The current values are exposed through ``self.processing_params``. Values
+    are updated only when the user clicks *Update Processing Function*. Numeric
+    and other Python-literal input is converted with ``ast.literal_eval`` (for
+    example ``"1e6"`` -> ``1e6``, ``"3"`` -> ``3``, ``"True"`` -> ``True``);
+    input that is not a Python literal is kept as a string.
+
+    The processing function itself should still accept only one argument, the
+    ``DataSink``. A typical subclass therefore passes a bound method and reads
+    the parameters from ``self.processing_params``::
+
+        class MyPlot(CustomLinePlotWidget):
+            def __init__(self):
+                super().__init__(
+                    processing_params=[('sb', 'center'), 'scale'],
+                    processing_param_defaults={
+                        'sb': 1e6,
+                        'center': 2.87e9,
+                        'scale': 1.0,
+                    },
+                    data_processing_func=self.processing_function,
+                )
+
+            def processing_function(self, sink):
+                sb = self.processing_params['sb']
+                center = self.processing_params['center']
+                scale = self.processing_params['scale']
+                # modify sink.datasets as needed
+
+    Args:
+        processing_params: List of parameter names or tuples/lists of parameter
+            names. Each outer item corresponds to one GUI row.
+        processing_param_defaults: Optional mapping of initial values. Missing
+            parameters start as ``None`` and appear blank in the GUI.
+        timeout: Timeout for ``DataSink.pop``.
+        data_processing_func: Function called with the current ``DataSink``.
+        title: Optional fixed plot title.
+        xlabel: Optional fixed x-axis label.
+        ylabel: Optional fixed y-axis label.
+    """
+
+    processing_params_updated = QtCore.Signal(dict)
+
+    def __init__(
+        self,
+        processing_params,
+        timeout: float = 1,
+        data_processing_func: Optional[Callable] = None,
+        title: Optional[str] = None,
+        xlabel: Optional[str] = None,
+        ylabel: Optional[str] = None,
+        processing_param_defaults: Optional[dict] = None,
+    ):
+        # Validate and flatten the requested parameter layout before starting
+        # the underlying plotting threads.
+        self.processing_param_rows = self._normalize_processing_param_rows(
+            processing_params
+        )
+        self.processing_param_names = [
+            name for row in self.processing_param_rows for name in row
+        ]
+
+        defaults = {} if processing_param_defaults is None else dict(
+            processing_param_defaults
+        )
+        unknown_defaults = set(defaults) - set(self.processing_param_names)
+        if unknown_defaults:
+            raise ValueError(
+                'processing_param_defaults contains unknown parameter(s): '
+                + ', '.join(sorted(unknown_defaults))
+            )
+
+        # Replace this dictionary atomically when the Update button is clicked.
+        # That prevents the processing thread from seeing a half-updated set of
+        # parameters.
+        self.processing_params = {
+            name: defaults.get(name, None) for name in self.processing_param_names
+        }
+        self.processing_param_lineedits = {}
+
+        super().__init__(
+            timeout=timeout,
+            data_processing_func=data_processing_func,
+            title=title,
+            xlabel=xlabel,
+            ylabel=ylabel,
+        )
+
+        self._build_processing_params_widget()
+
+    @staticmethod
+    def _normalize_processing_param_rows(processing_params):
+        """Validate the parameter specification and return tuple rows."""
+        if processing_params is None:
+            return []
+        if not isinstance(processing_params, (list, tuple)):
+            raise TypeError(
+                'processing_params must be a list/tuple containing strings or '
+                'tuples/lists of strings.'
+            )
+
+        rows = []
+        seen = set()
+        for item in processing_params:
+            if isinstance(item, str):
+                row = (item,)
+            elif isinstance(item, (tuple, list)):
+                if len(item) == 0:
+                    raise ValueError('Processing-parameter rows cannot be empty.')
+                row = tuple(item)
+            else:
+                raise TypeError(
+                    'Each processing_params item must be a string or a '
+                    'tuple/list of strings.'
+                )
+
+            for name in row:
+                if not isinstance(name, str) or not name.strip():
+                    raise ValueError(
+                        'Every processing parameter name must be a non-empty string.'
+                    )
+                if name in seen:
+                    raise ValueError(
+                        f'Duplicate processing parameter name [{name}].'
+                    )
+                seen.add(name)
+            rows.append(row)
+
+        return rows
+
+    @staticmethod
+    def _format_processing_param(value) -> str:
+        """Convert an initial/current processing value to line-edit text."""
+        if value is None:
+            return ''
+        if isinstance(value, str):
+            return value
+        return repr(value)
+
+    @staticmethod
+    def _parse_processing_param(text: str):
+        """Convert GUI text to a useful Python value.
+
+        ``literal_eval`` handles floats, scientific notation, ints, booleans,
+        None, lists, tuples, etc. Plain unquoted text is intentionally retained
+        as a string so categorical parameters remain convenient to enter.
+        """
+        text = text.strip()
+        if text == '':
+            return None
+        try:
+            return eval(text)
+        except (ValueError, SyntaxError):
+            return text
+
+    def _build_processing_params_widget(self):
+        """Create and attach the processing-parameter editor to the GUI."""
+        self.processing_params_group = QtWidgets.QGroupBox(
+            'Processing Parameters'
+        )
+        group_layout = QtWidgets.QVBoxLayout(self.processing_params_group)
+
+        for row in self.processing_param_rows:
+            row_widget = QtWidgets.QWidget()
+            row_layout = QtWidgets.QHBoxLayout(row_widget)
+            row_layout.setContentsMargins(0, 0, 0, 0)
+
+            for name in row:
+                label = QtWidgets.QLabel(name)
+                line_edit = QtWidgets.QLineEdit(
+                    self._format_processing_param(self.processing_params[name])
+                )
+                line_edit.setObjectName(f'processing_param_{name}')
+                line_edit.setToolTip(
+                    f'Value available as self.processing_params[{name!r}]'
+                )
+                self.processing_param_lineedits[name] = line_edit
+
+                row_layout.addWidget(label)
+                row_layout.addWidget(line_edit, 1)
+
+            group_layout.addWidget(row_widget)
+
+        self.update_processing_button = QtWidgets.QPushButton(
+            'Update Processing Function'
+        )
+        self.update_processing_button.clicked.connect(
+            self._update_processing_params_clicked
+        )
+        group_layout.addWidget(self.update_processing_button)
+
+        # FlexLinePlotWidget's lower settings panel is a root QVBoxLayout.
+        # Adding the group here keeps the custom controls with the other plot
+        # settings rather than consuming space in the plot itself.
+        self.layout_tree.layout.addWidget(self.processing_params_group)
+
+    def _update_processing_params_clicked(self):
+        """Commit GUI values and force one redraw with the new parameters."""
+        new_params = {
+            name: self._parse_processing_param(line_edit.text())
+            for name, line_edit in self.processing_param_lineedits.items()
+        }
+
+        # Atomic reference replacement is preferable to mutating individual
+        # entries while the plotting/update thread may be reading the dict.
+        self.processing_params = new_params
+
+        _logger.info('Updated processing parameters: %s', self.processing_params)
+        self.processing_params_updated.emit(dict(self.processing_params))
+
+        # update() skips DataSink.pop() when force_update is set, so the current
+        # sink contents are immediately reprocessed using the new parameters.
+        self.line_plot.plot_settings.force_update = True
+
+    def set_processing_params(self, **params):
+        """Programmatically set one or more parameters and refresh the plot.
+
+        This method is intended to be called from the Qt/main thread.
+        """
+        unknown = set(params) - set(self.processing_param_names)
+        if unknown:
+            raise KeyError(
+                'Unknown processing parameter(s): ' + ', '.join(sorted(unknown))
+            )
+
+        new_params = dict(self.processing_params)
+        new_params.update(params)
+        self.processing_params = new_params
+
+        for name, value in params.items():
+            self.processing_param_lineedits[name].setText(
+                self._format_processing_param(value)
+            )
+
+        self.processing_params_updated.emit(dict(self.processing_params))
+        self.line_plot.plot_settings.force_update = True
+
+    def get_processing_params(self) -> dict:
+        """Return a snapshot of the currently committed processing values."""
+        return dict(self.processing_params)
